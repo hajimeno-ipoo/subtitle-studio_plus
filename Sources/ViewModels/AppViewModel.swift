@@ -52,6 +52,18 @@ final class AppViewModel {
         subtitles.first(where: { currentTime >= $0.startTime && currentTime <= $0.endTime })?.text ?? ""
     }
 
+    var highlightedSubtitleID: UUID? {
+        selectedSubtitleID ?? subtitles.first(where: subtitleIsPlayingNow)?.id
+    }
+
+    func subtitleIsPlayingNow(_ subtitle: SubtitleItem) -> Bool {
+        currentTime >= subtitle.startTime && currentTime <= subtitle.endTime
+    }
+
+    func subtitleIsHighlighted(_ subtitle: SubtitleItem) -> Bool {
+        highlightedSubtitleID == subtitle.id
+    }
+
     func requestOpenAudio() {
         isFileImporterPresented = true
     }
@@ -114,6 +126,9 @@ final class AppViewModel {
     }
 
     func togglePlayback() {
+        if !playback.isPlaying {
+            selectedSubtitleID = nil
+        }
         playback.togglePlayback()
     }
 
@@ -169,7 +184,7 @@ final class AppViewModel {
             await completeAnalysisProgress()
             status = .completed
             unsavedChanges.hasUnsavedChanges = true
-            selectedSubtitleID = subtitles.first?.id
+            selectedSubtitleID = nil
         } catch {
             stopAnalysisDisplayTask()
             status = .error

@@ -270,9 +270,10 @@ struct SubtitleTimelineBlock: View {
         let displayEnd = previewFrame?.upperBound ?? subtitle.endTime
         let width = max(CGFloat(displayEnd - displayStart) * zoom, 12)
         let left = CGFloat(displayStart) * zoom
+        let isHighlighted = viewModel.subtitleIsHighlighted(subtitle)
 
         RoundedRectangle(cornerRadius: 12)
-            .fill(viewModel.selectedSubtitleID == subtitle.id ? Color.brandYellow : .white)
+            .fill(isHighlighted ? Color.webHighlightYellow : .white)
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(.black, lineWidth: 2))
             .frame(width: width, height: trackHeight - 16)
             .overlay(alignment: .leading) {

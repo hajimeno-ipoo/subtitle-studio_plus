@@ -43,7 +43,11 @@ struct SubtitleListPanel: View {
                             .frame(maxWidth: .infinity, minHeight: 220)
                         } else {
                             ForEach(viewModel.subtitles) { subtitle in
-                                SubtitleRow(subtitle: subtitle, isActive: viewModel.currentTime >= subtitle.startTime && viewModel.currentTime <= subtitle.endTime)
+                                SubtitleRow(
+                                    subtitle: subtitle,
+                                    isHighlighted: viewModel.subtitleIsHighlighted(subtitle),
+                                    isPlayingNow: viewModel.subtitleIsPlayingNow(subtitle)
+                                )
                                     .id(subtitle.id)
                             }
                         }
@@ -66,7 +70,8 @@ struct SubtitleListPanel: View {
 struct SubtitleRow: View {
     @Environment(AppViewModel.self) private var viewModel
     let subtitle: SubtitleItem
-    let isActive: Bool
+    let isHighlighted: Bool
+    let isPlayingNow: Bool
     @State private var draftText = ""
     @FocusState private var focused: Bool
 
@@ -80,7 +85,7 @@ struct SubtitleRow: View {
                 .font(.system(size: 12, weight: .bold, design: .monospaced))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(isActive ? Color.brandYellow : Color.black.opacity(0.05))
+                .background(isHighlighted ? Color.webHighlightChip : Color.black.opacity(0.05))
                 .clipShape(Capsule())
 
                 Spacer()
@@ -121,10 +126,10 @@ struct SubtitleRow: View {
                 }
         }
         .padding(12)
-        .background(isActive ? Color.brandYellow.opacity(0.5) : .white)
+        .background(isHighlighted ? Color.webHighlightYellow : .white)
         .clipShape(RoundedRectangle(cornerRadius: 14))
-        .studioOffsetShadow(cornerRadius: 14, x: 4, y: 4, enabled: isActive)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(isActive ? .black : Color.black.opacity(0.16), lineWidth: isActive ? 2 : 1))
+        .studioOffsetShadow(cornerRadius: 14, x: 4, y: 4, enabled: isHighlighted)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(isHighlighted ? .black : Color.black.opacity(0.16), lineWidth: isHighlighted ? 2 : 1))
         .onTapGesture {
             viewModel.selectSubtitle(id: subtitle.id)
             viewModel.setTime(subtitle.startTime)
