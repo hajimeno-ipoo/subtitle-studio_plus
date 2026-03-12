@@ -1,0 +1,5 @@
+{
+  "name": "AI Subtitle Studio",
+  "description": "MP3やWAVファイルを読み込み、AIで自動的にSRT字幕を作成・編集できるアプリケーションです。",
+  "requestFramePermissions": []
+}
