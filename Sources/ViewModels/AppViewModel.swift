@@ -140,6 +140,7 @@ final class AppViewModel {
 
     func analyzeAudio() async {
         guard let audioAsset else { return }
+        settings.loadIfNeeded()
         let apiKey = settings.geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !apiKey.isEmpty else {
             present(SubtitleStudioError.missingAPIKey)

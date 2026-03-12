@@ -71,6 +71,7 @@ struct SettingsView: View {
         .padding(24)
         .frame(width: 520)
         .onAppear {
+            viewModel.settings.loadIfNeeded()
             apiKey = viewModel.settings.geminiAPIKey
             statusMessage = ""
             isAPIKeyFocused = true

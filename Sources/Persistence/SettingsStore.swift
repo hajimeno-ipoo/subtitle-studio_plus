@@ -3,13 +3,18 @@ import Observation
 @Observable
 final class SettingsStore {
     private let keychain = KeychainStore()
-    var geminiAPIKey: String
+    var geminiAPIKey = ""
+    private var hasLoadedAPIKey = false
 
-    init() {
+    func loadIfNeeded() {
+        guard !hasLoadedAPIKey else { return }
         geminiAPIKey = keychain.load()
+        hasLoadedAPIKey = true
     }
 
     func persist() {
-        keychain.save(geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines))
+        geminiAPIKey = geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        keychain.save(geminiAPIKey)
+        hasLoadedAPIKey = true
     }
 }
