@@ -62,8 +62,12 @@ struct StudioPrimaryButton: ButtonStyle {
             .padding(.vertical, 10)
             .background(color)
             .clipShape(RoundedRectangle(cornerRadius: 12))
+            .studioOffsetShadow(
+                cornerRadius: 12,
+                x: configuration.isPressed ? 1 : 4,
+                y: configuration.isPressed ? 1 : 4
+            )
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(.black, lineWidth: 2))
-            .shadow(color: .black, radius: 0, x: configuration.isPressed ? 1 : 4, y: configuration.isPressed ? 1 : 4)
             .offset(x: configuration.isPressed ? 1 : 0, y: configuration.isPressed ? 1 : 0)
     }
 }

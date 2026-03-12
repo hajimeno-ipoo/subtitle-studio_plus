@@ -1,7 +1,7 @@
 import Foundation
 
 struct AudioAnalysisService {
-    static let stableModel = "gemini-2.5-flash"
+    static let stableModel = "gemini-3-flash-preview"
     private let waveformService = WaveformService()
 
     func analyze(fileURL: URL, apiKey: String, progress: @escaping @Sendable (String) async -> Void) async throws -> [SubtitleItem] {
@@ -18,6 +18,7 @@ struct AudioAnalysisService {
         let chunkSize = Int(targetRate * 300)
         let chunkCount = max(1, Int(ceil(Double(downsampled.count) / Double(chunkSize))))
         var subtitles: [SubtitleItem] = []
+        var firstError: Error?
 
         for chunkIndex in 0..<chunkCount {
             let currentBase = 10.0 + (Double(chunkIndex) * (90.0 / Double(chunkCount)))
@@ -41,6 +42,9 @@ struct AudioAnalysisService {
             do {
                 let text = try await generateSRT(wavData: wavData, apiKey: apiKey, prompt: prompt)
                 let chunkItems = SRTCodec.parseSRT(text)
+                guard !chunkItems.isEmpty else {
+                    throw SubtitleStudioError.invalidSRTResponse
+                }
                 let offset = Double(start) / targetRate
                 for item in chunkItems {
                     subtitles.append(
@@ -52,6 +56,7 @@ struct AudioAnalysisService {
                     )
                 }
             } catch {
+                firstError = firstError ?? error
                 await progress("Chunk skipped because of an API error ... \(Int(currentBase + (90.0 / Double(chunkCount))))%")
             }
 
@@ -61,7 +66,7 @@ struct AudioAnalysisService {
         }
 
         guard !subtitles.isEmpty else {
-            throw SubtitleStudioError.emptyGeminiResponse
+            throw firstError ?? SubtitleStudioError.emptyGeminiResponse
         }
 
         await progress("All steps completed! 100%")
@@ -104,6 +109,16 @@ struct AudioAnalysisService {
         }
 
         struct ResponseBody: Decodable {
+            struct PromptFeedback: Decodable {
+                struct SafetyRating: Decodable {
+                    let category: String?
+                    let probability: String?
+                }
+
+                let blockReason: String?
+                let safetyRatings: [SafetyRating]?
+            }
+
             struct Candidate: Decodable {
                 struct Content: Decodable {
                     struct Part: Decodable {
@@ -111,9 +126,11 @@ struct AudioAnalysisService {
                     }
                     let parts: [Part]
                 }
+                let finishReason: String?
                 let content: Content
             }
             let candidates: [Candidate]?
+            let promptFeedback: PromptFeedback?
         }
 
         var request = URLRequest(url: URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(Self.stableModel):generateContent")!)
@@ -139,6 +156,16 @@ struct AudioAnalysisService {
         }
 
         let decoded = try JSONDecoder().decode(ResponseBody.self, from: data)
+        if let feedback = decoded.promptFeedback?.blockReason {
+            throw SubtitleStudioError.network("Gemini blocked the request: \(feedback)")
+        }
+
+        if let finishReason = decoded.candidates?.first?.finishReason,
+           finishReason != "STOP",
+           finishReason != "MAX_TOKENS" {
+            throw SubtitleStudioError.network("Gemini stopped without subtitle text: \(finishReason)")
+        }
+
         let text = decoded.candidates?
             .first?
             .content

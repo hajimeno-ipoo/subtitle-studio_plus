@@ -42,10 +42,7 @@ struct LivePreviewPanel: View {
             .background(Color.black.opacity(0.9))
         }
         .frame(maxWidth: .infinity, minHeight: 420)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(.black, lineWidth: 2))
-        .shadow(color: .black, radius: 0, x: 6, y: 6)
+        .studioPanelChrome()
     }
 
     private func progressPercentage(from text: String) -> Double {

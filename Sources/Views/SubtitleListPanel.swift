@@ -59,10 +59,7 @@ struct SubtitleListPanel: View {
                 }
             }
         }
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(.black, lineWidth: 2))
-        .shadow(color: .black, radius: 0, x: 6, y: 6)
+        .studioPanelChrome()
     }
 }
 
@@ -126,8 +123,8 @@ struct SubtitleRow: View {
         .padding(14)
         .background(isActive ? Color.brandYellow.opacity(0.5) : .white)
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .studioOffsetShadow(cornerRadius: 14, x: 4, y: 4, enabled: isActive)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(isActive ? .black : Color.black.opacity(0.16), lineWidth: isActive ? 2 : 1))
-        .shadow(color: isActive ? .black : .clear, radius: 0, x: isActive ? 4 : 0, y: isActive ? 4 : 0)
         .onTapGesture {
             viewModel.selectSubtitle(id: subtitle.id)
             viewModel.setTime(subtitle.startTime)

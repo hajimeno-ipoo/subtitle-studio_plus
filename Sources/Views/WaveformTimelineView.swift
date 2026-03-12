@@ -18,10 +18,7 @@ struct WaveformTimelineView: View {
                 timelineScroller
             }
         }
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(.black, lineWidth: 2))
-        .shadow(color: .black, radius: 0, x: 6, y: 6)
+        .studioPanelChrome()
         .onChange(of: viewModel.currentTime) {
             guard viewModel.isPlaying else { return }
             scrollTarget = max(0, Int(viewModel.currentTime.rounded()))

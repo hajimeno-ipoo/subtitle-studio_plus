@@ -11,3 +11,35 @@ extension Color {
     static let brandOrange = Color(red: 0.98, green: 0.68, blue: 0.37)
     static let brandCyan = Color(red: 0.53, green: 0.93, blue: 0.95)
 }
+
+struct StudioPanelChrome: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .background(
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(Color.black)
+                    .offset(x: 5, y: 5)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(.black, lineWidth: 2)
+            )
+    }
+}
+
+extension View {
+    func studioPanelChrome() -> some View {
+        modifier(StudioPanelChrome())
+    }
+
+    func studioOffsetShadow(cornerRadius: CGFloat, x: CGFloat, y: CGFloat, enabled: Bool = true) -> some View {
+        background(
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(Color.black)
+                .offset(x: x, y: y)
+                .opacity(enabled ? 1 : 0)
+        )
+    }
+}
