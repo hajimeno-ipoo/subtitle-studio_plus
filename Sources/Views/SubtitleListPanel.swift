@@ -71,7 +71,7 @@ struct SubtitleRow: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 HStack(spacing: 6) {
                     Image(systemName: "clock")
@@ -99,7 +99,7 @@ struct SubtitleRow: View {
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
-                .frame(minHeight: 72, idealHeight: 92, maxHeight: 120)
+                .frame(height: editorHeight)
                 .focused($focused)
                 .disabled(!viewModel.canEditSubtitles)
                 .onAppear {
@@ -120,7 +120,7 @@ struct SubtitleRow: View {
                     viewModel.selectSubtitle(id: subtitle.id)
                 }
         }
-        .padding(14)
+        .padding(12)
         .background(isActive ? Color.brandYellow.opacity(0.5) : .white)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .studioOffsetShadow(cornerRadius: 14, x: 4, y: 4, enabled: isActive)
@@ -128,6 +128,17 @@ struct SubtitleRow: View {
         .onTapGesture {
             viewModel.selectSubtitle(id: subtitle.id)
             viewModel.setTime(subtitle.startTime)
+        }
+    }
+
+    private var editorHeight: CGFloat {
+        let newlineCount = max(1, draftText.split(separator: "\n", omittingEmptySubsequences: false).count)
+        let wrappedLineCount = max(1, Int(ceil(Double(max(draftText.count, 1)) / 30.0)))
+        let visibleLines = min(3, max(newlineCount, wrappedLineCount))
+        return switch visibleLines {
+        case 1: 34
+        case 2: 54
+        default: 72
         }
     }
 }
