@@ -12,13 +12,14 @@ final class AudioPlaybackController {
     var isPlaying = false
     var volume: Double = 1
     var isMuted = false
+    var onTimeChange: ((TimeInterval) -> Void)?
 
     func load(url: URL) throws {
         stop()
         player = try AVAudioPlayer(contentsOf: url)
         player?.prepareToPlay()
         duration = player?.duration ?? 0
-        currentTime = 0
+        updateCurrentTime(0)
         applyVolume()
     }
 
@@ -44,7 +45,7 @@ final class AudioPlaybackController {
         player?.stop()
         player = nil
         isPlaying = false
-        currentTime = 0
+        updateCurrentTime(0)
         duration = 0
         timer?.invalidate()
         timer = nil
@@ -53,7 +54,7 @@ final class AudioPlaybackController {
     func seek(to time: TimeInterval) {
         let clamped = max(0, min(time, duration))
         player?.currentTime = clamped
-        currentTime = clamped
+        updateCurrentTime(clamped)
     }
 
     func setVolume(_ value: Double) {
@@ -85,12 +86,18 @@ final class AudioPlaybackController {
 
     private func handleTimerTick() {
         guard let player else { return }
-        currentTime = player.currentTime
+        updateCurrentTime(player.currentTime)
         if !player.isPlaying {
             isPlaying = false
             timer?.invalidate()
             timer = nil
         }
+    }
+
+    private func updateCurrentTime(_ newValue: TimeInterval) {
+        guard currentTime != newValue else { return }
+        currentTime = newValue
+        onTimeChange?(newValue)
     }
 }
 

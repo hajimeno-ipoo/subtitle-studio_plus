@@ -262,22 +262,26 @@ struct SubtitleTimelineBlock: View {
     let totalDuration: TimeInterval
     let trackHeight: CGFloat
     @State private var dragStart: SubtitleItem?
+    @State private var previewFrame: ClosedRange<TimeInterval>?
+    @State private var isHovered = false
 
     var body: some View {
-        let width = max(CGFloat(subtitle.endTime - subtitle.startTime) * zoom, 12)
-        let left = CGFloat(subtitle.startTime) * zoom
+        let displayStart = previewFrame?.lowerBound ?? subtitle.startTime
+        let displayEnd = previewFrame?.upperBound ?? subtitle.endTime
+        let width = max(CGFloat(displayEnd - displayStart) * zoom, 12)
+        let left = CGFloat(displayStart) * zoom
 
         RoundedRectangle(cornerRadius: 12)
             .fill(viewModel.selectedSubtitleID == subtitle.id ? Color.brandYellow : .white)
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(.black, lineWidth: 2))
             .frame(width: width, height: trackHeight - 16)
             .overlay(alignment: .leading) {
-                ResizeHandle(alignment: .leading)
-                    .gesture(resizeGesture(mode: .resizeLeft))
+                ResizeHandle(alignment: .leading, isVisible: isHovered || previewFrame != nil)
+                    .highPriorityGesture(resizeGesture(mode: .resizeLeft))
             }
             .overlay(alignment: .trailing) {
-                ResizeHandle(alignment: .trailing)
-                    .gesture(resizeGesture(mode: .resizeRight))
+                ResizeHandle(alignment: .trailing, isVisible: isHovered || previewFrame != nil)
+                    .highPriorityGesture(resizeGesture(mode: .resizeRight))
             }
             .overlay {
                 VStack(spacing: 8) {
@@ -294,6 +298,9 @@ struct SubtitleTimelineBlock: View {
             }
             .help(subtitle.text)
             .position(x: left + (width / 2), y: trackHeight / 2)
+            .onHover { hovering in
+                isHovered = hovering
+            }
             .gesture(moveGesture)
             .onTapGesture {
                 viewModel.selectSubtitle(id: subtitle.id)
@@ -303,16 +310,11 @@ struct SubtitleTimelineBlock: View {
     }
 
     private var moveGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { value in
-                if dragStart == nil {
-                    dragStart = subtitle
-                    if viewModel.isPlaying {
-                        viewModel.togglePlayback()
-                    }
-                }
+                beginDragIfNeeded()
                 guard let dragStart else { return }
-                let delta = Double(value.translation.width / zoom)
+                let delta = Double((value.location.x - value.startLocation.x) / zoom)
                 let duration = dragStart.endTime - dragStart.startTime
                 var newStart = max(0, dragStart.startTime + delta)
                 var newEnd = newStart + duration
@@ -320,48 +322,67 @@ struct SubtitleTimelineBlock: View {
                     newEnd = totalDuration
                     newStart = max(0, totalDuration - duration)
                 }
-                viewModel.updateSubtitleFrame(id: subtitle.id, startTime: newStart, endTime: newEnd)
+                previewFrame = newStart...newEnd
             }
             .onEnded { _ in
-                dragStart = nil
+                commitDragIfNeeded()
             }
     }
 
     private func resizeGesture(mode: TimelineDragMode) -> some Gesture {
-        DragGesture(minimumDistance: 0)
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { value in
-                if dragStart == nil {
-                    dragStart = subtitle
-                    if viewModel.isPlaying {
-                        viewModel.togglePlayback()
-                    }
-                }
+                beginDragIfNeeded()
                 guard let dragStart else { return }
-                let delta = Double(value.translation.width / zoom)
+                let delta = Double((value.location.x - value.startLocation.x) / zoom)
                 switch mode {
                 case .resizeLeft:
                     let newStart = max(0, min(dragStart.startTime + delta, dragStart.endTime - 0.2))
-                    viewModel.updateSubtitleFrame(id: subtitle.id, startTime: newStart, endTime: dragStart.endTime)
+                    previewFrame = newStart...dragStart.endTime
                 case .resizeRight:
                     let newEnd = min(totalDuration, max(dragStart.endTime + delta, dragStart.startTime + 0.2))
-                    viewModel.updateSubtitleFrame(id: subtitle.id, startTime: dragStart.startTime, endTime: newEnd)
+                    previewFrame = dragStart.startTime...newEnd
                 default:
                     break
                 }
             }
             .onEnded { _ in
-                dragStart = nil
+                commitDragIfNeeded()
             }
+    }
+
+    private func beginDragIfNeeded() {
+        guard dragStart == nil else { return }
+        dragStart = subtitle
+        previewFrame = subtitle.startTime...subtitle.endTime
+        viewModel.selectSubtitle(id: subtitle.id)
+        if viewModel.isPlaying {
+            viewModel.togglePlayback()
+        }
+    }
+
+    private func commitDragIfNeeded() {
+        defer {
+            dragStart = nil
+            previewFrame = nil
+        }
+
+        guard let previewFrame else { return }
+        guard previewFrame.lowerBound != subtitle.startTime || previewFrame.upperBound != subtitle.endTime else { return }
+        viewModel.updateSubtitleFrame(id: subtitle.id, startTime: previewFrame.lowerBound, endTime: previewFrame.upperBound)
     }
 }
 
 struct ResizeHandle: View {
     let alignment: Alignment
+    let isVisible: Bool
 
     var body: some View {
         Rectangle()
             .fill(Color.brandBlue.opacity(0.3))
             .frame(width: 10)
+            .contentShape(Rectangle())
+            .opacity(isVisible ? 1 : 0.001)
     }
 }
 

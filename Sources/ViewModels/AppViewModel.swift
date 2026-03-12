@@ -35,11 +35,8 @@ final class AppViewModel {
     private var analysisDisplayTask: Task<Void, Never>?
 
     init() {
-        Task {
-            while true {
-                try? await Task.sleep(for: .milliseconds(50))
-                currentTime = playback.currentTime
-            }
+        playback.onTimeChange = { [weak self] time in
+            self?.currentTime = time
         }
     }
 
