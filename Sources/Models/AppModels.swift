@@ -23,6 +23,47 @@ enum ProcessingStatus: String, Codable {
     case aligning
 }
 
+enum AnalysisPhase: String, Codable {
+    case idle
+    case loadingAudio
+    case optimizingAudio
+    case chunking
+    case requestingChunk
+    case streamingChunk
+    case parsingChunk
+    case mergingChunks
+    case completed
+    case failed
+}
+
+struct AnalysisProgress: Equatable, Codable {
+    var phase: AnalysisPhase
+    var message: String
+    var actualPercent: Double
+    var displayPercent: Double
+    var partialTranscript: String
+    var currentChunk: Int
+    var totalChunks: Int
+
+    init(
+        phase: AnalysisPhase,
+        message: String,
+        actualPercent: Double,
+        displayPercent: Double,
+        partialTranscript: String = "",
+        currentChunk: Int = 0,
+        totalChunks: Int = 0
+    ) {
+        self.phase = phase
+        self.message = message
+        self.actualPercent = actualPercent
+        self.displayPercent = displayPercent
+        self.partialTranscript = partialTranscript
+        self.currentChunk = currentChunk
+        self.totalChunks = totalChunks
+    }
+}
+
 struct AudioAsset: Equatable {
     var url: URL
     var fileName: String
@@ -78,6 +119,7 @@ enum SubtitleStudioError: LocalizedError, Equatable {
     case invalidSRTResponse
     case alignmentFailed(String)
     case network(String)
+    case streamingFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -97,6 +139,8 @@ enum SubtitleStudioError: LocalizedError, Equatable {
             "Waveform alignment failed: \(message)"
         case .network(let message):
             message
+        case .streamingFailed(let message):
+            "Gemini streaming failed: \(message)"
         }
     }
 }

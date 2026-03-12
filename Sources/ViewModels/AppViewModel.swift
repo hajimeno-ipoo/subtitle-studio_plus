@@ -9,7 +9,8 @@ final class AppViewModel {
     var audioAsset: AudioAsset?
     var subtitles: [SubtitleItem] = []
     var status: ProcessingStatus = .idle
-    var progressMessage = ""
+    var analysisProgress: AnalysisProgress?
+    var alignmentProgressText = ""
     var currentTime: TimeInterval = 0
     var dialogState: AppDialogState?
     var pendingImportIntent: AudioImportIntent?
@@ -31,6 +32,7 @@ final class AppViewModel {
     private let alignmentService = SubtitleAlignmentService()
     let playback = AudioPlaybackController()
     private let waveformService = WaveformService()
+    private var analysisDisplayTask: Task<Void, Never>?
 
     init() {
         Task {
@@ -102,7 +104,8 @@ final class AppViewModel {
             subtitles = []
             selectedSubtitleID = nil
             status = .idle
-            progressMessage = ""
+            analysisProgress = nil
+            alignmentProgressText = ""
             currentTime = 0
             dialogState = nil
             unsavedChanges.hasUnsavedChanges = false
@@ -149,24 +152,31 @@ final class AppViewModel {
         }
 
         status = .analyzing
-        progressMessage = "Preparing..."
+        alignmentProgressText = ""
+        analysisProgress = .init(
+            phase: .loadingAudio,
+            message: "Preparing...",
+            actualPercent: 0,
+            displayPercent: 0
+        )
         dialogState = nil
 
         do {
-            let result = try await analysisService.analyze(fileURL: audioAsset.url, apiKey: apiKey) { [weak self] message in
+            let result = try await analysisService.analyze(fileURL: audioAsset.url, apiKey: apiKey) { [weak self] progress in
                 await MainActor.run {
-                    self?.progressMessage = message
+                    self?.applyAnalysisProgress(progress)
                 }
             }
             pushUndoState()
             subtitles = result
+            await completeAnalysisProgress()
             status = .completed
-            progressMessage = ""
             unsavedChanges.hasUnsavedChanges = true
             selectedSubtitleID = subtitles.first?.id
         } catch {
+            stopAnalysisDisplayTask()
             status = .error
-            progressMessage = ""
+            analysisProgress = nil
             present(error)
         }
     }
@@ -174,21 +184,22 @@ final class AppViewModel {
     func autoAlign() async {
         guard let audioAsset, !subtitles.isEmpty else { return }
         status = .aligning
-        progressMessage = "Analyzing waveform..."
+        alignmentProgressText = "Analyzing waveform..."
+        analysisProgress = nil
         do {
             let result = try await alignmentService.align(audioURL: audioAsset.url, subtitles: subtitles) { [weak self] message in
                 await MainActor.run {
-                    self?.progressMessage = message
+                    self?.alignmentProgressText = message
                 }
             }
             pushUndoState()
             subtitles = result
             status = .completed
-            progressMessage = ""
+            alignmentProgressText = ""
             unsavedChanges.hasUnsavedChanges = true
         } catch {
             status = .error
-            progressMessage = ""
+            alignmentProgressText = ""
             present(error)
         }
     }
@@ -301,10 +312,71 @@ final class AppViewModel {
     }
 
     private func present(_ error: Error) {
+        stopAnalysisDisplayTask()
+        analysisProgress = nil
+        alignmentProgressText = ""
         dialogState = .init(
             title: "Action failed",
             message: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription,
             kind: .error
         )
+    }
+
+    private func applyAnalysisProgress(_ incoming: AnalysisProgress) {
+        let actualPercent = max(incoming.actualPercent, analysisProgress?.actualPercent ?? 0)
+        let displayCeiling = incoming.phase == .completed ? 100 : max(actualPercent, incoming.displayPercent)
+        let currentDisplay = analysisProgress?.displayPercent ?? 0
+
+        analysisProgress = AnalysisProgress(
+            phase: incoming.phase,
+            message: incoming.message,
+            actualPercent: actualPercent,
+            displayPercent: max(currentDisplay, actualPercent),
+            partialTranscript: incoming.partialTranscript,
+            currentChunk: incoming.currentChunk,
+            totalChunks: incoming.totalChunks
+        )
+
+        startAnalysisDisplayTask(maxDisplay: displayCeiling)
+    }
+
+    private func startAnalysisDisplayTask(maxDisplay: Double) {
+        analysisDisplayTask?.cancel()
+        analysisDisplayTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(120))
+                guard let self else { return }
+                guard var progress = self.analysisProgress else { return }
+                let ceiling = progress.phase == .completed ? 100 : max(progress.actualPercent, maxDisplay)
+                if progress.displayPercent >= ceiling {
+                    return
+                }
+                progress.displayPercent = min(ceiling, progress.displayPercent + 0.8)
+                self.analysisProgress = progress
+            }
+        }
+    }
+
+    private func completeAnalysisProgress() async {
+        analysisDisplayTask?.cancel()
+        guard var progress = analysisProgress else { return }
+        progress.phase = .completed
+        while progress.displayPercent < 100 {
+            progress.displayPercent = min(100, progress.displayPercent + 4)
+            analysisProgress = progress
+            try? await Task.sleep(for: .milliseconds(45))
+        }
+        progress.actualPercent = 100
+        progress.displayPercent = 100
+        progress.message = "All steps completed!"
+        analysisProgress = progress
+        try? await Task.sleep(for: .milliseconds(220))
+        analysisProgress = nil
+        analysisDisplayTask = nil
+    }
+
+    private func stopAnalysisDisplayTask() {
+        analysisDisplayTask?.cancel()
+        analysisDisplayTask = nil
     }
 }

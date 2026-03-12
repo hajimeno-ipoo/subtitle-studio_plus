@@ -4,14 +4,25 @@ struct AudioAnalysisService {
     static let stableModel = "gemini-3-flash-preview"
     private let waveformService = WaveformService()
 
-    func analyze(fileURL: URL, apiKey: String, progress: @escaping @Sendable (String) async -> Void) async throws -> [SubtitleItem] {
+    func analyze(fileURL: URL, apiKey: String, progress: @escaping @Sendable (AnalysisProgress) async -> Void) async throws -> [SubtitleItem] {
         guard !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw SubtitleStudioError.missingAPIKey
         }
 
-        await progress("Loading audio... 2%")
+        await progress(makeProgress(
+            phase: .loadingAudio,
+            message: "Loading audio...",
+            actual: 2,
+            display: 8
+        ))
         let decoded = try waveformService.decodedMonoSamples(url: fileURL)
-        await progress("Optimizing audio data (16kHz mono)... 8%")
+
+        await progress(makeProgress(
+            phase: .optimizingAudio,
+            message: "Optimizing audio data (16kHz mono)...",
+            actual: 10,
+            display: 16
+        ))
 
         let targetRate = 16_000.0
         let downsampled = downsample(samples: decoded.samples, sourceRate: decoded.sampleRate, targetRate: targetRate)
@@ -20,15 +31,36 @@ struct AudioAnalysisService {
         var subtitles: [SubtitleItem] = []
         var firstError: Error?
 
+        await progress(makeProgress(
+            phase: .chunking,
+            message: "Splitting audio into \(chunkCount) chunk(s)...",
+            actual: 18,
+            display: 22,
+            totalChunks: chunkCount
+        ))
+
         for chunkIndex in 0..<chunkCount {
-            let currentBase = 10.0 + (Double(chunkIndex) * (90.0 / Double(chunkCount)))
-            await progress("Splitting audio (\(chunkIndex + 1)/\(chunkCount)) ... \(Int(currentBase))%")
+            let chunkNumber = chunkIndex + 1
             let start = chunkIndex * chunkSize
             let end = min(start + chunkSize, downsampled.count)
             let chunk = Array(downsampled[start..<end])
             let wavData = makeWAV(samples: chunk, sampleRate: Int(targetRate))
+            let chunkRequestPercent = 22 + (6 * (Double(chunkIndex) / Double(chunkCount)))
+            let streamStartPercent = 28 + (60 * (Double(chunkIndex) / Double(chunkCount)))
+            let streamEndPercent = 28 + (60 * (Double(chunkNumber) / Double(chunkCount)))
+            let streamDisplayCap = max(streamStartPercent, streamEndPercent - 2)
+
+            await progress(makeProgress(
+                phase: .requestingChunk,
+                message: "Preparing Gemini request (\(chunkNumber)/\(chunkCount))...",
+                actual: chunkRequestPercent,
+                display: streamStartPercent,
+                currentChunk: chunkNumber,
+                totalChunks: chunkCount
+            ))
+
             let prompt = """
-            この音声は動画の一部（\(chunkIndex + 1)分割目）です。
+            この音声は動画の一部（\(chunkNumber)分割目）です。
             聞こえてくる日本語の会話や歌詞を、SRT形式の字幕として書き起こしてください。
 
             【極めて重要なルール】
@@ -38,9 +70,17 @@ struct AudioAnalysisService {
             4. 短いフレーズも漏らさないこと
             """
 
-            await progress("Running Gemini analysis (\(chunkIndex + 1)/\(chunkCount)) ... \(Int(currentBase + 10))%")
             do {
-                let text = try await generateSRT(wavData: wavData, apiKey: apiKey, prompt: prompt)
+                let text = try await streamSRTChunk(
+                    wavData: wavData,
+                    apiKey: apiKey,
+                    prompt: prompt,
+                    currentChunk: chunkNumber,
+                    totalChunks: chunkCount,
+                    streamStartPercent: streamStartPercent,
+                    streamDisplayCap: streamDisplayCap,
+                    progress: progress
+                )
                 let chunkItems = SRTCodec.parseSRT(text)
                 guard !chunkItems.isEmpty else {
                     throw SubtitleStudioError.invalidSRTResponse
@@ -55,13 +95,29 @@ struct AudioAnalysisService {
                         )
                     )
                 }
+
+                await progress(makeProgress(
+                    phase: .parsingChunk,
+                    message: "Parsing subtitles (\(chunkNumber)/\(chunkCount))...",
+                    actual: min(streamEndPercent, streamDisplayCap + 1),
+                    display: min(streamEndPercent, streamDisplayCap + 1),
+                    currentChunk: chunkNumber,
+                    totalChunks: chunkCount
+                ))
             } catch {
                 firstError = firstError ?? error
-                await progress("Chunk skipped because of an API error ... \(Int(currentBase + (90.0 / Double(chunkCount))))%")
+                await progress(makeProgress(
+                    phase: .failed,
+                    message: "Chunk skipped because of an API error (\(chunkNumber)/\(chunkCount)).",
+                    actual: streamDisplayCap,
+                    display: streamDisplayCap,
+                    currentChunk: chunkNumber,
+                    totalChunks: chunkCount
+                ))
             }
 
             if chunkIndex < chunkCount - 1 {
-                try? await Task.sleep(for: .seconds(2))
+                try? await Task.sleep(for: .seconds(1))
             }
         }
 
@@ -69,76 +125,43 @@ struct AudioAnalysisService {
             throw firstError ?? SubtitleStudioError.emptyGeminiResponse
         }
 
-        await progress("All steps completed! 100%")
-        try? await Task.sleep(for: .seconds(0.8))
+        await progress(makeProgress(
+            phase: .mergingChunks,
+            message: "Merging subtitle chunks...",
+            actual: 96,
+            display: 99,
+            currentChunk: chunkCount,
+            totalChunks: chunkCount
+        ))
+        try? await Task.sleep(for: .milliseconds(180))
+        await progress(makeProgress(
+            phase: .completed,
+            message: "All steps completed!",
+            actual: 100,
+            display: 100,
+            currentChunk: chunkCount,
+            totalChunks: chunkCount
+        ))
         return subtitles
     }
 
-    private func generateSRT(wavData: Data, apiKey: String, prompt: String) async throws -> String {
-        struct RequestBody: Encodable {
-            struct Content: Encodable {
-                struct Part: Encodable {
-                    struct InlineData: Encodable {
-                        let mimeType: String
-                        let data: String
-
-                        enum CodingKeys: String, CodingKey {
-                            case mimeType
-                            case data
-                        }
-                    }
-
-                    let text: String?
-                    let inlineData: InlineData?
-
-                    enum CodingKeys: String, CodingKey {
-                        case text
-                        case inlineData
-                    }
-                }
-
-                let parts: [Part]
-            }
-
-            struct GenerationConfig: Encodable {
-                let temperature: Double
-            }
-
-            let contents: [Content]
-            let generationConfig: GenerationConfig
-        }
-
-        struct ResponseBody: Decodable {
-            struct PromptFeedback: Decodable {
-                struct SafetyRating: Decodable {
-                    let category: String?
-                    let probability: String?
-                }
-
-                let blockReason: String?
-                let safetyRatings: [SafetyRating]?
-            }
-
-            struct Candidate: Decodable {
-                struct Content: Decodable {
-                    struct Part: Decodable {
-                        let text: String?
-                    }
-                    let parts: [Part]
-                }
-                let finishReason: String?
-                let content: Content
-            }
-            let candidates: [Candidate]?
-            let promptFeedback: PromptFeedback?
-        }
-
-        var request = URLRequest(url: URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(Self.stableModel):generateContent")!)
+    private func streamSRTChunk(
+        wavData: Data,
+        apiKey: String,
+        prompt: String,
+        currentChunk: Int,
+        totalChunks: Int,
+        streamStartPercent: Double,
+        streamDisplayCap: Double,
+        progress: @escaping @Sendable (AnalysisProgress) async -> Void
+    ) async throws -> String {
+        var request = URLRequest(url: URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(Self.stableModel):streamGenerateContent?alt=sse")!)
         request.httpMethod = "POST"
+        request.timeoutInterval = 120
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
         request.httpBody = try JSONEncoder().encode(
-            RequestBody(
+            GeminiRequestBody(
                 contents: [
                     .init(parts: [
                         .init(text: prompt, inlineData: nil),
@@ -149,37 +172,119 @@ struct AudioAnalysisService {
             )
         )
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 120
+        configuration.timeoutIntervalForResource = 120
+        let session = URLSession(configuration: configuration)
+        let (bytes, response) = try await session.bytes(for: request)
+
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            let text = String(decoding: data, as: UTF8.self)
-            throw SubtitleStudioError.network("Gemini request failed: \(text)")
+            let body = try await collectBody(from: bytes)
+            throw SubtitleStudioError.network("Gemini request failed: \(body)")
         }
 
-        let decoded = try JSONDecoder().decode(ResponseBody.self, from: data)
-        if let feedback = decoded.promptFeedback?.blockReason {
-            throw SubtitleStudioError.network("Gemini blocked the request: \(feedback)")
+        var accumulated = ""
+        var eventCount = 0
+        var lastFinishReason: String?
+
+        for try await line in bytes.lines {
+            guard line.hasPrefix("data:") else { continue }
+            let payload = line.dropFirst(5).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !payload.isEmpty else { continue }
+            if payload == "[DONE]" { break }
+
+            let event = try Self.parseSSEPayload(payload)
+            if let blockReason = event.blockReason {
+                throw SubtitleStudioError.network("Gemini blocked the request: \(blockReason)")
+            }
+            if let finishReason = event.finishReason {
+                lastFinishReason = finishReason
+            }
+            guard !event.text.isEmpty else { continue }
+
+            eventCount += 1
+            accumulated = Self.mergeStreamText(existing: accumulated, incoming: event.text)
+            let actualPercent = min(
+                streamDisplayCap,
+                streamStartPercent + 3 + (Double(eventCount - 1) * 4)
+            )
+
+            await progress(makeProgress(
+                phase: .streamingChunk,
+                message: "Running Gemini analysis (\(currentChunk)/\(totalChunks)) ...",
+                actual: actualPercent,
+                display: streamDisplayCap,
+                partialTranscript: accumulated,
+                currentChunk: currentChunk,
+                totalChunks: totalChunks
+            ))
         }
 
-        if let finishReason = decoded.candidates?.first?.finishReason,
-           finishReason != "STOP",
-           finishReason != "MAX_TOKENS" {
-            throw SubtitleStudioError.network("Gemini stopped without subtitle text: \(finishReason)")
+        if let lastFinishReason, lastFinishReason != "STOP", lastFinishReason != "MAX_TOKENS" {
+            throw SubtitleStudioError.streamingFailed(lastFinishReason)
         }
 
-        let text = decoded.candidates?
-            .first?
-            .content
-            .parts
-            .compactMap(\.text)
-            .joined(separator: "\n")
+        let cleaned = Self.cleanGeminiText(accumulated)
+        guard !cleaned.isEmpty else {
+            throw SubtitleStudioError.emptyGeminiResponse
+        }
+        return cleaned
+    }
+
+    private func collectBody(from bytes: URLSession.AsyncBytes) async throws -> String {
+        var body = ""
+        for try await byte in bytes {
+            body.append(Character(UnicodeScalar(byte)))
+        }
+        return body
+    }
+
+    private func makeProgress(
+        phase: AnalysisPhase,
+        message: String,
+        actual: Double,
+        display: Double,
+        partialTranscript: String = "",
+        currentChunk: Int = 0,
+        totalChunks: Int = 0
+    ) -> AnalysisProgress {
+        AnalysisProgress(
+            phase: phase,
+            message: message,
+            actualPercent: actual,
+            displayPercent: display,
+            partialTranscript: partialTranscript,
+            currentChunk: currentChunk,
+            totalChunks: totalChunks
+        )
+    }
+
+    static func parseSSEPayload(_ payload: String) throws -> StreamEvent {
+        let decoded = try JSONDecoder().decode(GeminiStreamResponse.self, from: Data(payload.utf8))
+        return StreamEvent(
+            text: cleanGeminiText(decoded.candidates?.first?.content.parts.compactMap(\.text).joined(separator: "\n") ?? ""),
+            finishReason: decoded.candidates?.first?.finishReason,
+            blockReason: decoded.promptFeedback?.blockReason
+        )
+    }
+
+    static func mergeStreamText(existing: String, incoming: String) -> String {
+        guard !incoming.isEmpty else { return existing }
+        guard !existing.isEmpty else { return incoming }
+        if incoming == existing || existing.hasSuffix(incoming) {
+            return existing
+        }
+        if incoming.hasPrefix(existing) {
+            return incoming
+        }
+        return existing + incoming
+    }
+
+    static func cleanGeminiText(_ text: String) -> String {
+        text
             .replacingOccurrences(of: "```srt", with: "")
             .replacingOccurrences(of: "```", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard let text, !text.isEmpty else {
-            throw SubtitleStudioError.emptyGeminiResponse
-        }
-        return text
     }
 
     private func downsample(samples: [Float], sourceRate: Double, targetRate: Double) -> [Float] {
@@ -229,6 +334,65 @@ struct AudioAnalysisService {
         }
         return data
     }
+}
+
+struct StreamEvent: Equatable {
+    let text: String
+    let finishReason: String?
+    let blockReason: String?
+}
+
+private struct GeminiRequestBody: Encodable {
+    struct Content: Encodable {
+        struct Part: Encodable {
+            struct InlineData: Encodable {
+                let mimeType: String
+                let data: String
+
+                enum CodingKeys: String, CodingKey {
+                    case mimeType
+                    case data
+                }
+            }
+
+            let text: String?
+            let inlineData: InlineData?
+
+            enum CodingKeys: String, CodingKey {
+                case text
+                case inlineData
+            }
+        }
+
+        let parts: [Part]
+    }
+
+    struct GenerationConfig: Encodable {
+        let temperature: Double
+    }
+
+    let contents: [Content]
+    let generationConfig: GenerationConfig
+}
+
+private struct GeminiStreamResponse: Decodable {
+    struct PromptFeedback: Decodable {
+        let blockReason: String?
+    }
+
+    struct Candidate: Decodable {
+        struct Content: Decodable {
+            struct Part: Decodable {
+                let text: String?
+            }
+            let parts: [Part]
+        }
+        let finishReason: String?
+        let content: Content
+    }
+
+    let candidates: [Candidate]?
+    let promptFeedback: PromptFeedback?
 }
 
 private extension FixedWidthInteger {

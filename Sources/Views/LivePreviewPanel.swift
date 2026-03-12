@@ -14,8 +14,20 @@ struct LivePreviewPanel: View {
                 Spacer()
 
                 if viewModel.status != .completed {
-                    Button(viewModel.status == .analyzing ? "GENERATING..." : "AUTO GENERATE") {
+                    Button {
                         Task { await viewModel.analyzeAudio() }
+                    }
+                    label: {
+                        if viewModel.status == .analyzing {
+                            HStack(spacing: 8) {
+                                SmallGeneratingSpinner()
+                                Text("GENERATING...")
+                            }
+                            .frame(minWidth: 190)
+                        } else {
+                            Text("AUTO GENERATE")
+                                .frame(minWidth: 160)
+                        }
                     }
                     .buttonStyle(StudioPrimaryButton(color: .brandYellow))
                     .disabled(viewModel.audioAsset == nil || viewModel.status == .analyzing)
@@ -27,8 +39,10 @@ struct LivePreviewPanel: View {
 
             ZStack {
                 TimelineGridBackground()
-                if viewModel.status == .analyzing || viewModel.status == .aligning {
-                    ProgressPanel(progressText: viewModel.progressMessage, progressValue: progressPercentage(from: viewModel.progressMessage))
+                if let analysisProgress = viewModel.analysisProgress, viewModel.status == .analyzing {
+                    ProgressPanel(progress: analysisProgress)
+                } else if viewModel.status == .aligning {
+                    AlignmentProgressPanel(progressText: viewModel.alignmentProgressText)
                 } else {
                     Text(viewModel.activeSubtitleText)
                         .font(.system(size: 46, weight: .black, design: .rounded))
@@ -44,43 +58,110 @@ struct LivePreviewPanel: View {
         .frame(maxWidth: .infinity, minHeight: 420)
         .studioPanelChrome()
     }
-
-    private func progressPercentage(from text: String) -> Double {
-        if let match = text.range(of: #"(\d+)%"#, options: .regularExpression) {
-            return Double(text[match].dropLast()) ?? 0
-        }
-        return 0
-    }
 }
 
 struct ProgressPanel: View {
-    var progressText: String
-    var progressValue: Double
+    let progress: AnalysisProgress
 
     var body: some View {
         VStack(spacing: 18) {
-            ProgressView()
-                .scaleEffect(1.8)
-                .tint(Color.brandPink)
+            ZStack {
+                Circle()
+                    .fill(Color.brandPink.opacity(0.28))
+                    .frame(width: 64, height: 64)
+                    .blur(radius: 16)
+                LargeGeneratingSpinner()
+            }
             Text("ANALYZING...")
                 .font(.system(size: 24, weight: .black, design: .rounded))
                 .foregroundStyle(.white)
-            Text(progressText)
-                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.75))
-                .lineLimit(1)
-                .padding(.horizontal, 24)
+            HStack(spacing: 10) {
+                Text(progress.message)
+                    .lineLimit(1)
+                Text("\(Int(progress.displayPercent.rounded()))%")
+            }
+            .font(.system(size: 14, weight: .bold, design: .monospaced))
+            .foregroundStyle(.white.opacity(0.75))
+            .padding(.horizontal, 24)
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 999)
                     .fill(Color.white.opacity(0.1))
                     .frame(height: 18)
                 RoundedRectangle(cornerRadius: 999)
                     .fill(LinearGradient(colors: [.brandPink, .brandViolet], startPoint: .leading, endPoint: .trailing))
-                    .frame(width: max(0, min(progressValue, 100)) * 5, height: 18)
+                    .frame(width: max(0, min(progress.displayPercent, 100)) * 5, height: 18)
             }
             .frame(width: 500)
             .overlay(RoundedRectangle(cornerRadius: 999).stroke(.white.opacity(0.25), lineWidth: 2))
         }
+    }
+}
+
+struct AlignmentProgressPanel: View {
+    let progressText: String
+
+    var body: some View {
+        VStack(spacing: 18) {
+            ZStack {
+                Circle()
+                    .fill(Color.brandViolet.opacity(0.22))
+                    .frame(width: 52, height: 52)
+                    .blur(radius: 14)
+                LargeGeneratingSpinner()
+            }
+            Text("ALIGNING...")
+                .font(.system(size: 24, weight: .black, design: .rounded))
+                .foregroundStyle(.white)
+            Text(progressText)
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.75))
+                .padding(.horizontal, 24)
+        }
+    }
+}
+
+struct LargeGeneratingSpinner: View {
+    @State private var isAnimating = false
+
+    var body: some View {
+        SpinnerGlyph(size: 64, lineWidth: 7, tint: .brandPink)
+            .rotationEffect(.degrees(isAnimating ? 360 : 0))
+            .animation(.linear(duration: 1).repeatForever(autoreverses: false), value: isAnimating)
+            .onAppear {
+                isAnimating = true
+            }
+    }
+}
+
+struct SmallGeneratingSpinner: View {
+    @State private var isAnimating = false
+
+    var body: some View {
+        SpinnerGlyph(size: 16, lineWidth: 2.2, tint: .black)
+            .rotationEffect(.degrees(isAnimating ? 360 : 0))
+            .animation(.linear(duration: 0.9).repeatForever(autoreverses: false), value: isAnimating)
+            .onAppear {
+                isAnimating = true
+            }
+    }
+}
+
+struct SpinnerGlyph: View {
+    let size: CGFloat
+    let lineWidth: CGFloat
+    let tint: Color
+
+    var body: some View {
+        ZStack {
+            ForEach(0..<8, id: \.self) { index in
+                Capsule(style: .continuous)
+                    .fill(tint.opacity(Double(index + 1) / 8.0))
+                    .frame(width: lineWidth, height: size * 0.28)
+                    .offset(y: -(size * 0.22))
+                    .rotationEffect(.degrees(Double(index) * 45))
+            }
+        }
+        .frame(width: size, height: size)
     }
 }
 
