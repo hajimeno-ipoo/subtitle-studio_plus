@@ -13,7 +13,7 @@ struct WaveformTimelineView: View {
         VStack(spacing: 0) {
             toolbar
             Divider().overlay(Color.black)
-            HStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 0) {
                 trackHeaders
                 timelineScroller
             }
@@ -101,7 +101,9 @@ struct WaveformTimelineView: View {
 
     private var trackHeaders: some View {
         VStack(spacing: 0) {
-            Color.white.frame(width: 108, height: rulerHeight).overlay(Rectangle().frame(height: 2).foregroundStyle(.black), alignment: .bottom)
+            Color.white
+                .frame(width: 108, height: rulerHeight)
+                .overlay(Rectangle().frame(height: 2).foregroundStyle(.black), alignment: .bottom)
             headerBlock(color: .brandOrange, icon: "text.bubble", title: "TEXT", height: subtitleHeight)
             headerBlock(color: .brandPurple, icon: "waveform", title: "AUDIO", height: waveformHeight)
         }
