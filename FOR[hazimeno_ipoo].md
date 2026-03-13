@@ -10,10 +10,7 @@
 - `SubtitleStudioPlus.xcodeproj`
   - 実際に起動して使う macOS アプリ用の project です。
   - これで `.app` と bundle id が付きます。
-  - 文字入力が必要な画面は、こちらから起動するのが前提です。
-- `Package.swift`
-  - これは主に `swift build` / `swift test` 用です。
-  - 見た目の確認や手入力の確認は、これではなく Xcode project 側を使います。
+  - 文字入力が必要な画面も、ふだんの起動も、これを基準にします。
 - `SwiftUI`
   - 画面を作る部品です。
   - 例: ボタンや一覧を組み立てる土台です。
@@ -91,8 +88,8 @@
 - 歌詞編集の入力欄は、SwiftUI の `TextEditor` をそのまま使う方が安全です。
 - APIキー欄も同じ考え方で、標準の `TextField` / `SecureField` を使います。
 - 文字入力中は、Delete や Space などの全体ショートカットを止めないと、入力欄よりショートカットが勝つことがあります。
-- Swift Package の bare executable で起動すると、window は見えても frontmost app になれず、キー入力だけ通らないことがあります。
-- 実際に入力確認をする時は、`SubtitleStudioPlus.xcodeproj` の app target を使います。
+- このプロジェクトは Xcode 一本化です。
+- ふだんの起動、動作確認、実機確認は `SubtitleStudioPlus.xcodeproj` の app target を使います。
 - 開発時に字幕一覧をすぐ出したい時は、DEBUG 起動で `--ui-seed` を付けるとダミー字幕を出せます。
 
 ## ベストプラクティス
