@@ -122,7 +122,7 @@ struct AudioAnalysisService {
             }
 
             if chunkIndex < chunkCount - 1 {
-                try? await Task.sleep(for: .seconds(1))
+                try? await Task.sleep(for: .seconds(2))
             }
         }
 
