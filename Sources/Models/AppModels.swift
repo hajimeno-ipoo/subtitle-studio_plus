@@ -29,7 +29,6 @@ enum AnalysisPhase: String, Codable {
     case optimizingAudio
     case chunking
     case requestingChunk
-    case streamingChunk
     case parsingChunk
     case mergingChunks
     case completed
@@ -41,7 +40,6 @@ struct AnalysisProgress: Equatable, Codable {
     var message: String
     var actualPercent: Double
     var displayPercent: Double
-    var partialTranscript: String
     var currentChunk: Int
     var totalChunks: Int
 
@@ -50,7 +48,6 @@ struct AnalysisProgress: Equatable, Codable {
         message: String,
         actualPercent: Double,
         displayPercent: Double,
-        partialTranscript: String = "",
         currentChunk: Int = 0,
         totalChunks: Int = 0
     ) {
@@ -58,7 +55,6 @@ struct AnalysisProgress: Equatable, Codable {
         self.message = message
         self.actualPercent = actualPercent
         self.displayPercent = displayPercent
-        self.partialTranscript = partialTranscript
         self.currentChunk = currentChunk
         self.totalChunks = totalChunks
     }
@@ -119,7 +115,6 @@ enum SubtitleStudioError: LocalizedError, Equatable {
     case invalidSRTResponse
     case alignmentFailed(String)
     case network(String)
-    case streamingFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -139,8 +134,6 @@ enum SubtitleStudioError: LocalizedError, Equatable {
             "Waveform alignment failed: \(message)"
         case .network(let message):
             message
-        case .streamingFailed(let message):
-            "Gemini streaming failed: \(message)"
         }
     }
 }

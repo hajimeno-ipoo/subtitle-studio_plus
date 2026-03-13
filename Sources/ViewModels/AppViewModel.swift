@@ -344,7 +344,6 @@ final class AppViewModel {
             message: incoming.message,
             actualPercent: actualPercent,
             displayPercent: max(currentDisplay, actualPercent),
-            partialTranscript: incoming.partialTranscript,
             currentChunk: incoming.currentChunk,
             totalChunks: incoming.totalChunks
         )
@@ -380,7 +379,7 @@ final class AppViewModel {
         }
         progress.actualPercent = 100
         progress.displayPercent = 100
-        progress.message = "All steps completed!"
+        progress.message = "全工程完了！"
         analysisProgress = progress
         try? await Task.sleep(for: .milliseconds(220))
         analysisProgress = nil

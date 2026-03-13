@@ -2,6 +2,8 @@ import Foundation
 
 struct AudioAnalysisService {
     static let stableModel = "gemini-3-flash-preview"
+    private static let initialProgress = 10.0
+    private static let chunkProgressBudget = 90.0
     private let waveformService = WaveformService()
 
     func analyze(fileURL: URL, apiKey: String, progress: @escaping @Sendable (AnalysisProgress) async -> Void) async throws -> [SubtitleItem] {
@@ -11,18 +13,25 @@ struct AudioAnalysisService {
 
         await progress(makeProgress(
             phase: .loadingAudio,
-            message: "Loading audio...",
+            message: "音声を読み込み中...",
             actual: 2,
-            display: 8
+            display: 2
+        ))
+
+        await progress(makeProgress(
+            phase: .loadingAudio,
+            message: "音声をデコード中...",
+            actual: 5,
+            display: 5
         ))
         let targetRate = 16_000.0
         let converted = try waveformService.convertedMonoSamples(url: fileURL, targetSampleRate: targetRate)
 
         await progress(makeProgress(
             phase: .optimizingAudio,
-            message: "Optimizing audio data (16kHz mono)...",
-            actual: 10,
-            display: 16
+            message: "音声データを最適化中 (16kHz Mono)...",
+            actual: 8,
+            display: 8
         ))
 
         let chunkSize = Int(targetRate * 300)
@@ -32,9 +41,9 @@ struct AudioAnalysisService {
 
         await progress(makeProgress(
             phase: .chunking,
-            message: "Splitting audio into \(chunkCount) chunk(s)...",
-            actual: 18,
-            display: 22,
+            message: "データ分割中...",
+            actual: Self.initialProgress,
+            display: Self.initialProgress,
             totalChunks: chunkCount
         ))
 
@@ -44,16 +53,27 @@ struct AudioAnalysisService {
             let end = min(start + chunkSize, converted.samples.count)
             let chunk = Array(converted.samples[start..<end])
             let wavData = makeWAV(samples: chunk, sampleRate: Int(targetRate))
-            let chunkRequestPercent = 22 + (6 * (Double(chunkIndex) / Double(chunkCount)))
-            let streamStartPercent = 28 + (60 * (Double(chunkIndex) / Double(chunkCount)))
-            let streamEndPercent = 28 + (60 * (Double(chunkNumber) / Double(chunkCount)))
-            let streamDisplayCap = max(streamStartPercent, streamEndPercent - 2)
+            let chunkProgress = Self.chunkProgressBudget / Double(chunkCount)
+            let chunkStartPercent = Self.initialProgress + (Double(chunkIndex) * chunkProgress)
+            let uploadStartPercent = chunkStartPercent + (chunkProgress * 0.3)
+            let waitingCapPercent = chunkStartPercent + (chunkProgress * 0.8)
+            let parsingPercent = chunkStartPercent + (chunkProgress * 0.85)
+            let chunkEndPercent = Self.initialProgress + (Double(chunkNumber) * chunkProgress)
+
+            await progress(makeProgress(
+                phase: .chunking,
+                message: "データ分割中 (\(chunkNumber)/\(chunkCount)) ...",
+                actual: chunkStartPercent,
+                display: chunkStartPercent,
+                currentChunk: chunkNumber,
+                totalChunks: chunkCount
+            ))
 
             await progress(makeProgress(
                 phase: .requestingChunk,
-                message: "Preparing Gemini request (\(chunkNumber)/\(chunkCount))...",
-                actual: chunkRequestPercent,
-                display: streamStartPercent,
+                message: "AI解析を実行中 (\(chunkNumber)/\(chunkCount)) ...",
+                actual: uploadStartPercent,
+                display: uploadStartPercent,
                 currentChunk: chunkNumber,
                 totalChunks: chunkCount
             ))
@@ -75,14 +95,14 @@ struct AudioAnalysisService {
 """
 
             do {
-                let text = try await streamSRTChunk(
+                let text = try await requestSRTChunk(
                     wavData: wavData,
                     apiKey: apiKey,
                     prompt: prompt,
                     currentChunk: chunkNumber,
                     totalChunks: chunkCount,
-                    streamStartPercent: streamStartPercent,
-                    streamDisplayCap: streamDisplayCap,
+                    startPercent: uploadStartPercent,
+                    waitingCapPercent: waitingCapPercent,
                     progress: progress
                 )
                 let chunkItems = SRTCodec.parseSRT(text)
@@ -102,9 +122,9 @@ struct AudioAnalysisService {
 
                 await progress(makeProgress(
                     phase: .parsingChunk,
-                    message: "Parsing subtitles (\(chunkNumber)/\(chunkCount))...",
-                    actual: min(streamEndPercent, streamDisplayCap + 1),
-                    display: min(streamEndPercent, streamDisplayCap + 1),
+                    message: "字幕データを処理中 (\(chunkNumber)/\(chunkCount)) ...",
+                    actual: parsingPercent,
+                    display: parsingPercent,
                     currentChunk: chunkNumber,
                     totalChunks: chunkCount
                 ))
@@ -112,15 +132,23 @@ struct AudioAnalysisService {
                 firstError = firstError ?? error
                 await progress(makeProgress(
                     phase: .failed,
-                    message: "Chunk skipped because of an API error (\(chunkNumber)/\(chunkCount)).",
-                    actual: streamDisplayCap,
-                    display: streamDisplayCap,
+                    message: "解析エラー (スキップ) ...",
+                    actual: chunkEndPercent,
+                    display: chunkEndPercent,
                     currentChunk: chunkNumber,
                     totalChunks: chunkCount
                 ))
             }
 
             if chunkIndex < chunkCount - 1 {
+                await progress(makeProgress(
+                    phase: .requestingChunk,
+                    message: "レート制限待機中...",
+                    actual: chunkEndPercent,
+                    display: chunkEndPercent,
+                    currentChunk: chunkNumber,
+                    totalChunks: chunkCount
+                ))
                 try? await Task.sleep(for: .seconds(2))
             }
         }
@@ -131,7 +159,7 @@ struct AudioAnalysisService {
 
         await progress(makeProgress(
             phase: .mergingChunks,
-            message: "Merging subtitle chunks...",
+            message: "字幕データをまとめています...",
             actual: 96,
             display: 99,
             currentChunk: chunkCount,
@@ -140,7 +168,7 @@ struct AudioAnalysisService {
         try? await Task.sleep(for: .milliseconds(180))
         await progress(makeProgress(
             phase: .completed,
-            message: "All steps completed!",
+            message: "全工程完了！",
             actual: 100,
             display: 100,
             currentChunk: chunkCount,
@@ -149,17 +177,17 @@ struct AudioAnalysisService {
         return subtitles
     }
 
-    private func streamSRTChunk(
+    private func requestSRTChunk(
         wavData: Data,
         apiKey: String,
         prompt: String,
         currentChunk: Int,
         totalChunks: Int,
-        streamStartPercent: Double,
-        streamDisplayCap: Double,
+        startPercent: Double,
+        waitingCapPercent: Double,
         progress: @escaping @Sendable (AnalysisProgress) async -> Void
     ) async throws -> String {
-        var request = URLRequest(url: URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(Self.stableModel):streamGenerateContent?alt=sse")!)
+        var request = URLRequest(url: URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(Self.stableModel):generateContent")!)
         request.httpMethod = "POST"
         request.timeoutInterval = 120
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -180,67 +208,50 @@ struct AudioAnalysisService {
         configuration.timeoutIntervalForRequest = 120
         configuration.timeoutIntervalForResource = 120
         let session = URLSession(configuration: configuration)
-        let (bytes, response) = try await session.bytes(for: request)
+        let progressTask = Task {
+            var currentPercent = startPercent
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(200))
+                currentPercent = min(waitingCapPercent, currentPercent + 0.5)
+                await progress(makeProgress(
+                    phase: .requestingChunk,
+                    message: "AI解析を実行中 (\(currentChunk)/\(totalChunks)) ...",
+                    actual: currentPercent,
+                    display: currentPercent,
+                    currentChunk: currentChunk,
+                    totalChunks: totalChunks
+                ))
+                if currentPercent >= waitingCapPercent {
+                    return
+                }
+            }
+        }
+
+        defer { progressTask.cancel() }
+
+        let (data, response) = try await session.data(for: request)
 
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            let body = try await collectBody(from: bytes)
+            let body = String(data: data, encoding: .utf8) ?? "Unknown Gemini error"
             throw SubtitleStudioError.network("Gemini request failed: \(body)")
         }
 
-        var accumulated = ""
-        var eventCount = 0
-        var lastFinishReason: String?
-
-        for try await line in bytes.lines {
-            guard line.hasPrefix("data:") else { continue }
-            let payload = line.dropFirst(5).trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !payload.isEmpty else { continue }
-            if payload == "[DONE]" { break }
-
-            let event = try Self.parseSSEPayload(payload)
-            if let blockReason = event.blockReason {
-                throw SubtitleStudioError.network("Gemini blocked the request: \(blockReason)")
-            }
-            if let finishReason = event.finishReason {
-                lastFinishReason = finishReason
-            }
-            guard !event.text.isEmpty else { continue }
-
-            eventCount += 1
-            accumulated = Self.mergeStreamText(existing: accumulated, incoming: event.text)
-            let actualPercent = min(
-                streamDisplayCap,
-                streamStartPercent + 3 + (Double(eventCount - 1) * 4)
-            )
-
-            await progress(makeProgress(
-                phase: .streamingChunk,
-                message: "Running Gemini analysis (\(currentChunk)/\(totalChunks)) ...",
-                actual: actualPercent,
-                display: streamDisplayCap,
-                partialTranscript: accumulated,
-                currentChunk: currentChunk,
-                totalChunks: totalChunks
-            ))
+        let decoded = try JSONDecoder().decode(GeminiGenerateResponse.self, from: data)
+        if let blockReason = decoded.promptFeedback?.blockReason {
+            throw SubtitleStudioError.network("Gemini blocked the request: \(blockReason)")
+        }
+        if let finishReason = decoded.candidates?.first?.finishReason,
+           finishReason != "STOP",
+           finishReason != "MAX_TOKENS" {
+            throw SubtitleStudioError.network("Gemini request finished unexpectedly: \(finishReason)")
         }
 
-        if let lastFinishReason, lastFinishReason != "STOP", lastFinishReason != "MAX_TOKENS" {
-            throw SubtitleStudioError.streamingFailed(lastFinishReason)
-        }
-
-        let cleaned = Self.cleanGeminiText(accumulated)
+        let text = decoded.candidates?.first?.content.parts.compactMap(\.text).joined(separator: "\n") ?? ""
+        let cleaned = Self.cleanGeminiText(text)
         guard !cleaned.isEmpty else {
             throw SubtitleStudioError.emptyGeminiResponse
         }
         return cleaned
-    }
-
-    private func collectBody(from bytes: URLSession.AsyncBytes) async throws -> String {
-        var body = ""
-        for try await byte in bytes {
-            body.append(Character(UnicodeScalar(byte)))
-        }
-        return body
     }
 
     private func makeProgress(
@@ -248,7 +259,6 @@ struct AudioAnalysisService {
         message: String,
         actual: Double,
         display: Double,
-        partialTranscript: String = "",
         currentChunk: Int = 0,
         totalChunks: Int = 0
     ) -> AnalysisProgress {
@@ -257,31 +267,9 @@ struct AudioAnalysisService {
             message: message,
             actualPercent: actual,
             displayPercent: display,
-            partialTranscript: partialTranscript,
             currentChunk: currentChunk,
             totalChunks: totalChunks
         )
-    }
-
-    static func parseSSEPayload(_ payload: String) throws -> StreamEvent {
-        let decoded = try JSONDecoder().decode(GeminiStreamResponse.self, from: Data(payload.utf8))
-        return StreamEvent(
-            text: cleanGeminiText(decoded.candidates?.first?.content.parts.compactMap(\.text).joined(separator: "\n") ?? ""),
-            finishReason: decoded.candidates?.first?.finishReason,
-            blockReason: decoded.promptFeedback?.blockReason
-        )
-    }
-
-    static func mergeStreamText(existing: String, incoming: String) -> String {
-        guard !incoming.isEmpty else { return existing }
-        guard !existing.isEmpty else { return incoming }
-        if incoming == existing || existing.hasSuffix(incoming) {
-            return existing
-        }
-        if incoming.hasPrefix(existing) {
-            return incoming
-        }
-        return existing + incoming
     }
 
     static func cleanGeminiText(_ text: String) -> String {
@@ -322,12 +310,6 @@ struct AudioAnalysisService {
     }
 }
 
-struct StreamEvent: Equatable {
-    let text: String
-    let finishReason: String?
-    let blockReason: String?
-}
-
 private struct GeminiRequestBody: Encodable {
     struct Content: Encodable {
         struct Part: Encodable {
@@ -361,7 +343,7 @@ private struct GeminiRequestBody: Encodable {
     let generationConfig: GenerationConfig
 }
 
-private struct GeminiStreamResponse: Decodable {
+private struct GeminiGenerateResponse: Decodable {
     struct PromptFeedback: Decodable {
         let blockReason: String?
     }

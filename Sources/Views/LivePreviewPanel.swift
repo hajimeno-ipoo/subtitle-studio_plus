@@ -64,35 +64,46 @@ struct ProgressPanel: View {
     let progress: AnalysisProgress
 
     var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(Color.brandPink.opacity(0.28))
+                    .fill(Color.brandPink.opacity(0.34))
                     .frame(width: 64, height: 64)
-                    .blur(radius: 16)
+                    .blur(radius: 18)
                 LargeGeneratingSpinner()
             }
             Text("ANALYZING...")
-                .font(.system(size: 24, weight: .black, design: .rounded))
+                .font(.system(size: 22, weight: .black, design: .rounded))
                 .foregroundStyle(.white)
-            HStack(spacing: 10) {
-                Text(progress.message)
-                    .lineLimit(1)
-                Text("\(Int(progress.displayPercent.rounded()))%")
-            }
-            .font(.system(size: 14, weight: .bold, design: .monospaced))
-            .foregroundStyle(.white.opacity(0.75))
-            .padding(.horizontal, 24)
+                .tracking(1.5)
+            Text(progress.message)
+                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.75))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .padding(.horizontal, 16)
+                .frame(maxWidth: 360)
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 999)
                     .fill(Color.white.opacity(0.1))
-                    .frame(height: 18)
+                    .frame(height: 16)
                 RoundedRectangle(cornerRadius: 999)
                     .fill(LinearGradient(colors: [.brandPink, .brandViolet], startPoint: .leading, endPoint: .trailing))
-                    .frame(width: max(0, min(progress.displayPercent, 100)) * 5, height: 18)
+                    .frame(width: 320 * max(0, min(progress.displayPercent, 100)) / 100, height: 16)
+                    .overlay(alignment: .trailing) {
+                        if progress.displayPercent > 5 {
+                            Text("\(Int(progress.displayPercent.rounded()))%")
+                                .font(.system(size: 9, weight: .black, design: .rounded))
+                                .foregroundStyle(.white)
+                                .padding(.trailing, 8)
+                        }
+                    }
             }
-            .frame(width: 500)
-            .overlay(RoundedRectangle(cornerRadius: 999).stroke(.white.opacity(0.25), lineWidth: 2))
+            .frame(width: 320)
+            .overlay(
+                RoundedRectangle(cornerRadius: 999)
+                    .stroke(Color.white.opacity(0.25), lineWidth: 2)
+            )
         }
     }
 }
