@@ -199,21 +199,22 @@ struct WaveformTimelineView: View {
     }
 
     private var waveformTrack: some View {
-        ZStack {
+        ZStack(alignment: .leading) {
             Rectangle().fill(Color.white)
             Canvas { context, size in
                 let samples = viewModel.waveformData.samples
-                guard !samples.isEmpty else { return }
+                guard !samples.isEmpty, waveformWidth > 0 else { return }
                 let midY = size.height / 2
-                let barWidth = max(1, size.width / CGFloat(samples.count))
+                let barWidth = waveformWidth / CGFloat(samples.count)
 
                 for (index, sample) in samples.enumerated() {
                     let x = CGFloat(index) * barWidth
                     let height = max(1, CGFloat(sample) * (size.height / 2))
-                    let rect = CGRect(x: x, y: midY - height, width: max(1, barWidth * 0.86), height: height * 2)
+                    let rect = CGRect(x: x, y: midY - height, width: max(barWidth * 0.86, 0.5), height: height * 2)
                     context.fill(Path(roundedRect: rect, cornerRadius: 1.5), with: .color(Color.brandPink))
                 }
             }
+            .frame(width: waveformWidth, height: waveformHeight, alignment: .leading)
         }
         .frame(height: waveformHeight)
         .contentShape(Rectangle())
@@ -252,6 +253,10 @@ struct WaveformTimelineView: View {
 
     private var contentWidth: CGFloat {
         max(CGFloat(viewModel.audioAsset?.duration ?? 1) * viewModel.viewport.zoom + rightPadding, 600)
+    }
+
+    private var waveformWidth: CGFloat {
+        max(CGFloat(viewModel.waveformData.duration) * viewModel.viewport.zoom, 0)
     }
 }
 
