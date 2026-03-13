@@ -381,7 +381,7 @@ final class AppViewModel {
         progress.displayPercent = 100
         progress.message = "全工程完了！"
         analysisProgress = progress
-        try? await Task.sleep(for: .milliseconds(220))
+        try? await Task.sleep(for: .milliseconds(700))
         analysisProgress = nil
         analysisDisplayTask = nil
     }

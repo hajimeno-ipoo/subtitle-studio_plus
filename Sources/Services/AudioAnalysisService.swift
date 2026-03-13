@@ -128,6 +128,7 @@ struct AudioAnalysisService {
                     currentChunk: chunkNumber,
                     totalChunks: chunkCount
                 ))
+                try? await Task.sleep(for: .milliseconds(350))
             } catch {
                 firstError = firstError ?? error
                 await progress(makeProgress(
