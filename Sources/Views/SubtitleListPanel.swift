@@ -4,12 +4,20 @@ struct SubtitleListPanel: View {
     @Environment(AppViewModel.self) private var viewModel
 
     var body: some View {
+        @Bindable var bindableViewModel = viewModel
+
         VStack(spacing: 0) {
             HStack {
                 Label("SUBTITLES", systemImage: "text.bubble")
                     .font(.system(size: 14, weight: .black, design: .rounded))
 
                 Spacer()
+
+                Button(viewModel.isLyricsEditMode ? "DONE" : "EDIT LYRICS") {
+                    viewModel.toggleLyricsEditMode()
+                }
+                .buttonStyle(StudioSecondaryButton())
+                .disabled(!viewModel.canEditSubtitles && !viewModel.isLyricsEditMode)
 
                 Button(viewModel.status == .aligning ? "ALIGNING..." : "AUTO-ALIGN") {
                     Task { await viewModel.autoAlign() }
@@ -42,9 +50,11 @@ struct SubtitleListPanel: View {
                             }
                             .frame(maxWidth: .infinity, minHeight: 220)
                         } else {
-                            ForEach(viewModel.subtitles) { subtitle in
+                            ForEach(Array(bindableViewModel.subtitles.indices), id: \.self) { index in
+                                let subtitle = bindableViewModel.subtitles[index]
                                 SubtitleRow(
-                                    subtitle: subtitle,
+                                    subtitleNumber: index + 1,
+                                    subtitle: $bindableViewModel.subtitles[index],
                                     isHighlighted: viewModel.subtitleIsHighlighted(subtitle),
                                     isPlayingNow: viewModel.subtitleIsPlayingNow(subtitle)
                                 )
@@ -54,8 +64,15 @@ struct SubtitleListPanel: View {
                     }
                     .padding(14)
                 }
+                .onChange(of: viewModel.editingSubtitleID) {
+                    guard viewModel.isLyricsEditMode, let editingSubtitleID = viewModel.editingSubtitleID else { return }
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        proxy.scrollTo(editingSubtitleID, anchor: .center)
+                    }
+                }
                 .onChange(of: viewModel.currentTime) {
-                    if let active = viewModel.subtitles.first(where: { viewModel.currentTime >= $0.startTime && viewModel.currentTime <= $0.endTime }) {
+                    if !viewModel.isLyricsEditMode,
+                       let active = viewModel.subtitles.first(where: { viewModel.currentTime >= $0.startTime && viewModel.currentTime <= $0.endTime }) {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             proxy.scrollTo(active.id, anchor: .center)
                         }
@@ -69,13 +86,20 @@ struct SubtitleListPanel: View {
 
 struct SubtitleRow: View {
     @Environment(AppViewModel.self) private var viewModel
-    let subtitle: SubtitleItem
+    let subtitleNumber: Int
+    @Binding var subtitle: SubtitleItem
     let isHighlighted: Bool
     let isPlayingNow: Bool
-    @State private var draftText = ""
-    @FocusState private var focused: Bool
 
     var body: some View {
+        if viewModel.isLyricsEditMode {
+            editableCardContent
+        } else {
+            selectableCardContent
+        }
+    }
+
+    private var cardInnerContent: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 HStack(spacing: 6) {
@@ -90,6 +114,10 @@ struct SubtitleRow: View {
 
                 Spacer()
 
+                Text("#\(subtitleNumber)")
+                    .font(.system(size: 12, weight: .black, design: .rounded))
+                    .foregroundStyle(.secondary)
+
                 Button {
                     viewModel.deleteSubtitle(id: subtitle.id)
                 } label: {
@@ -99,51 +127,63 @@ struct SubtitleRow: View {
                 .foregroundStyle(.secondary)
                 .disabled(!viewModel.canEditSubtitles)
             }
-
-            TextEditor(text: $draftText)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
-                .scrollContentBackground(.hidden)
-                .background(Color.clear)
-                .frame(height: editorHeight)
-                .focused($focused)
-                .disabled(!viewModel.canEditSubtitles)
-                .onAppear {
-                    draftText = subtitle.text
-                }
-                .onChange(of: subtitle.text) {
-                    if !focused {
-                        draftText = subtitle.text
-                    }
-                }
-                .onChange(of: focused) {
-                    viewModel.setEditingText(focused)
-                    if !focused, draftText != subtitle.text {
-                        viewModel.updateSubtitleText(id: subtitle.id, text: draftText)
-                    }
-                }
-                .onTapGesture {
-                    viewModel.selectSubtitle(id: subtitle.id)
-                }
         }
-        .padding(12)
-        .background(isHighlighted ? Color.webHighlightYellow : .white)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .studioOffsetShadow(cornerRadius: 14, x: 4, y: 4, enabled: isHighlighted)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(isHighlighted ? .black : Color.black.opacity(0.16), lineWidth: isHighlighted ? 2 : 1))
+    }
+
+    private var editableCardContent: some View {
+        cardChrome {
+            VStack(alignment: .leading, spacing: 8) {
+                cardInnerContent
+                TextEditor(text: $subtitle.text)
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
+                    .onChange(of: subtitle.text) {
+                        viewModel.beginLyricsEditing(id: subtitle.id)
+                        viewModel.markLyricsEdited(id: subtitle.id)
+                        viewModel.unsavedChanges.hasUnsavedChanges = true
+                    }
+                    .frame(height: editorHeight)
+                    .disabled(!viewModel.canEditSubtitles)
+            }
+        }
+    }
+
+    private var selectableCardContent: some View {
+        cardChrome {
+            VStack(alignment: .leading, spacing: 8) {
+                cardInnerContent
+                Text(subtitle.text)
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .frame(maxWidth: .infinity, minHeight: editorHeight, alignment: .topLeading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 14))
         .onTapGesture {
             viewModel.selectSubtitle(id: subtitle.id)
             viewModel.setTime(subtitle.startTime)
         }
     }
 
+    private func cardChrome<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+        .padding(12)
+        .background(isHighlighted ? Color.webHighlightYellow : .white)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .studioOffsetShadow(cornerRadius: 14, x: 4, y: 4, enabled: isHighlighted)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(isHighlighted ? .black : Color.black.opacity(0.16), lineWidth: isHighlighted ? 2 : 1)
+                .allowsHitTesting(false)
+        )
+    }
+
     private var editorHeight: CGFloat {
-        let newlineCount = max(1, draftText.split(separator: "\n", omittingEmptySubsequences: false).count)
-        let wrappedLineCount = max(1, Int(ceil(Double(max(draftText.count, 1)) / 30.0)))
-        let visibleLines = min(3, max(newlineCount, wrappedLineCount))
-        return switch visibleLines {
-        case 1: 34
-        case 2: 54
-        default: 72
-        }
+        let text = subtitle.text
+        let newlineCount = max(1, text.split(separator: "\n", omittingEmptySubsequences: false).count)
+        let wrappedLineCount = max(1, Int(ceil(Double(max(text.count, 1)) / 30.0)))
+        let visibleLines = max(newlineCount, wrappedLineCount)
+        return 34 + (CGFloat(visibleLines - 1) * 20)
     }
 }

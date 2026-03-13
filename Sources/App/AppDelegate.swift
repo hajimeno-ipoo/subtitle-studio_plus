@@ -3,6 +3,14 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var viewModel: AppViewModel?
 
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+        DispatchQueue.main.async {
+            _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+            NSApp.windows.first?.makeKeyAndOrderFront(nil)
+        }
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let viewModel, viewModel.hasUnsavedChanges else {
             return .terminateNow

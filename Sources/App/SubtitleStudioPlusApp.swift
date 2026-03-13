@@ -63,7 +63,7 @@ struct SubtitleStudioCommands: Commands {
                 viewModel.togglePlayback()
             }
             .keyboardShortcut(.space, modifiers: [])
-            .disabled(!viewModel.hasAudio)
+            .disabled(!viewModel.canTogglePlayback)
         }
 
         CommandMenu("Subtitles") {
@@ -71,7 +71,7 @@ struct SubtitleStudioCommands: Commands {
                 viewModel.deleteSelectedSubtitle()
             }
             .keyboardShortcut(.delete, modifiers: [])
-            .disabled(viewModel.selectedSubtitleID == nil || !viewModel.canEditSubtitles)
+            .disabled(!viewModel.canDeleteSelectedSubtitle)
 
             Divider()
 

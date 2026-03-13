@@ -31,6 +31,7 @@ struct WaveformTimelineView: View {
                 viewModel.togglePlayback()
             }
             .buttonStyle(StudioPrimaryButton(color: .brandGreen))
+            .disabled(!viewModel.canTogglePlayback)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Time")
@@ -282,12 +283,12 @@ struct SubtitleTimelineBlock: View {
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(.black, lineWidth: 2))
             .frame(width: width, height: trackHeight - 16)
             .overlay(alignment: .leading) {
-                ResizeHandle(alignment: .leading, isVisible: isHovered || previewFrame != nil)
-                    .highPriorityGesture(resizeGesture(mode: .resizeLeft))
+                ResizeHandle(alignment: .leading, isVisible: !viewModel.isLyricsEditMode && (isHovered || previewFrame != nil))
+                    .highPriorityGesture(viewModel.isLyricsEditMode ? inactiveDragGesture : resizeGesture(mode: .resizeLeft))
             }
             .overlay(alignment: .trailing) {
-                ResizeHandle(alignment: .trailing, isVisible: isHovered || previewFrame != nil)
-                    .highPriorityGesture(resizeGesture(mode: .resizeRight))
+                ResizeHandle(alignment: .trailing, isVisible: !viewModel.isLyricsEditMode && (isHovered || previewFrame != nil))
+                    .highPriorityGesture(viewModel.isLyricsEditMode ? inactiveDragGesture : resizeGesture(mode: .resizeRight))
             }
             .overlay {
                 VStack(spacing: 8) {
@@ -307,16 +308,21 @@ struct SubtitleTimelineBlock: View {
             .onHover { hovering in
                 isHovered = hovering
             }
-            .gesture(moveGesture)
+            .gesture(viewModel.isLyricsEditMode ? inactiveDragGesture : moveGesture)
             .onTapGesture {
-                viewModel.selectSubtitle(id: subtitle.id)
-                viewModel.setTime(subtitle.startTime)
+                if viewModel.isLyricsEditMode {
+                    viewModel.focusLyricsEditing(id: subtitle.id)
+                } else {
+                    viewModel.selectSubtitle(id: subtitle.id)
+                    viewModel.setTime(subtitle.startTime)
+                }
             }
             .disabled(!viewModel.canEditSubtitles)
     }
 
-    private var moveGesture: some Gesture {
-        DragGesture(minimumDistance: 0, coordinateSpace: .global)
+    private var moveGesture: AnyGesture<DragGesture.Value> {
+        AnyGesture(
+            DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { value in
                 beginDragIfNeeded()
                 guard let dragStart else { return }
@@ -333,10 +339,12 @@ struct SubtitleTimelineBlock: View {
             .onEnded { _ in
                 commitDragIfNeeded()
             }
+        )
     }
 
-    private func resizeGesture(mode: TimelineDragMode) -> some Gesture {
-        DragGesture(minimumDistance: 0, coordinateSpace: .global)
+    private func resizeGesture(mode: TimelineDragMode) -> AnyGesture<DragGesture.Value> {
+        AnyGesture(
+            DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { value in
                 beginDragIfNeeded()
                 guard let dragStart else { return }
@@ -355,6 +363,11 @@ struct SubtitleTimelineBlock: View {
             .onEnded { _ in
                 commitDragIfNeeded()
             }
+        )
+    }
+
+    private var inactiveDragGesture: AnyGesture<DragGesture.Value> {
+        AnyGesture(DragGesture(minimumDistance: .greatestFiniteMagnitude, coordinateSpace: .global))
     }
 
     private func beginDragIfNeeded() {

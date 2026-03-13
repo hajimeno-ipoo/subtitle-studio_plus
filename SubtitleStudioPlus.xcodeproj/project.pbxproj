@@ -1,0 +1,597 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1AFB35A42765E2D6287C4BE4 /* AudioAnalysisServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0638B780606D94B2A28AAE4 /* AudioAnalysisServiceTests.swift */; };
+		296556DB0B83B4D3C3E8F7D3 /* SRTCodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CA6016BF0E5EDDEAEDB8E61 /* SRTCodecTests.swift */; };
+		2E1A19CD2865B3BEB316D12C /* WaveformService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23634F3D99F80D93C18C6F56 /* WaveformService.swift */; };
+		2EBA8794643520FE5760B68E /* UploadDropZone.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15AC0425C484B34CF5078720 /* UploadDropZone.swift */; };
+		35EB21268310D8CC65841FFC /* Color+Studio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3D589AA038422BC0D88D60 /* Color+Studio.swift */; };
+		46B373F0576CA82C1DA35019 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DF2BDE45F686A685241D2C /* Cocoa.framework */; };
+		4C269DB69DD739CCEC903867 /* SubtitleListPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 291A14BFF246CE0007F0E136 /* SubtitleListPanel.swift */; };
+		552CD96B634C3DCE25C10E47 /* SubtitleAlignmentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E1FDC354FE936832A40634 /* SubtitleAlignmentService.swift */; };
+		5AFCE4FDE23A301F8EA317DF /* LivePreviewPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12117A54AD541664D4B1F74A /* LivePreviewPanel.swift */; };
+		6EBFDC8179410FDACF828699 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B4489650CC48D6185534E8 /* SettingsView.swift */; };
+		73665E536F4C22235CD9D5C2 /* AudioFileSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15778F4F9ACC6AD2A0F6A24 /* AudioFileSupport.swift */; };
+		7941C445D417CC7D4CDC4CE4 /* SRTDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF91567ACE35B883DA96FB18 /* SRTDocument.swift */; };
+		8CA9968468E845C735FC2F83 /* HeaderBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F181902E6E34458C02CAF794 /* HeaderBar.swift */; };
+		8CE8C2F9EF8370F281BC67B0 /* SubtitleAlignmentServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D1B987793001724561F583E /* SubtitleAlignmentServiceTests.swift */; };
+		9DEAB205F4D4FFACC03B04B1 /* AudioAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52731F7E7985AA9E0D4F86F1 /* AudioAnalysisService.swift */; };
+		A0B3435321B1DC32F6F68EA3 /* WaveformTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E6B003415E9A2261E9EF39 /* WaveformTimelineView.swift */; };
+		A1B484F549BC56B2DEB2D448 /* SRTCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9062D514540400563EEDDD7 /* SRTCodec.swift */; };
+		A4D60E100A9EC2CF883BF53E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B21C9FACAAF4164F4936875 /* AppDelegate.swift */; };
+		AD575D65D2BDD19E85C67A75 /* AppModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D1B5CC9E713EC96CE08330B /* AppModels.swift */; };
+		AE832999D1E04A1BEBEA9BD4 /* AudioPlaybackController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFBD44DDF1760A4509E883AC /* AudioPlaybackController.swift */; };
+		BB10491465D758CABB7EF53C /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 583774F6752398026606FB1D /* KeychainStore.swift */; };
+		C77E9310DD9DB8D952DAEDF5 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6884B3768A65E501A80582F /* RootView.swift */; };
+		CC4CE245D09294490DCE5D64 /* AppViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9E61B8F7603653903B584AC /* AppViewModel.swift */; };
+		DA462A7993E973D48E77DFE5 /* SubtitleStudioPlusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C6BE98C07F455840CAED68A /* SubtitleStudioPlusApp.swift */; };
+		EE585E4D7302BBCA7E820FC9 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F75037667926C94556F882C5 /* SettingsStore.swift */; };
+		FF32F73EEC12DBDE298C2D5B /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23DF2BDE45F686A685241D2C /* Cocoa.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		DCCBC69F2EA832BB9262888C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1D50C86977AA3B8B70FA4D99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DD223D808F58E0D4AE82C06C;
+			remoteInfo = SubtitleStudioPlus;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		12117A54AD541664D4B1F74A /* LivePreviewPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LivePreviewPanel.swift; sourceTree = "<group>"; };
+		15AC0425C484B34CF5078720 /* UploadDropZone.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UploadDropZone.swift; sourceTree = "<group>"; };
+		1D1B987793001724561F583E /* SubtitleAlignmentServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubtitleAlignmentServiceTests.swift; sourceTree = "<group>"; };
+		23634F3D99F80D93C18C6F56 /* WaveformService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WaveformService.swift; sourceTree = "<group>"; };
+		23DF2BDE45F686A685241D2C /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
+		291A14BFF246CE0007F0E136 /* SubtitleListPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubtitleListPanel.swift; sourceTree = "<group>"; };
+		2B22D195F32238074E06A035 /* SubtitleStudioPlus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SubtitleStudioPlus.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2E3D589AA038422BC0D88D60 /* Color+Studio.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "Color+Studio.swift"; sourceTree = "<group>"; };
+		3CA6016BF0E5EDDEAEDB8E61 /* SRTCodecTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SRTCodecTests.swift; sourceTree = "<group>"; };
+		4B21C9FACAAF4164F4936875 /* AppDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		52731F7E7985AA9E0D4F86F1 /* AudioAnalysisService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AudioAnalysisService.swift; sourceTree = "<group>"; };
+		583774F6752398026606FB1D /* KeychainStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		6C6BE98C07F455840CAED68A /* SubtitleStudioPlusApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubtitleStudioPlusApp.swift; sourceTree = "<group>"; };
+		75E6B003415E9A2261E9EF39 /* WaveformTimelineView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WaveformTimelineView.swift; sourceTree = "<group>"; };
+		7D1B5CC9E713EC96CE08330B /* AppModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppModels.swift; sourceTree = "<group>"; };
+		A0B4489650CC48D6185534E8 /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		B0638B780606D94B2A28AAE4 /* AudioAnalysisServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AudioAnalysisServiceTests.swift; sourceTree = "<group>"; };
+		B6884B3768A65E501A80582F /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		BF0E17EE082047C89D5160CE /* AppInfo.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = AppInfo.plist; sourceTree = "<group>"; };
+		C9E61B8F7603653903B584AC /* AppViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppViewModel.swift; sourceTree = "<group>"; };
+		CF91567ACE35B883DA96FB18 /* SRTDocument.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SRTDocument.swift; sourceTree = "<group>"; };
+		D0E1FDC354FE936832A40634 /* SubtitleAlignmentService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubtitleAlignmentService.swift; sourceTree = "<group>"; };
+		D15778F4F9ACC6AD2A0F6A24 /* AudioFileSupport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AudioFileSupport.swift; sourceTree = "<group>"; };
+		D42E89275CD391EBFD2C1CFC /* SubtitleStudioPlusTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SubtitleStudioPlusTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E9062D514540400563EEDDD7 /* SRTCodec.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SRTCodec.swift; sourceTree = "<group>"; };
+		F181902E6E34458C02CAF794 /* HeaderBar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HeaderBar.swift; sourceTree = "<group>"; };
+		F75037667926C94556F882C5 /* SettingsStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		FFBD44DDF1760A4509E883AC /* AudioPlaybackController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AudioPlaybackController.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9468F165F3959A6C6A3FC00B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				46B373F0576CA82C1DA35019 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9F1145E8BFADC89FC98F0B68 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FF32F73EEC12DBDE298C2D5B /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		183FAB291B8AF4460BE66083 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				C860AED2C7CA56912C558366 /* App */,
+				9E1612467669F64B9B85334D /* Models */,
+				A4E8BCFADB509584B111CB6C /* Persistence */,
+				6D71DD666A32218A077EBA64 /* Services */,
+				7BF9D7BC8EA1CB5F0FC118A2 /* Utilities */,
+				5E21189936C1907CA83822A2 /* ViewModels */,
+				6D93B6E4BFF15C1BEE089E3A /* Views */,
+			);
+			name = Sources;
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		1A5115A37F6134EED174AB01 = {
+			isa = PBXGroup;
+			children = (
+				EFEDCFFD3C63B20530A75FB6 /* Products */,
+				BA71B1382D5B9F5B0008210A /* Frameworks */,
+				183FAB291B8AF4460BE66083 /* Sources */,
+				AF1102888CF58EB628F51B0D /* Tests */,
+				C70BE968F9305A2AC540B75E /* Support */,
+			);
+			sourceTree = "<group>";
+		};
+		5C8BBDCE698D07DF10EC99C6 /* OS X */ = {
+			isa = PBXGroup;
+			children = (
+				23DF2BDE45F686A685241D2C /* Cocoa.framework */,
+			);
+			name = "OS X";
+			sourceTree = "<group>";
+		};
+		5E21189936C1907CA83822A2 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				C9E61B8F7603653903B584AC /* AppViewModel.swift */,
+			);
+			name = ViewModels;
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		6D71DD666A32218A077EBA64 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				52731F7E7985AA9E0D4F86F1 /* AudioAnalysisService.swift */,
+				FFBD44DDF1760A4509E883AC /* AudioPlaybackController.swift */,
+				D0E1FDC354FE936832A40634 /* SubtitleAlignmentService.swift */,
+				23634F3D99F80D93C18C6F56 /* WaveformService.swift */,
+			);
+			name = Services;
+			path = Services;
+			sourceTree = "<group>";
+		};
+		6D93B6E4BFF15C1BEE089E3A /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				2E3D589AA038422BC0D88D60 /* Color+Studio.swift */,
+				F181902E6E34458C02CAF794 /* HeaderBar.swift */,
+				12117A54AD541664D4B1F74A /* LivePreviewPanel.swift */,
+				B6884B3768A65E501A80582F /* RootView.swift */,
+				A0B4489650CC48D6185534E8 /* SettingsView.swift */,
+				291A14BFF246CE0007F0E136 /* SubtitleListPanel.swift */,
+				15AC0425C484B34CF5078720 /* UploadDropZone.swift */,
+				75E6B003415E9A2261E9EF39 /* WaveformTimelineView.swift */,
+			);
+			name = Views;
+			path = Views;
+			sourceTree = "<group>";
+		};
+		7BF9D7BC8EA1CB5F0FC118A2 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				D15778F4F9ACC6AD2A0F6A24 /* AudioFileSupport.swift */,
+				E9062D514540400563EEDDD7 /* SRTCodec.swift */,
+			);
+			name = Utilities;
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		9E1612467669F64B9B85334D /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				7D1B5CC9E713EC96CE08330B /* AppModels.swift */,
+			);
+			name = Models;
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A4E8BCFADB509584B111CB6C /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				583774F6752398026606FB1D /* KeychainStore.swift */,
+				CF91567ACE35B883DA96FB18 /* SRTDocument.swift */,
+				F75037667926C94556F882C5 /* SettingsStore.swift */,
+			);
+			name = Persistence;
+			path = Persistence;
+			sourceTree = "<group>";
+		};
+		AF1102888CF58EB628F51B0D /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				B0638B780606D94B2A28AAE4 /* AudioAnalysisServiceTests.swift */,
+				3CA6016BF0E5EDDEAEDB8E61 /* SRTCodecTests.swift */,
+				1D1B987793001724561F583E /* SubtitleAlignmentServiceTests.swift */,
+			);
+			name = Tests;
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		BA71B1382D5B9F5B0008210A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				5C8BBDCE698D07DF10EC99C6 /* OS X */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		C70BE968F9305A2AC540B75E /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				BF0E17EE082047C89D5160CE /* AppInfo.plist */,
+			);
+			name = Support;
+			path = Support;
+			sourceTree = "<group>";
+		};
+		C860AED2C7CA56912C558366 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				4B21C9FACAAF4164F4936875 /* AppDelegate.swift */,
+				6C6BE98C07F455840CAED68A /* SubtitleStudioPlusApp.swift */,
+			);
+			name = App;
+			path = App;
+			sourceTree = "<group>";
+		};
+		EFEDCFFD3C63B20530A75FB6 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2B22D195F32238074E06A035 /* SubtitleStudioPlus.app */,
+				D42E89275CD391EBFD2C1CFC /* SubtitleStudioPlusTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A79596E997918E19336B8E20 /* SubtitleStudioPlusTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0D3D2FC81616EE17EDEB914F /* Build configuration list for PBXNativeTarget "SubtitleStudioPlusTests" */;
+			buildPhases = (
+				1A195473A8A8DD97706C7BE3 /* Sources */,
+				9468F165F3959A6C6A3FC00B /* Frameworks */,
+				5DC82C46039D2B10CF1E5BEE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				381FA84EC6000C571AD71FA1 /* PBXTargetDependency */,
+			);
+			name = SubtitleStudioPlusTests;
+			productName = SubtitleStudioPlusTests;
+			productReference = D42E89275CD391EBFD2C1CFC /* SubtitleStudioPlusTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		DD223D808F58E0D4AE82C06C /* SubtitleStudioPlus */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6782DEE4E2FC37FD949114AB /* Build configuration list for PBXNativeTarget "SubtitleStudioPlus" */;
+			buildPhases = (
+				84C0944FDC49D549B1F9AFD0 /* Sources */,
+				9F1145E8BFADC89FC98F0B68 /* Frameworks */,
+				3823B38D9E2EB0B29DA4623F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SubtitleStudioPlus;
+			productName = SubtitleStudioPlus;
+			productReference = 2B22D195F32238074E06A035 /* SubtitleStudioPlus.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1D50C86977AA3B8B70FA4D99 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 2600;
+				LastUpgradeCheck = 2600;
+			};
+			buildConfigurationList = 9F02FDD51A8538A494D4E51D /* Build configuration list for PBXProject "SubtitleStudioPlus" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 1A5115A37F6134EED174AB01;
+			minimizedProjectReferenceProxies = 0;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = EFEDCFFD3C63B20530A75FB6 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				DD223D808F58E0D4AE82C06C /* SubtitleStudioPlus */,
+				A79596E997918E19336B8E20 /* SubtitleStudioPlusTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		3823B38D9E2EB0B29DA4623F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5DC82C46039D2B10CF1E5BEE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1A195473A8A8DD97706C7BE3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1AFB35A42765E2D6287C4BE4 /* AudioAnalysisServiceTests.swift in Sources */,
+				296556DB0B83B4D3C3E8F7D3 /* SRTCodecTests.swift in Sources */,
+				8CE8C2F9EF8370F281BC67B0 /* SubtitleAlignmentServiceTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C0944FDC49D549B1F9AFD0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A4D60E100A9EC2CF883BF53E /* AppDelegate.swift in Sources */,
+				DA462A7993E973D48E77DFE5 /* SubtitleStudioPlusApp.swift in Sources */,
+				AD575D65D2BDD19E85C67A75 /* AppModels.swift in Sources */,
+				BB10491465D758CABB7EF53C /* KeychainStore.swift in Sources */,
+				7941C445D417CC7D4CDC4CE4 /* SRTDocument.swift in Sources */,
+				EE585E4D7302BBCA7E820FC9 /* SettingsStore.swift in Sources */,
+				9DEAB205F4D4FFACC03B04B1 /* AudioAnalysisService.swift in Sources */,
+				AE832999D1E04A1BEBEA9BD4 /* AudioPlaybackController.swift in Sources */,
+				552CD96B634C3DCE25C10E47 /* SubtitleAlignmentService.swift in Sources */,
+				2E1A19CD2865B3BEB316D12C /* WaveformService.swift in Sources */,
+				73665E536F4C22235CD9D5C2 /* AudioFileSupport.swift in Sources */,
+				A1B484F549BC56B2DEB2D448 /* SRTCodec.swift in Sources */,
+				CC4CE245D09294490DCE5D64 /* AppViewModel.swift in Sources */,
+				35EB21268310D8CC65841FFC /* Color+Studio.swift in Sources */,
+				8CA9968468E845C735FC2F83 /* HeaderBar.swift in Sources */,
+				5AFCE4FDE23A301F8EA317DF /* LivePreviewPanel.swift in Sources */,
+				C77E9310DD9DB8D952DAEDF5 /* RootView.swift in Sources */,
+				6EBFDC8179410FDACF828699 /* SettingsView.swift in Sources */,
+				4C269DB69DD739CCEC903867 /* SubtitleListPanel.swift in Sources */,
+				2EBA8794643520FE5760B68E /* UploadDropZone.swift in Sources */,
+				A0B3435321B1DC32F6F68EA3 /* WaveformTimelineView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		381FA84EC6000C571AD71FA1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = SubtitleStudioPlus;
+			target = DD223D808F58E0D4AE82C06C /* SubtitleStudioPlus */;
+			targetProxy = DCCBC69F2EA832BB9262888C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		26583492B8318122C0354E33 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		4AA17D7F84D24AC1880E9462 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		7A94476B62C47D21EAC40783 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Support/AppInfo.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.hazimeno.subtitle-studio-plus";
+				PRODUCT_MODULE_NAME = SubtitleStudioPlus;
+				PRODUCT_NAME = SubtitleStudioPlus;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		BD22CAB27998E02D70C6B56D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.hazimeno.subtitle-studio-plus.tests";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SubtitleStudioPlus.app/Contents/MacOS/SubtitleStudioPlus";
+			};
+			name = Release;
+		};
+		E0DE05ECE6F37C67EE1961FD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.hazimeno.subtitle-studio-plus.tests";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SubtitleStudioPlus.app/Contents/MacOS/SubtitleStudioPlus";
+			};
+			name = Debug;
+		};
+		E3A1A3889A9001601F3F007C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Support/AppInfo.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.hazimeno.subtitle-studio-plus";
+				PRODUCT_MODULE_NAME = SubtitleStudioPlus;
+				PRODUCT_NAME = SubtitleStudioPlus;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0D3D2FC81616EE17EDEB914F /* Build configuration list for PBXNativeTarget "SubtitleStudioPlusTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BD22CAB27998E02D70C6B56D /* Release */,
+				E0DE05ECE6F37C67EE1961FD /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6782DEE4E2FC37FD949114AB /* Build configuration list for PBXNativeTarget "SubtitleStudioPlus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E3A1A3889A9001601F3F007C /* Release */,
+				7A94476B62C47D21EAC40783 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9F02FDD51A8538A494D4E51D /* Build configuration list for PBXProject "SubtitleStudioPlus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4AA17D7F84D24AC1880E9462 /* Debug */,
+				26583492B8318122C0354E33 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 1D50C86977AA3B8B70FA4D99 /* Project object */;
+}

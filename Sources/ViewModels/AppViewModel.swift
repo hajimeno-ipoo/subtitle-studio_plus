@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 
@@ -15,6 +16,9 @@ final class AppViewModel {
     var dialogState: AppDialogState?
     var pendingImportIntent: AudioImportIntent?
     var selectedSubtitleID: UUID?
+    var editingSubtitleID: UUID?
+    var selectionBeforeLyricsEdit: UUID?
+    var lastEditedSubtitleID: UUID?
     var viewport = TimelineViewport()
     var waveformData = WaveformData(samples: [], duration: 0)
     var settings = SettingsStore()
@@ -22,7 +26,7 @@ final class AppViewModel {
     var isSettingsPresented = false
     var isFileImporterPresented = false
     var isFileExporterPresented = false
-    var isEditingText = false
+    var isLyricsEditMode = false
     var unsavedChanges = UnsavedChangesState()
 
     private(set) var undoStack: [[SubtitleItem]] = []
@@ -38,6 +42,9 @@ final class AppViewModel {
         playback.onTimeChange = { [weak self] time in
             self?.currentTime = time
         }
+        #if DEBUG
+        loadDebugSeedIfNeeded()
+        #endif
     }
 
     var hasAudio: Bool { audioAsset != nil }
@@ -47,7 +54,10 @@ final class AppViewModel {
     var canRedo: Bool { !redoStack.isEmpty }
     var isBusy: Bool { status == .analyzing || status == .aligning }
     var canEditSubtitles: Bool { !isBusy && !subtitles.isEmpty }
-    var canUseTimelineShortcuts: Bool { canEditSubtitles && selectedSubtitleID != nil && !isEditingText }
+    var isTextInputActive: Bool { NSApp.keyWindow?.firstResponder is NSTextView }
+    var canUseTimelineShortcuts: Bool { canEditSubtitles && selectedSubtitleID != nil && !isLyricsEditMode && !isTextInputActive }
+    var canTogglePlayback: Bool { hasAudio && !isLyricsEditMode && !isTextInputActive }
+    var canDeleteSelectedSubtitle: Bool { canEditSubtitles && selectedSubtitleID != nil && !isLyricsEditMode && !isTextInputActive }
     var activeSubtitleText: String {
         subtitles.first(where: { currentTime >= $0.startTime && currentTime <= $0.endTime })?.text ?? ""
     }
@@ -111,7 +121,7 @@ final class AppViewModel {
             audioAsset = AudioAsset(url: url, fileName: url.lastPathComponent, duration: waveform.duration, fileSize: fileSize, contentType: resource.contentType)
             waveformData = waveform
             subtitles = []
-            selectedSubtitleID = nil
+            resetLyricsEditState()
             status = .idle
             analysisProgress = nil
             alignmentProgressText = ""
@@ -126,6 +136,7 @@ final class AppViewModel {
     }
 
     func togglePlayback() {
+        guard canTogglePlayback else { return }
         if !playback.isPlaying {
             selectedSubtitleID = nil
         }
@@ -181,10 +192,10 @@ final class AppViewModel {
             }
             pushUndoState()
             subtitles = result
+            resetLyricsEditState()
             await completeAnalysisProgress()
             status = .completed
             unsavedChanges.hasUnsavedChanges = true
-            selectedSubtitleID = nil
         } catch {
             stopAnalysisDisplayTask()
             status = .error
@@ -216,15 +227,43 @@ final class AppViewModel {
         }
     }
 
-    func updateSubtitleText(id: UUID, text: String) {
+    func updateSubtitleText(id: UUID, text: String, recordUndo: Bool = true) {
         guard let index = subtitles.firstIndex(where: { $0.id == id }) else { return }
-        pushUndoState()
+        guard subtitles[index].text != text else { return }
+        if recordUndo {
+            pushUndoState()
+        }
         subtitles[index].text = text
         unsavedChanges.hasUnsavedChanges = true
     }
 
+    func toggleLyricsEditMode() {
+        if isLyricsEditMode {
+            exitLyricsEditMode()
+            return
+        } else {
+            guard canEditSubtitles else { return }
+            enterLyricsEditMode()
+        }
+    }
+
+    func beginLyricsEditing(id: UUID) {
+        guard isLyricsEditMode, subtitles.contains(where: { $0.id == id }) else { return }
+        selectedSubtitleID = id
+        editingSubtitleID = id
+    }
+
+    func focusLyricsEditing(id: UUID) {
+        beginLyricsEditing(id: id)
+    }
+
+    func markLyricsEdited(id: UUID) {
+        guard isLyricsEditMode, subtitles.contains(where: { $0.id == id }) else { return }
+        lastEditedSubtitleID = id
+    }
+
     func deleteSelectedSubtitle() {
-        guard let selectedSubtitleID else { return }
+        guard canDeleteSelectedSubtitle, let selectedSubtitleID else { return }
         deleteSubtitle(id: selectedSubtitleID)
     }
 
@@ -232,7 +271,19 @@ final class AppViewModel {
         guard let index = subtitles.firstIndex(where: { $0.id == id }) else { return }
         pushUndoState()
         subtitles.remove(at: index)
-        selectedSubtitleID = subtitles.indices.contains(index) ? subtitles[index].id : subtitles.last?.id
+        if isLyricsEditMode {
+            if editingSubtitleID == id {
+                editingSubtitleID = nil
+            }
+            if lastEditedSubtitleID == id {
+                lastEditedSubtitleID = nil
+            }
+        } else {
+            selectedSubtitleID = subtitles.indices.contains(index) ? subtitles[index].id : subtitles.last?.id
+        }
+        if selectionBeforeLyricsEdit == id {
+            selectionBeforeLyricsEdit = nil
+        }
         unsavedChanges.hasUnsavedChanges = true
     }
 
@@ -292,20 +343,18 @@ final class AppViewModel {
         }
     }
 
-    func setEditingText(_ isEditing: Bool) {
-        isEditingText = isEditing
-    }
-
     func undo() {
         guard let previous = undoStack.popLast() else { return }
         redoStack.append(subtitles)
         subtitles = previous
+        reconcileEditingTargets()
     }
 
     func redo() {
         guard let next = redoStack.popLast() else { return }
         undoStack.append(subtitles)
         subtitles = next
+        reconcileEditingTargets()
     }
 
     private func mutateSelectedSubtitle(_ transform: (inout SubtitleItem) -> Void) {
@@ -332,6 +381,78 @@ final class AppViewModel {
             message: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription,
             kind: .error
         )
+    }
+
+    private func enterLyricsEditMode() {
+        if playback.isPlaying {
+            playback.pause()
+        }
+        isLyricsEditMode = true
+        selectionBeforeLyricsEdit = selectedSubtitleID
+        selectedSubtitleID = nil
+        editingSubtitleID = nil
+        lastEditedSubtitleID = nil
+    }
+
+    private func exitLyricsEditMode() {
+        isLyricsEditMode = false
+        editingSubtitleID = nil
+        selectedSubtitleID = lastEditedSubtitleID ?? selectionBeforeLyricsEdit
+        selectionBeforeLyricsEdit = nil
+        lastEditedSubtitleID = nil
+    }
+
+    private func resetLyricsEditState() {
+        selectedSubtitleID = nil
+        editingSubtitleID = nil
+        selectionBeforeLyricsEdit = nil
+        lastEditedSubtitleID = nil
+        isLyricsEditMode = false
+    }
+
+    #if DEBUG
+    private func loadDebugSeedIfNeeded() {
+        let processInfo = ProcessInfo.processInfo
+        let shouldSeed = processInfo.environment["SUBTITLE_STUDIO_UI_SEED"] == "1"
+            || processInfo.arguments.contains("--ui-seed")
+        guard shouldSeed else { return }
+        guard audioAsset == nil, subtitles.isEmpty else { return }
+
+        audioAsset = AudioAsset(
+            url: URL(fileURLWithPath: "/tmp/subtitle-studio-ui-seed.wav"),
+            fileName: "debug-seed.wav",
+            duration: 18,
+            fileSize: 0,
+            contentType: nil
+        )
+        waveformData = WaveformData(
+            samples: Array(repeating: 0.2, count: 180),
+            duration: 18
+        )
+        subtitles = [
+            SubtitleItem(startTime: 1, endTime: 4, text: "debug one"),
+            SubtitleItem(startTime: 5, endTime: 8, text: "debug two"),
+            SubtitleItem(startTime: 9, endTime: 12, text: "debug three"),
+        ]
+        status = .idle
+        currentTime = 0
+        unsavedChanges.hasUnsavedChanges = false
+        undoStack.removeAll()
+        redoStack.removeAll()
+    }
+    #endif
+
+    private func reconcileEditingTargets() {
+        guard isLyricsEditMode else { return }
+        if let editingSubtitleID, !subtitles.contains(where: { $0.id == editingSubtitleID }) {
+            self.editingSubtitleID = nil
+        }
+        if let lastEditedSubtitleID, !subtitles.contains(where: { $0.id == lastEditedSubtitleID }) {
+            self.lastEditedSubtitleID = nil
+        }
+        if let selectionBeforeLyricsEdit, !subtitles.contains(where: { $0.id == selectionBeforeLyricsEdit }) {
+            self.selectionBeforeLyricsEdit = nil
+        }
     }
 
     private func applyAnalysisProgress(_ incoming: AnalysisProgress) {

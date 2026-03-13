@@ -5,7 +5,6 @@ struct SettingsView: View {
     @State private var apiKey = ""
     @State private var revealAPIKey = false
     @State private var statusMessage = ""
-    @FocusState private var isAPIKeyFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -19,17 +18,18 @@ struct SettingsView: View {
                 Group {
                     if revealAPIKey {
                         TextField("Gemini API Key", text: $apiKey)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 14, weight: .medium, design: .monospaced))
                     } else {
                         SecureField("Gemini API Key", text: $apiKey)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 14, weight: .medium, design: .monospaced))
                     }
                 }
-                .textFieldStyle(.roundedBorder)
-                .font(.system(size: 14, weight: .medium, design: .monospaced))
-                .focused($isAPIKeyFocused)
+                .frame(maxWidth: .infinity)
 
                 Button(revealAPIKey ? "Hide" : "Show") {
                     revealAPIKey.toggle()
-                    isAPIKeyFocused = true
                 }
                 .buttonStyle(StudioSecondaryButton())
 
@@ -41,7 +41,6 @@ struct SettingsView: View {
                     } else {
                         statusMessage = "Clipboard is empty."
                     }
-                    isAPIKeyFocused = true
                 }
                 .buttonStyle(StudioSecondaryButton())
             }
@@ -74,7 +73,6 @@ struct SettingsView: View {
             viewModel.settings.loadIfNeeded()
             apiKey = viewModel.settings.geminiAPIKey
             statusMessage = ""
-            isAPIKeyFocused = true
         }
     }
 }

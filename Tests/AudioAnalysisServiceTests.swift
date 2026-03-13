@@ -3,35 +3,30 @@ import Testing
 
 struct AudioAnalysisServiceTests {
     @Test
-    func parseSSEPayloadExtractsTextAndFinishReason() throws {
+    func cleanGeminiTextRemovesCodeFenceAndWhitespace() {
         let payload = """
-        {"candidates":[{"finishReason":"STOP","content":{"parts":[{"text":"1\\n00:00:00,000 --> 00:00:01,000\\nHello"}]}}]}
+        ```srt
+        1
+        00:00:00,000 --> 00:00:01,000
+        Hello
+        ```
         """
 
-        let event = try AudioAnalysisService.parseSSEPayload(payload)
+        let cleaned = AudioAnalysisService.cleanGeminiText(payload)
 
-        #expect(event.text.contains("Hello"))
-        #expect(event.finishReason == "STOP")
-        #expect(event.blockReason == nil)
+        #expect(cleaned == "1\n00:00:00,000 --> 00:00:01,000\nHello")
     }
 
     @Test
-    func parseSSEPayloadExtractsBlockReason() throws {
+    func cleanGeminiTextPreservesPlainSRT() {
         let payload = """
-        {"promptFeedback":{"blockReason":"SAFETY"}}
+        1
+        00:00:00,000 --> 00:00:01,000
+        Hello
         """
 
-        let event = try AudioAnalysisService.parseSSEPayload(payload)
+        let cleaned = AudioAnalysisService.cleanGeminiText(payload)
 
-        #expect(event.blockReason == "SAFETY")
-        #expect(event.text.isEmpty)
-    }
-
-    @Test
-    func mergeStreamTextHandlesSnapshotsAndDeltas() {
-        #expect(AudioAnalysisService.mergeStreamText(existing: "", incoming: "abc") == "abc")
-        #expect(AudioAnalysisService.mergeStreamText(existing: "abc", incoming: "abcdef") == "abcdef")
-        #expect(AudioAnalysisService.mergeStreamText(existing: "abc", incoming: "def") == "abcdef")
-        #expect(AudioAnalysisService.mergeStreamText(existing: "abcdef", incoming: "def") == "abcdef")
+        #expect(cleaned == payload)
     }
 }
