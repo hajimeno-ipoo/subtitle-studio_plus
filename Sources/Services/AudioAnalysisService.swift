@@ -15,7 +15,8 @@ struct AudioAnalysisService {
             actual: 2,
             display: 8
         ))
-        let decoded = try waveformService.decodedMonoSamples(url: fileURL)
+        let targetRate = 16_000.0
+        let converted = try waveformService.convertedMonoSamples(url: fileURL, targetSampleRate: targetRate)
 
         await progress(makeProgress(
             phase: .optimizingAudio,
@@ -24,10 +25,8 @@ struct AudioAnalysisService {
             display: 16
         ))
 
-        let targetRate = 16_000.0
-        let downsampled = downsample(samples: decoded.samples, sourceRate: decoded.sampleRate, targetRate: targetRate)
         let chunkSize = Int(targetRate * 300)
-        let chunkCount = max(1, Int(ceil(Double(downsampled.count) / Double(chunkSize))))
+        let chunkCount = max(1, Int(ceil(Double(converted.samples.count) / Double(chunkSize))))
         var subtitles: [SubtitleItem] = []
         var firstError: Error?
 
@@ -42,8 +41,8 @@ struct AudioAnalysisService {
         for chunkIndex in 0..<chunkCount {
             let chunkNumber = chunkIndex + 1
             let start = chunkIndex * chunkSize
-            let end = min(start + chunkSize, downsampled.count)
-            let chunk = Array(downsampled[start..<end])
+            let end = min(start + chunkSize, converted.samples.count)
+            let chunk = Array(converted.samples[start..<end])
             let wavData = makeWAV(samples: chunk, sampleRate: Int(targetRate))
             let chunkRequestPercent = 22 + (6 * (Double(chunkIndex) / Double(chunkCount)))
             let streamStartPercent = 28 + (60 * (Double(chunkIndex) / Double(chunkCount)))
@@ -290,24 +289,6 @@ struct AudioAnalysisService {
             .replacingOccurrences(of: "```srt", with: "")
             .replacingOccurrences(of: "```", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func downsample(samples: [Float], sourceRate: Double, targetRate: Double) -> [Float] {
-        if sourceRate <= targetRate {
-            return samples
-        }
-        let ratio = sourceRate / targetRate
-        let targetCount = Int(Double(samples.count) / ratio)
-        var output: [Float] = []
-        output.reserveCapacity(targetCount)
-
-        for index in 0..<targetCount {
-            let sourceIndex = Int(Double(index) * ratio)
-            if sourceIndex < samples.count {
-                output.append(samples[sourceIndex])
-            }
-        }
-        return output
     }
 
     private func makeWAV(samples: [Float], sampleRate: Int) -> Data {

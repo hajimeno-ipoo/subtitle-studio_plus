@@ -1,15 +1,9 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import Foundation
 
 struct WaveformService {
     func loadWaveform(url: URL, targetSamples: Int = 1800) throws -> WaveformData {
-        let file = try AVAudioFile(forReading: url)
-        let format = file.processingFormat
-        let frameCount = AVAudioFrameCount(file.length)
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
-            throw SubtitleStudioError.unreadableAudio
-        }
-        try file.read(into: buffer)
+        let (file, buffer) = try loadPCMBuffer(url: url)
         guard let channelData = buffer.floatChannelData?.pointee else {
             throw SubtitleStudioError.unreadableAudio
         }
@@ -34,13 +28,8 @@ struct WaveformService {
     }
 
     func decodedMonoSamples(url: URL) throws -> (samples: [Float], sampleRate: Double, duration: TimeInterval) {
-        let file = try AVAudioFile(forReading: url)
+        let (file, buffer) = try loadPCMBuffer(url: url)
         let format = file.processingFormat
-        let frameCount = AVAudioFrameCount(file.length)
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
-            throw SubtitleStudioError.unreadableAudio
-        }
-        try file.read(into: buffer)
         guard let channelData = buffer.floatChannelData else {
             throw SubtitleStudioError.unreadableAudio
         }
@@ -56,6 +45,71 @@ struct WaveformService {
             mono[frame] = sum / Float(channelCount)
         }
         return (mono, format.sampleRate, file.duration)
+    }
+
+    func convertedMonoSamples(url: URL, targetSampleRate: Double) throws -> (samples: [Float], sampleRate: Double, duration: TimeInterval) {
+        let (file, sourceBuffer) = try loadPCMBuffer(url: url)
+        let sourceFormat = file.processingFormat
+        guard let outputFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: targetSampleRate,
+            channels: 1,
+            interleaved: false
+        ) else {
+            throw SubtitleStudioError.unreadableAudio
+        }
+        guard let converter = AVAudioConverter(from: sourceFormat, to: outputFormat) else {
+            throw SubtitleStudioError.unreadableAudio
+        }
+
+        let estimatedFrameCount = Int(ceil(Double(sourceBuffer.frameLength) * targetSampleRate / sourceFormat.sampleRate))
+        let frameCapacity = AVAudioFrameCount(max(estimatedFrameCount + 1, 1))
+        guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: frameCapacity) else {
+            throw SubtitleStudioError.unreadableAudio
+        }
+
+        let inputSource = ConverterInputSource(buffer: sourceBuffer)
+        var conversionError: NSError?
+        let status = converter.convert(to: outputBuffer, error: &conversionError) { _, outStatus in
+            if inputSource.isConsumed {
+                outStatus.pointee = .endOfStream
+                return nil
+            }
+            inputSource.isConsumed = true
+            outStatus.pointee = .haveData
+            return inputSource.buffer
+        }
+
+        if status == .error {
+            throw conversionError ?? SubtitleStudioError.unreadableAudio
+        }
+        guard let convertedChannel = outputBuffer.floatChannelData?.pointee else {
+            throw conversionError ?? SubtitleStudioError.unreadableAudio
+        }
+
+        let frames = Int(outputBuffer.frameLength)
+        let samples = Array(UnsafeBufferPointer(start: convertedChannel, count: frames))
+        return (samples, outputFormat.sampleRate, file.duration)
+    }
+
+    private func loadPCMBuffer(url: URL) throws -> (file: AVAudioFile, buffer: AVAudioPCMBuffer) {
+        let file = try AVAudioFile(forReading: url)
+        let format = file.processingFormat
+        let frameCount = AVAudioFrameCount(file.length)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+            throw SubtitleStudioError.unreadableAudio
+        }
+        try file.read(into: buffer)
+        return (file, buffer)
+    }
+}
+
+private final class ConverterInputSource: @unchecked Sendable {
+    let buffer: AVAudioPCMBuffer
+    var isConsumed = false
+
+    init(buffer: AVAudioPCMBuffer) {
+        self.buffer = buffer
     }
 }
 
