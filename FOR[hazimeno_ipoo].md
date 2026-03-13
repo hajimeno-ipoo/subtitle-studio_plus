@@ -70,7 +70,7 @@
   - 修正: `EDIT LYRICS` で歌詞編集モードへ入り、一覧の全カードをそのまま `TextEditor` として出します。余計なフォーカス制御やタップ制御を足しません。
 - APIキー欄に文字を打てない
   - 症状: 右クリックの貼り付けはできても、キー入力や Delete が効きにくいです。
-  - 修正: `SubtitleStudioPlus.xcodeproj` から proper な `.app` として起動します。設定画面は標準の `TextField` / `SecureField` を使い、入力中はアプリ全体の Delete や Space などのショートカットを止めます。
+  - 修正: `SubtitleStudioPlus.xcodeproj` から proper な `.app` として起動します。設定画面は標準の `TextField` / `SecureField` を使い、入力中はアプリ全体の Delete や Space などのショートカットを止めます。Keychain の読み書きは非同期にして、許可ダイアログ待ちで画面を止めにくくします。
 - 波形と字幕が少しずれる
   - 症状: タイミングが気持ち悪いです。
   - 修正: 自動補正を実行し、必要なら手で微調整します。
@@ -88,6 +88,7 @@
 - 歌詞編集の入力欄は、SwiftUI の `TextEditor` をそのまま使う方が安全です。
 - APIキー欄も同じ考え方で、標準の `TextField` / `SecureField` を使います。
 - 文字入力中は、Delete や Space などの全体ショートカットを止めないと、入力欄よりショートカットが勝つことがあります。
+- Keychain の許可待ちは時間がかかることがあるので、読み書きをメインスレッドで直接走らせない方が安全です。
 - このプロジェクトは Xcode 一本化です。
 - ふだんの起動、動作確認、実機確認は `SubtitleStudioPlus.xcodeproj` の app target を使います。
 - 開発時に字幕一覧をすぐ出したい時は、DEBUG 起動で `--ui-seed` を付けるとダミー字幕を出せます。

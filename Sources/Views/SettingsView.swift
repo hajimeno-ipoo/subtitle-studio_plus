@@ -5,6 +5,11 @@ struct SettingsView: View {
     @State private var apiKey = ""
     @State private var revealAPIKey = false
     @State private var statusMessage = ""
+    @State private var loadTask: Task<Void, Never>?
+
+    private var isBusy: Bool {
+        viewModel.settings.isLoadingAPIKey || viewModel.settings.isSavingAPIKey
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -32,6 +37,7 @@ struct SettingsView: View {
                     revealAPIKey.toggle()
                 }
                 .buttonStyle(StudioSecondaryButton())
+                .disabled(isBusy)
 
                 Button("Paste") {
                     if let pasted = NSPasteboard.general.string(forType: .string)?
@@ -43,6 +49,17 @@ struct SettingsView: View {
                     }
                 }
                 .buttonStyle(StudioSecondaryButton())
+                .disabled(isBusy)
+            }
+
+            if viewModel.settings.isLoadingAPIKey || viewModel.settings.isSavingAPIKey {
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text(viewModel.settings.isSavingAPIKey ? "Saving to Keychain..." : "Loading from Keychain...")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.brandViolet)
+                }
             }
 
             if !statusMessage.isEmpty {
@@ -56,23 +73,37 @@ struct SettingsView: View {
                     viewModel.isSettingsPresented = false
                 }
                 .buttonStyle(StudioSecondaryButton())
+                .disabled(viewModel.settings.isSavingAPIKey)
 
                 Spacer()
 
                 Button("Save") {
-                    viewModel.settings.geminiAPIKey = apiKey
-                    viewModel.settings.persist()
-                    viewModel.isSettingsPresented = false
+                    let pendingKey = apiKey
+                    statusMessage = "Requesting Keychain access..."
+                    Task {
+                        await viewModel.settings.persist(pendingKey)
+                        statusMessage = "API key saved."
+                        viewModel.isSettingsPresented = false
+                    }
                 }
                 .buttonStyle(StudioPrimaryButton(color: .brandGreen))
+                .disabled(isBusy)
             }
         }
         .padding(24)
         .frame(width: 520)
         .onAppear {
-            viewModel.settings.loadIfNeeded()
-            apiKey = viewModel.settings.geminiAPIKey
             statusMessage = ""
+            loadTask?.cancel()
+            loadTask = Task {
+                await viewModel.settings.loadIfNeeded()
+                guard !Task.isCancelled else { return }
+                apiKey = viewModel.settings.geminiAPIKey
+            }
+        }
+        .onDisappear {
+            loadTask?.cancel()
+            loadTask = nil
         }
     }
 }

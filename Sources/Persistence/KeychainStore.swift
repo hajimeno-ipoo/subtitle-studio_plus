@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-struct KeychainStore {
+struct KeychainStore: Sendable {
     private let service = "subtitle-studio-plus"
     private let account = "gemini-api-key"
 

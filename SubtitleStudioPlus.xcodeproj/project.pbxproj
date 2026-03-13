@@ -21,6 +21,7 @@
 		7941C445D417CC7D4CDC4CE4 /* SRTDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF91567ACE35B883DA96FB18 /* SRTDocument.swift */; };
 		8CA9968468E845C735FC2F83 /* HeaderBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F181902E6E34458C02CAF794 /* HeaderBar.swift */; };
 		8CE8C2F9EF8370F281BC67B0 /* SubtitleAlignmentServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D1B987793001724561F583E /* SubtitleAlignmentServiceTests.swift */; };
+		8DAE4B8A64C240B1A6D7F0E1 /* SettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DAE4B8A64C240B1A6D7F0E10 /* SettingsStoreTests.swift */; };
 		9DEAB205F4D4FFACC03B04B1 /* AudioAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52731F7E7985AA9E0D4F86F1 /* AudioAnalysisService.swift */; };
 		A0B3435321B1DC32F6F68EA3 /* WaveformTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E6B003415E9A2261E9EF39 /* WaveformTimelineView.swift */; };
 		A1B484F549BC56B2DEB2D448 /* SRTCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9062D514540400563EEDDD7 /* SRTCodec.swift */; };
@@ -49,6 +50,7 @@
 		12117A54AD541664D4B1F74A /* LivePreviewPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LivePreviewPanel.swift; sourceTree = "<group>"; };
 		15AC0425C484B34CF5078720 /* UploadDropZone.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UploadDropZone.swift; sourceTree = "<group>"; };
 		1D1B987793001724561F583E /* SubtitleAlignmentServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubtitleAlignmentServiceTests.swift; sourceTree = "<group>"; };
+		8DAE4B8A64C240B1A6D7F0E10 /* SettingsStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsStoreTests.swift; sourceTree = "<group>"; };
 		23634F3D99F80D93C18C6F56 /* WaveformService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WaveformService.swift; sourceTree = "<group>"; };
 		23DF2BDE45F686A685241D2C /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		291A14BFF246CE0007F0E136 /* SubtitleListPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubtitleListPanel.swift; sourceTree = "<group>"; };
@@ -202,6 +204,7 @@
 			children = (
 				B0638B780606D94B2A28AAE4 /* AudioAnalysisServiceTests.swift */,
 				3CA6016BF0E5EDDEAEDB8E61 /* SRTCodecTests.swift */,
+				8DAE4B8A64C240B1A6D7F0E10 /* SettingsStoreTests.swift */,
 				1D1B987793001724561F583E /* SubtitleAlignmentServiceTests.swift */,
 			);
 			name = Tests;
@@ -336,6 +339,7 @@
 			files = (
 				1AFB35A42765E2D6287C4BE4 /* AudioAnalysisServiceTests.swift in Sources */,
 				296556DB0B83B4D3C3E8F7D3 /* SRTCodecTests.swift in Sources */,
+				8DAE4B8A64C240B1A6D7F0E1 /* SettingsStoreTests.swift in Sources */,
 				8CE8C2F9EF8370F281BC67B0 /* SubtitleAlignmentServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
