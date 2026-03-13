@@ -169,8 +169,8 @@ struct AudioAnalysisService {
             GeminiRequestBody(
                 contents: [
                     .init(parts: [
-                        .init(text: prompt, inlineData: nil),
                         .init(text: nil, inlineData: .init(mimeType: "audio/wav", data: wavData.base64EncodedString())),
+                        .init(text: prompt, inlineData: nil),
                     ]),
                 ],
                 generationConfig: .init(temperature: 0.1)
