@@ -3,10 +3,12 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		188DEB462F667A3D009DBDC8 /* DSWaveformImage in Frameworks */ = {isa = PBXBuildFile; productRef = 188DEB452F667A3D009DBDC8 /* DSWaveformImage */; };
+		188DEB482F667A3D009DBDC8 /* DSWaveformImageViews in Frameworks */ = {isa = PBXBuildFile; productRef = 188DEB472F667A3D009DBDC8 /* DSWaveformImageViews */; };
 		1AFB35A42765E2D6287C4BE4 /* AudioAnalysisServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0638B780606D94B2A28AAE4 /* AudioAnalysisServiceTests.swift */; };
 		296556DB0B83B4D3C3E8F7D3 /* SRTCodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CA6016BF0E5EDDEAEDB8E61 /* SRTCodecTests.swift */; };
 		2E1A19CD2865B3BEB316D12C /* WaveformService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23634F3D99F80D93C18C6F56 /* WaveformService.swift */; };
@@ -50,7 +52,6 @@
 		12117A54AD541664D4B1F74A /* LivePreviewPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LivePreviewPanel.swift; sourceTree = "<group>"; };
 		15AC0425C484B34CF5078720 /* UploadDropZone.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UploadDropZone.swift; sourceTree = "<group>"; };
 		1D1B987793001724561F583E /* SubtitleAlignmentServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubtitleAlignmentServiceTests.swift; sourceTree = "<group>"; };
-		8DAE4B8A64C240B1A6D7F0E10 /* SettingsStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsStoreTests.swift; sourceTree = "<group>"; };
 		23634F3D99F80D93C18C6F56 /* WaveformService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WaveformService.swift; sourceTree = "<group>"; };
 		23DF2BDE45F686A685241D2C /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		291A14BFF246CE0007F0E136 /* SubtitleListPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubtitleListPanel.swift; sourceTree = "<group>"; };
@@ -63,6 +64,7 @@
 		6C6BE98C07F455840CAED68A /* SubtitleStudioPlusApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubtitleStudioPlusApp.swift; sourceTree = "<group>"; };
 		75E6B003415E9A2261E9EF39 /* WaveformTimelineView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WaveformTimelineView.swift; sourceTree = "<group>"; };
 		7D1B5CC9E713EC96CE08330B /* AppModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppModels.swift; sourceTree = "<group>"; };
+		8DAE4B8A64C240B1A6D7F0E10 /* SettingsStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsStoreTests.swift; sourceTree = "<group>"; };
 		A0B4489650CC48D6185534E8 /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B0638B780606D94B2A28AAE4 /* AudioAnalysisServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AudioAnalysisServiceTests.swift; sourceTree = "<group>"; };
 		B6884B3768A65E501A80582F /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
@@ -91,6 +93,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				188DEB482F667A3D009DBDC8 /* DSWaveformImageViews in Frameworks */,
+				188DEB462F667A3D009DBDC8 /* DSWaveformImage in Frameworks */,
 				FF32F73EEC12DBDE298C2D5B /* Cocoa.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -109,7 +113,6 @@
 				5E21189936C1907CA83822A2 /* ViewModels */,
 				6D93B6E4BFF15C1BEE089E3A /* Views */,
 			);
-			name = Sources;
 			path = Sources;
 			sourceTree = "<group>";
 		};
@@ -137,7 +140,6 @@
 			children = (
 				C9E61B8F7603653903B584AC /* AppViewModel.swift */,
 			);
-			name = ViewModels;
 			path = ViewModels;
 			sourceTree = "<group>";
 		};
@@ -149,7 +151,6 @@
 				D0E1FDC354FE936832A40634 /* SubtitleAlignmentService.swift */,
 				23634F3D99F80D93C18C6F56 /* WaveformService.swift */,
 			);
-			name = Services;
 			path = Services;
 			sourceTree = "<group>";
 		};
@@ -165,7 +166,6 @@
 				15AC0425C484B34CF5078720 /* UploadDropZone.swift */,
 				75E6B003415E9A2261E9EF39 /* WaveformTimelineView.swift */,
 			);
-			name = Views;
 			path = Views;
 			sourceTree = "<group>";
 		};
@@ -175,7 +175,6 @@
 				D15778F4F9ACC6AD2A0F6A24 /* AudioFileSupport.swift */,
 				E9062D514540400563EEDDD7 /* SRTCodec.swift */,
 			);
-			name = Utilities;
 			path = Utilities;
 			sourceTree = "<group>";
 		};
@@ -184,7 +183,6 @@
 			children = (
 				7D1B5CC9E713EC96CE08330B /* AppModels.swift */,
 			);
-			name = Models;
 			path = Models;
 			sourceTree = "<group>";
 		};
@@ -195,7 +193,6 @@
 				CF91567ACE35B883DA96FB18 /* SRTDocument.swift */,
 				F75037667926C94556F882C5 /* SettingsStore.swift */,
 			);
-			name = Persistence;
 			path = Persistence;
 			sourceTree = "<group>";
 		};
@@ -207,7 +204,6 @@
 				8DAE4B8A64C240B1A6D7F0E10 /* SettingsStoreTests.swift */,
 				1D1B987793001724561F583E /* SubtitleAlignmentServiceTests.swift */,
 			);
-			name = Tests;
 			path = Tests;
 			sourceTree = "<group>";
 		};
@@ -224,7 +220,6 @@
 			children = (
 				BF0E17EE082047C89D5160CE /* AppInfo.plist */,
 			);
-			name = Support;
 			path = Support;
 			sourceTree = "<group>";
 		};
@@ -234,7 +229,6 @@
 				4B21C9FACAAF4164F4936875 /* AppDelegate.swift */,
 				6C6BE98C07F455840CAED68A /* SubtitleStudioPlusApp.swift */,
 			);
-			name = App;
 			path = App;
 			sourceTree = "<group>";
 		};
@@ -291,8 +285,9 @@
 		1D50C86977AA3B8B70FA4D99 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				BuildIndependentTargetsInParallel = YES;
 				LastSwiftUpdateCheck = 2600;
-				LastUpgradeCheck = 2600;
+				LastUpgradeCheck = 2630;
 			};
 			buildConfigurationList = 9F02FDD51A8538A494D4E51D /* Build configuration list for PBXProject "SubtitleStudioPlus" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -303,8 +298,9 @@
 				Base,
 			);
 			mainGroup = 1A5115A37F6134EED174AB01;
-			minimizedProjectReferenceProxies = 0;
-			preferredProjectObjectVersion = 77;
+			packageReferences = (
+				188DEB442F667A3D009DBDC8 /* XCRemoteSwiftPackageReference "DSWaveformImage" */,
+			);
 			productRefGroup = EFEDCFFD3C63B20530A75FB6 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -418,9 +414,11 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -432,6 +430,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -472,9 +471,11 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -493,6 +494,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -506,10 +508,14 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Support/AppInfo.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.hazimeno.subtitle-studio-plus";
 				PRODUCT_MODULE_NAME = SubtitleStudioPlus;
@@ -523,6 +529,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.hazimeno.subtitle-studio-plus.tests";
@@ -536,6 +543,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.hazimeno.subtitle-studio-plus.tests";
@@ -552,10 +560,14 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Support/AppInfo.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.hazimeno.subtitle-studio-plus";
 				PRODUCT_MODULE_NAME = SubtitleStudioPlus;
@@ -596,6 +608,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		188DEB442F667A3D009DBDC8 /* XCRemoteSwiftPackageReference "DSWaveformImage" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/dmrschmidt/DSWaveformImage.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 14.3.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		188DEB452F667A3D009DBDC8 /* DSWaveformImage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 188DEB442F667A3D009DBDC8 /* XCRemoteSwiftPackageReference "DSWaveformImage" */;
+			productName = DSWaveformImage;
+		};
+		188DEB472F667A3D009DBDC8 /* DSWaveformImageViews */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 188DEB442F667A3D009DBDC8 /* XCRemoteSwiftPackageReference "DSWaveformImage" */;
+			productName = DSWaveformImageViews;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1D50C86977AA3B8B70FA4D99 /* Project object */;
 }
