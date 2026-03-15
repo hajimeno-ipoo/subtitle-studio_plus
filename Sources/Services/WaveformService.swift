@@ -2,29 +2,9 @@
 import Foundation
 
 struct WaveformService {
-    func loadWaveform(url: URL, targetSamples: Int = 1800) throws -> WaveformData {
-        let (file, buffer) = try loadPCMBuffer(url: url)
-        guard let channelData = buffer.floatChannelData?.pointee else {
-            throw SubtitleStudioError.unreadableAudio
-        }
-
-        let frames = Int(buffer.frameLength)
-        let samplesPerBucket = max(1, frames / targetSamples)
-        var reduced: [Float] = []
-        reduced.reserveCapacity(targetSamples)
-
-        for start in stride(from: 0, to: frames, by: samplesPerBucket) {
-            let end = min(start + samplesPerBucket, frames)
-            var peak: Float = 0
-            if start < end {
-                for index in start..<end {
-                    peak = max(peak, abs(channelData[index]))
-                }
-            }
-            reduced.append(peak)
-        }
-
-        return WaveformData(samples: reduced, duration: file.duration)
+    func audioDuration(url: URL) throws -> TimeInterval {
+        let file = try AVAudioFile(forReading: url)
+        return file.duration
     }
 
     func decodedMonoSamples(url: URL) throws -> (samples: [Float], sampleRate: Double, duration: TimeInterval) {

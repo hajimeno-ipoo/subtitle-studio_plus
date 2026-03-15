@@ -1,8 +1,10 @@
 import SwiftUI
+import DSWaveformImage
+import DSWaveformImageViews
 
 struct WaveformTimelineView: View {
     @Environment(AppViewModel.self) private var viewModel
-    @State private var scrollTarget = 0
+    @State private var scrollTarget: Double = 0
 
     private let rulerHeight: CGFloat = 28
     private let subtitleHeight: CGFloat = 104
@@ -21,7 +23,7 @@ struct WaveformTimelineView: View {
         .studioPanelChrome()
         .onChange(of: viewModel.currentTime) {
             guard viewModel.isPlaying else { return }
-            scrollTarget = max(0, Int(viewModel.currentTime.rounded()))
+            scrollTarget = max(0, (viewModel.currentTime * 10).rounded() / 10.0)
         }
     }
 
@@ -75,7 +77,7 @@ struct WaveformTimelineView: View {
                 Slider(value: Binding(
                     get: { viewModel.viewport.zoom },
                     set: { viewModel.updateZoom($0) }
-                ), in: 10...300)
+                ), in: 10...200)
                 .frame(width: 120)
 
                 Button {
@@ -155,9 +157,10 @@ struct WaveformTimelineView: View {
 
     private var markerTrack: some View {
         HStack(spacing: 0) {
-            ForEach(0...max(Int((viewModel.audioAsset?.duration ?? 0).rounded(.up)), 1), id: \.self) { second in
+            ForEach(0...max(Int((viewModel.audioAsset?.duration ?? 0) * 10), 10), id: \.self) { step in
+                let second = Double(step) / 10.0
                 Color.clear
-                    .frame(width: viewModel.viewport.zoom, height: 1)
+                    .frame(width: viewModel.viewport.zoom / 10.0, height: 1)
                     .id(second)
             }
         }
@@ -202,24 +205,35 @@ struct WaveformTimelineView: View {
     private var waveformTrack: some View {
         ZStack(alignment: .leading) {
             Rectangle().fill(Color.white)
-            Canvas { context, size in
-                let samples = viewModel.waveformData.samples
-                guard !samples.isEmpty, waveformWidth > 0 else { return }
-                let midY = size.height / 2
-                let barWidth = waveformWidth / CGFloat(samples.count)
-
-                for (index, sample) in samples.enumerated() {
-                    let x = CGFloat(index) * barWidth
-                    let height = max(1, CGFloat(sample) * (size.height / 2))
-                    let rect = CGRect(x: x, y: midY - height, width: max(barWidth * 0.86, 0.5), height: height * 2)
-                    context.fill(Path(roundedRect: rect, cornerRadius: 1.5), with: .color(Color.brandPink))
+            if let url = viewModel.audioAsset?.url {
+                ZStack(alignment: .leading) {
+                    StaticWaveform(audioURL: url, isForeground: false)
+                        .frame(width: waveformWidth, height: waveformHeight, alignment: .leading)
+                        .clipped()
+                        .allowsHitTesting(false)
+                    
+                    StaticWaveform(audioURL: url, isForeground: true)
+                        .frame(width: waveformWidth, height: waveformHeight, alignment: .leading)
+                        .clipped()
+                        .allowsHitTesting(false)
+                        .mask(alignment: .leading) {
+                            GeometryReader { geometry in
+                                Rectangle()
+                                    .frame(width: max(0, geometry.size.width * progress))
+                            }
+                        }
                 }
             }
-            .frame(width: waveformWidth, height: waveformHeight, alignment: .leading)
         }
         .frame(height: waveformHeight)
         .contentShape(Rectangle())
         .gesture(seekGesture)
+    }
+
+    private var progress: CGFloat {
+        let duration = viewModel.audioAsset?.duration ?? 1
+        guard duration > 0 else { return 0 }
+        return max(0, min(1, CGFloat(viewModel.currentTime / duration)))
     }
 
     private var playhead: some View {
@@ -257,7 +271,7 @@ struct WaveformTimelineView: View {
     }
 
     private var waveformWidth: CGFloat {
-        max(CGFloat(viewModel.waveformData.duration) * viewModel.viewport.zoom, 0)
+        max(CGFloat(viewModel.audioAsset?.duration ?? 0) * viewModel.viewport.zoom, 0)
     }
 }
 
@@ -415,3 +429,27 @@ struct Triangle: Shape {
         }
     }
 }
+
+struct StaticWaveform: View, @preconcurrency Equatable {
+    let audioURL: URL
+    let isForeground: Bool
+    
+    // 上下に20%ずつの余白を作るため 0.6 に設定
+    private var config: Waveform.Configuration {
+        Waveform.Configuration(
+            style: .filled(.black), // 色は Shape.fill() で上書きされる
+            verticalScalingFactor: 0.6
+        )
+    }
+
+    var body: some View {
+        WaveformView(audioURL: audioURL, configuration: config) { shape in
+            shape.fill(isForeground ? Color.brandPink : Color.brandPink.opacity(0.4))
+        }
+    }
+
+    static func == (lhs: StaticWaveform, rhs: StaticWaveform) -> Bool {
+        lhs.audioURL == rhs.audioURL && lhs.isForeground == rhs.isForeground
+    }
+}
+// Add WaveformLayer struct at the end

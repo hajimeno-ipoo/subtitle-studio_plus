@@ -20,7 +20,6 @@ final class AppViewModel {
     var selectionBeforeLyricsEdit: UUID?
     var lastEditedSubtitleID: UUID?
     var viewport = TimelineViewport()
-    var waveformData = WaveformData(samples: [], duration: 0)
     var settings = SettingsStore()
     var isDropTargeted = false
     var isSettingsPresented = false
@@ -116,10 +115,9 @@ final class AppViewModel {
                 if gotAccess { url.stopAccessingSecurityScopedResource() }
             }
 
-            let waveform = try waveformService.loadWaveform(url: url)
+            let duration = try waveformService.audioDuration(url: url)
             try playback.load(url: url)
-            audioAsset = AudioAsset(url: url, fileName: url.lastPathComponent, duration: waveform.duration, fileSize: fileSize, contentType: resource.contentType)
-            waveformData = waveform
+            audioAsset = AudioAsset(url: url, fileName: url.lastPathComponent, duration: duration, fileSize: fileSize, contentType: resource.contentType)
             subtitles = []
             resetLyricsEditState()
             status = .idle
@@ -161,7 +159,7 @@ final class AppViewModel {
     }
 
     func updateZoom(_ value: CGFloat) {
-        viewport.zoom = max(10, min(value, 300))
+        viewport.zoom = max(10, min(value, 200))
     }
 
     func analyzeAudio() async {
@@ -424,10 +422,6 @@ final class AppViewModel {
             duration: 18,
             fileSize: 0,
             contentType: nil
-        )
-        waveformData = WaveformData(
-            samples: Array(repeating: 0.2, count: 180),
-            duration: 18
         )
         subtitles = [
             SubtitleItem(startTime: 1, endTime: 4, text: "debug one"),

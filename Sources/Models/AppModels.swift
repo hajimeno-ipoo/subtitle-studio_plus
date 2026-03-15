@@ -90,10 +90,6 @@ struct UnsavedChangesState: Equatable {
     var hasUnsavedChanges = false
 }
 
-struct WaveformData: Equatable {
-    var samples: [Float]
-    var duration: TimeInterval
-}
 
 enum TimelineDragMode {
     case move
