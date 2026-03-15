@@ -53,34 +53,130 @@ struct HeaderBar: View {
 
 struct StudioPrimaryButton: ButtonStyle {
     var color: Color
+    var textColor: Color = .black
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 14, weight: .black, design: .rounded))
-            .foregroundStyle(.black)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 10)
-            .background(color)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .studioOffsetShadow(
-                cornerRadius: 12,
-                x: configuration.isPressed ? 1 : 4,
-                y: configuration.isPressed ? 1 : 4
-            )
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(.black, lineWidth: 2))
-            .offset(x: configuration.isPressed ? 1 : 0, y: configuration.isPressed ? 1 : 0)
+        ButtonBody(configuration: configuration, color: color, textColor: textColor)
+    }
+
+    struct ButtonBody: View {
+        let configuration: Configuration
+        let color: Color
+        let textColor: Color
+        @State private var isHovered = false
+
+        var body: some View {
+            configuration.label
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(textColor)
+                .padding(.horizontal, 16)
+                .frame(height: 36)
+                .background(color)
+                .brightness(isHovered ? 0.12 : 0)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .studioOffsetShadow(
+                    cornerRadius: 10,
+                    x: configuration.isPressed ? 1 : 3,
+                    y: configuration.isPressed ? 1 : 3
+                )
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(.black, lineWidth: 2))
+                .offset(x: configuration.isPressed ? 1 : 0, y: configuration.isPressed ? 1 : 0)
+                .onHover { masking in
+                    withAnimation(.easeInOut(duration: 0.12)) {
+                        isHovered = masking
+                    }
+                }
+        }
     }
 }
 
 struct StudioSecondaryButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 14, weight: .bold, design: .rounded))
-            .foregroundStyle(.black)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(.black, lineWidth: 2))
+        ButtonBody(configuration: configuration)
+    }
+
+    struct ButtonBody: View {
+        let configuration: Configuration
+        @State private var isHovered = false
+
+        var body: some View {
+            configuration.label
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 14)
+                .frame(height: 36)
+                .background(isHovered ? Color.brandBlue.opacity(0.1) : Color.white)
+                .brightness(isHovered ? 0.08 : 0)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(.black, lineWidth: 2))
+                .onHover { masking in
+                    withAnimation(.easeInOut(duration: 0.12)) {
+                        isHovered = masking
+                    }
+                }
+        }
+    }
+}
+
+struct StudioCircleButton: ButtonStyle {
+    var color: Color
+    var size: CGFloat = 44
+
+    func makeBody(configuration: Configuration) -> some View {
+        ButtonBody(configuration: configuration, color: color, size: size)
+    }
+
+    struct ButtonBody: View {
+        let configuration: Configuration
+        let color: Color
+        let size: CGFloat
+        @State private var isHovered = false
+
+        var body: some View {
+            configuration.label
+                .frame(width: size, height: size)
+                .background(color)
+                .brightness(isHovered ? 0.12 : 0)
+                .clipShape(Circle())
+                .studioOffsetShadow(
+                    cornerRadius: size/2,
+                    x: configuration.isPressed ? 1 : 3,
+                    y: configuration.isPressed ? 1 : 3
+                )
+                .overlay(Circle().stroke(.black, lineWidth: 2))
+                .offset(x: configuration.isPressed ? 1 : 0, y: configuration.isPressed ? 1 : 0)
+                .onHover { masking in
+                    withAnimation(.easeInOut(duration: 0.12)) {
+                        isHovered = masking
+                    }
+                }
+        }
+    }
+}
+
+struct StudioIconButton: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        ButtonBody(configuration: configuration)
+    }
+
+    struct ButtonBody: View {
+        let configuration: Configuration
+        @State private var isHovered = false
+
+        var body: some View {
+            configuration.label
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(isHovered ? Color.brandViolet : .black)
+                .padding(6)
+                .background(isHovered ? Color.brandViolet.opacity(0.12) : Color.clear)
+                .clipShape(Circle())
+                .contentShape(Rectangle())
+                .onHover { masking in
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isHovered = masking
+                    }
+                }
+                .opacity(configuration.isPressed ? 0.7 : 1.0)
+        }
     }
 }

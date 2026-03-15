@@ -25,19 +25,21 @@ struct WaveformTimelineView: View {
 
     private var toolbar: some View {
         HStack {
-            Button(viewModel.isPlaying ? "Pause" : "Play") {
+            Button {
                 viewModel.togglePlayback()
+            } label: {
+                Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
+                    .font(.system(size: 18, weight: .black))
             }
-            .buttonStyle(StudioPrimaryButton(color: .brandGreen))
+            .buttonStyle(StudioCircleButton(color: .brandGreen, size: 48))
             .disabled(!viewModel.canTogglePlayback)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Time")
+            VStack(alignment: .leading, spacing: 1) {
+                Text("TIME")
                     .font(.system(size: 10, weight: .black, design: .rounded))
                     .foregroundStyle(Color.brandViolet)
-                    .textCase(.uppercase)
                 Text("\(SRTCodec.formatDisplayTime(viewModel.currentTime)) / \(SRTCodec.formatDisplayTime(viewModel.audioAsset?.duration ?? 0))")
-                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                    .font(.system(size: 19, weight: .bold, design: .monospaced))
             }
 
             Spacer()
@@ -48,7 +50,7 @@ struct WaveformTimelineView: View {
                 } label: {
                     Image(systemName: viewModel.playback.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(StudioIconButton())
 
                 Slider(value: Binding(
                     get: { viewModel.playback.volume },
@@ -58,17 +60,17 @@ struct WaveformTimelineView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(.white)
+            .background(Color.white)
             .clipShape(Capsule())
             .overlay(Capsule().stroke(.black, lineWidth: 2))
 
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Button {
                     viewModel.updateZoom(viewModel.viewport.zoom - 20)
                 } label: {
                     Image(systemName: "minus.magnifyingglass")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(StudioIconButton())
 
                 Slider(value: Binding(
                     get: { viewModel.viewport.zoom },
@@ -81,7 +83,7 @@ struct WaveformTimelineView: View {
                 } label: {
                     Image(systemName: "plus.magnifyingglass")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(StudioIconButton())
 
                 Text("\(Int(viewModel.viewport.zoom))%")
                     .font(.system(size: 12, weight: .black, design: .rounded))
@@ -89,7 +91,7 @@ struct WaveformTimelineView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(.white)
+            .background(Color.white)
             .clipShape(Capsule())
             .overlay(Capsule().stroke(.black, lineWidth: 2))
         }

@@ -7,33 +7,51 @@ struct SubtitleListPanel: View {
         @Bindable var bindableViewModel = viewModel
 
         VStack(spacing: 0) {
-            HStack {
-                Label("SUBTITLES", systemImage: "text.bubble")
-                    .font(.system(size: 14, weight: .black, design: .rounded))
+            HStack(spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "text.alignleft")
+                        .font(.system(size: 16, weight: .medium))
+                    Text("SUBTITLES")
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                }
+                .lineLimit(1)
+                .fixedSize()
 
                 Spacer()
 
-                Button(viewModel.isLyricsEditMode ? "DONE" : "EDIT LYRICS") {
-                    viewModel.toggleLyricsEditMode()
-                }
-                .buttonStyle(StudioSecondaryButton())
-                .disabled(!viewModel.canEditSubtitles && !viewModel.isLyricsEditMode)
+                HStack(spacing: 8) {
+                    Button(viewModel.isLyricsEditMode ? "DONE" : "EDIT LYRICS") {
+                        viewModel.toggleLyricsEditMode()
+                    }
+                    .buttonStyle(StudioSecondaryButton())
+                    .disabled(!viewModel.canEditSubtitles && !viewModel.isLyricsEditMode)
+                    .fixedSize(horizontal: true, vertical: false)
 
-                Button(viewModel.status == .aligning ? "ALIGNING..." : "AUTO-ALIGN") {
-                    Task { await viewModel.autoAlign() }
-                }
-                .buttonStyle(StudioPrimaryButton(color: .brandViolet))
-                .disabled(viewModel.subtitles.isEmpty || viewModel.status == .aligning)
+                    Button {
+                        Task { await viewModel.autoAlign() }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "wand.and.stars.inverse")
+                                .font(.system(size: 12, weight: .bold))
+                            Text(viewModel.status == .aligning ? "ALIGNING..." : "AUTO-ALIGN")
+                        }
+                    }
+                    .buttonStyle(StudioPrimaryButton(color: .brandViolet, textColor: .white))
+                    .disabled(viewModel.subtitles.isEmpty || viewModel.status == .aligning)
+                    .fixedSize(horizontal: true, vertical: false)
 
-                Text("\(viewModel.subtitles.count)")
-                    .font(.system(size: 12, weight: .black, design: .rounded))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(.white)
-                    .clipShape(Capsule())
-                    .overlay(Capsule().stroke(.black, lineWidth: 1))
+                    Text("\(viewModel.subtitles.count)")
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .frame(minWidth: 32)
+                        .frame(height: 36)
+                        .padding(.horizontal, 8)
+                        .background(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(.black, lineWidth: 2))
+                }
             }
-            .padding(14)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
             .background(Color.brandCyan.opacity(0.3))
             .overlay(Rectangle().frame(height: 2).foregroundStyle(.black), alignment: .bottom)
 
