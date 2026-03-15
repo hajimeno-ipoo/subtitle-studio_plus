@@ -21,10 +21,6 @@ struct WaveformTimelineView: View {
             }
         }
         .studioPanelChrome()
-        .onChange(of: viewModel.currentTime) {
-            guard viewModel.isPlaying else { return }
-            scrollTarget = max(0, (viewModel.currentTime * 10).rounded() / 10.0)
-        }
     }
 
     private var toolbar: some View {
@@ -133,23 +129,43 @@ struct WaveformTimelineView: View {
     }
 
     private var timelineScroller: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal) {
-                ZStack(alignment: .topLeading) {
-                    markerTrack
-                    VStack(spacing: 0) {
-                        rulerTrack
-                        subtitleTrack
-                        waveformTrack
+        GeometryReader { geometry in
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal) {
+                    ZStack(alignment: .topLeading) {
+                        markerTrack
+                        VStack(spacing: 0) {
+                            rulerTrack
+                            subtitleTrack
+                            waveformTrack
+                        }
+                        playhead
                     }
-                    playhead
+                    .frame(width: contentWidth, alignment: .leading)
+                    .background(Color.white)
                 }
-                .frame(width: contentWidth, alignment: .leading)
-                .background(Color.white)
-            }
-            .onChange(of: scrollTarget) {
-                withAnimation(.linear(duration: 0.15)) {
-                    proxy.scrollTo(scrollTarget, anchor: .center)
+                .onChange(of: viewModel.currentTime) {
+                    guard viewModel.isPlaying else { return }
+                    
+                    let zoom = Double(viewModel.viewport.zoom)
+                    let viewportWidth = Double(geometry.size.width)
+                    let currentPos = viewModel.currentTime * zoom
+                    
+                    // 現在の表示開始位置（scrollTarget）を基準に、
+                    // 再生ヘッドが画面右端（scrollTarget + viewportWidth）に達したか判定
+                    let scrollLeft = scrollTarget * zoom
+                    
+                    if currentPos >= scrollLeft + viewportWidth {
+                        // 1ページ分進める（ヘッドが新画面の左端に来るように設定）
+                        // アニメーションなしで瞬時に切り替える
+                        withAnimation(nil) {
+                            scrollTarget = (max(0, currentPos) / zoom * 10.0).rounded() / 10.0
+                        }
+                    }
+                }
+                .onChange(of: scrollTarget) {
+                    // ページ切り替えはアニメーションなしで「カチッ」と切り替える
+                    proxy.scrollTo(scrollTarget, anchor: .leading)
                 }
             }
         }
