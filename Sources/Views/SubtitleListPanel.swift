@@ -68,11 +68,11 @@ struct SubtitleListPanel: View {
                             }
                             .frame(maxWidth: .infinity, minHeight: 220)
                         } else {
-                            ForEach(Array(bindableViewModel.subtitles.indices), id: \.self) { index in
-                                let subtitle = bindableViewModel.subtitles[index]
+                            ForEach($bindableViewModel.subtitles) { $subtitle in
+                                let index = bindableViewModel.subtitles.firstIndex(where: { $0.id == subtitle.id }) ?? 0
                                 SubtitleRow(
                                     subtitleNumber: index + 1,
-                                    subtitle: $bindableViewModel.subtitles[index],
+                                    subtitle: $subtitle,
                                     isHighlighted: viewModel.subtitleIsHighlighted(subtitle),
                                     isPlayingNow: viewModel.subtitleIsPlayingNow(subtitle)
                                 )

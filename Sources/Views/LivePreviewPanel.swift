@@ -13,25 +13,23 @@ struct LivePreviewPanel: View {
 
                 Spacer()
 
-                if viewModel.status != .completed {
-                    Button {
-                        Task { await viewModel.analyzeAudio() }
-                    }
-                    label: {
-                        if viewModel.status == .analyzing {
-                            HStack(spacing: 8) {
-                                SmallGeneratingSpinner()
-                                Text("GENERATING...")
-                            }
-                            .frame(minWidth: 190)
-                        } else {
-                            Text("AUTO GENERATE")
-                                .frame(minWidth: 160)
-                        }
-                    }
-                    .buttonStyle(StudioPrimaryButton(color: .brandYellow))
-                    .disabled(viewModel.audioAsset == nil || viewModel.status == .analyzing)
+                Button {
+                    Task { await viewModel.analyzeAudio() }
                 }
+                label: {
+                    if viewModel.status == .analyzing {
+                        HStack(spacing: 8) {
+                            SmallGeneratingSpinner()
+                            Text("GENERATING...")
+                        }
+                        .frame(minWidth: 190)
+                    } else {
+                        Text("AUTO GENERATE")
+                            .frame(minWidth: 160)
+                    }
+                }
+                .buttonStyle(StudioPrimaryButton(color: .brandYellow))
+                .disabled(viewModel.audioAsset == nil || viewModel.status == .analyzing)
             }
             .padding(16)
             .background(Color.brandPink.opacity(0.28))
