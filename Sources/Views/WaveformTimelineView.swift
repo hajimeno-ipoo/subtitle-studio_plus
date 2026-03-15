@@ -145,19 +145,14 @@ struct WaveformTimelineView: View {
                     .background(Color.white)
                 }
                 .onChange(of: viewModel.currentTime) {
-                    guard viewModel.isPlaying else { return }
-                    
                     let zoom = Double(viewModel.viewport.zoom)
                     let viewportWidth = Double(geometry.size.width)
                     let currentPos = viewModel.currentTime * zoom
-                    
-                    // 現在の表示開始位置（scrollTarget）を基準に、
-                    // 再生ヘッドが画面右端（scrollTarget + viewportWidth）に達したか判定
                     let scrollLeft = scrollTarget * zoom
                     
-                    if currentPos >= scrollLeft + viewportWidth {
-                        // 1ページ分進める（ヘッドが新画面の左端に来るように設定）
-                        // アニメーションなしで瞬時に切り替える
+                    // ヘッドが表示範囲外（右端を越える、または左端より戻る）に出た場合、
+                    // 即座にその位置を含むページ（ヘッドが左端になる位置）へ同期します。
+                    if currentPos >= scrollLeft + viewportWidth || currentPos < scrollLeft {
                         withAnimation(nil) {
                             scrollTarget = (max(0, currentPos) / zoom * 10.0).rounded() / 10.0
                         }
