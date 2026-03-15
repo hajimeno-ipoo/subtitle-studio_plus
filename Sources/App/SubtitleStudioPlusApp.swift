@@ -13,13 +13,13 @@ struct SubtitleStudioPlusApp: App {
             if let window = NSApplication.shared.windows.first {
                 window.setContentSize(size)
                 window.minSize = NSSize(width: 1280, height: 820)
-                window.title = "AI Subtitle Studio"
+                window.title = "SubtitleStudioPlus"
             }
         }
     }
 
     var body: some Scene {
-        WindowGroup("AI Subtitle Studio") {
+        WindowGroup("SubtitleStudioPlus") {
             RootView()
                 .environment(viewModel)
                 .onAppear {

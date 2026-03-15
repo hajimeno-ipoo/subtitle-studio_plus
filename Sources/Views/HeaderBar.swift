@@ -11,12 +11,12 @@ struct HeaderBar: View {
                     .stroke(Color.black, lineWidth: 2)
                     .frame(width: 42, height: 42)
                     .overlay(Image(systemName: "waveform").font(.title3.weight(.black)).foregroundStyle(.white))
-                Text("AI ")
+                Text("Subtitle")
                     .font(.system(size: 28, weight: .black, design: .rounded))
-                + Text("Subtitle")
+                + Text("Studio")
                     .font(.system(size: 28, weight: .black, design: .rounded))
                     .foregroundStyle(Color.brandViolet)
-                + Text(" Studio")
+                + Text("Plus")
                     .font(.system(size: 28, weight: .black, design: .rounded))
             }
 
