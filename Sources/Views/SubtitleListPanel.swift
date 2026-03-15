@@ -7,12 +7,12 @@ struct SubtitleListPanel: View {
         @Bindable var bindableViewModel = viewModel
 
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Image(systemName: "text.alignleft")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
                     Text("SUBTITLES")
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
                 }
                 .lineLimit(1)
                 .fixedSize()
@@ -26,6 +26,20 @@ struct SubtitleListPanel: View {
                     .buttonStyle(StudioSecondaryButton())
                     .disabled(!viewModel.canEditSubtitles && !viewModel.isLyricsEditMode)
                     .fixedSize(horizontal: true, vertical: false)
+
+                    if viewModel.isLyricsEditMode && viewModel.canUndo {
+                        Button {
+                            viewModel.undo()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.uturn.backward.circle")
+                                    .font(.system(size: 14, weight: .bold))
+                                Text("UNDO")
+                            }
+                        }
+                        .buttonStyle(StudioSecondaryButton())
+                        .fixedSize(horizontal: true, vertical: false)
+                    }
 
                     Button {
                         Task { await viewModel.autoAlign() }
@@ -76,8 +90,28 @@ struct SubtitleListPanel: View {
                                     isHighlighted: viewModel.subtitleIsHighlighted(subtitle),
                                     isPlayingNow: viewModel.subtitleIsPlayingNow(subtitle)
                                 )
-                                    .id(subtitle.id)
+                                .id(subtitle.id)
                             }
+                        }
+
+                        if viewModel.isLyricsEditMode {
+                            Button {
+                                viewModel.addSubtitle()
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "plus.circle.fill")
+                                    Text("ADD LYRIC")
+                                }
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
+                                .background(Color.brandYellow)
+                                .foregroundStyle(.black)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .studioOffsetShadow(cornerRadius: 12, x: 3, y: 3)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.top, 8)
                         }
                     }
                     .padding(14)
@@ -136,14 +170,16 @@ struct SubtitleRow: View {
                     .font(.system(size: 12, weight: .black, design: .rounded))
                     .foregroundStyle(.secondary)
 
-                Button {
-                    viewModel.deleteSubtitle(id: subtitle.id)
-                } label: {
-                    Image(systemName: "trash")
+                if viewModel.isLyricsEditMode {
+                    Button {
+                        viewModel.deleteSubtitle(id: subtitle.id)
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .disabled(!viewModel.canEditSubtitles)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .disabled(!viewModel.canEditSubtitles)
             }
         }
     }

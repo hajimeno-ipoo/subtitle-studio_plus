@@ -308,6 +308,31 @@ final class AppViewModel {
         unsavedChanges.hasUnsavedChanges = true
     }
 
+    func addSubtitle() {
+        pushUndoState()
+        
+        let startTime: TimeInterval
+        if let selectedID = selectedSubtitleID ?? editingSubtitleID,
+           let selected = subtitles.first(where: { $0.id == selectedID }) {
+            startTime = selected.endTime + 0.1
+        } else if let last = subtitles.last {
+            startTime = last.endTime + 0.1
+        } else {
+            startTime = currentTime
+        }
+        
+        let newItem = SubtitleItem(startTime: startTime, endTime: startTime + 2.0, text: "New Lyric")
+        subtitles.append(newItem)
+        subtitles.sort { $0.startTime < $1.startTime }
+        
+        selectedSubtitleID = newItem.id
+        if isLyricsEditMode {
+            editingSubtitleID = newItem.id
+        }
+        
+        unsavedChanges.hasUnsavedChanges = true
+    }
+
     func selectSubtitle(id: UUID?) {
         selectedSubtitleID = id
     }

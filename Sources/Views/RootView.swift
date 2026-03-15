@@ -78,7 +78,7 @@ struct RootView: View {
                 HStack(alignment: .top, spacing: 24) {
                     LivePreviewPanel()
                     SubtitleListPanel()
-                        .frame(width: 480)
+                        .frame(width: 520)
                 }
                 WaveformTimelineView()
                     .frame(height: 320)
