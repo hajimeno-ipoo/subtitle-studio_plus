@@ -73,7 +73,7 @@ struct WaveformTimelineView: View {
                 Slider(value: Binding(
                     get: { viewModel.viewport.zoom },
                     set: { viewModel.updateZoom($0) }
-                ), in: 10...200)
+                ), in: 0...200)
                 .frame(width: 120)
 
                 Button {
