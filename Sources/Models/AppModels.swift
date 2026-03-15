@@ -78,6 +78,7 @@ struct AppDialogState: Identifiable, Equatable {
     enum Kind: Equatable {
         case error
         case unsavedChanges
+        case confirmReset
     }
 
     let id = UUID()

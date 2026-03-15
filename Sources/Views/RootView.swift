@@ -51,6 +51,15 @@ struct RootView: View {
                         viewModel.cancelPendingImport()
                     }
                 )
+            case .confirmReset:
+                Alert(
+                    title: Text(state.title),
+                    message: Text(state.message),
+                    primaryButton: .destructive(Text("Return to Start")) {
+                        viewModel.resetProject()
+                    },
+                    secondaryButton: .cancel()
+                )
             }
         }
         .sheet(isPresented: bind(\.isSettingsPresented)) {

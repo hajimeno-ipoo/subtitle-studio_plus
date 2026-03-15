@@ -119,18 +119,41 @@ final class AppViewModel {
             try playback.load(url: url)
             audioAsset = AudioAsset(url: url, fileName: url.lastPathComponent, duration: duration, fileSize: fileSize, contentType: resource.contentType)
             subtitles = []
-            resetLyricsEditState()
-            status = .idle
-            analysisProgress = nil
-            alignmentProgressText = ""
-            currentTime = 0
-            dialogState = nil
-            unsavedChanges.hasUnsavedChanges = false
-            undoStack.removeAll()
-            redoStack.removeAll()
+            resetInternalState()
         } catch {
             present(error)
         }
+    }
+
+    func requestReset() {
+        if hasUnsavedChanges {
+            dialogState = .init(
+                title: "Close current project?",
+                message: "You have unsaved changes. Are you sure you want to return to the start screen?",
+                kind: .confirmReset
+            )
+        } else {
+            resetProject()
+        }
+    }
+
+    func resetProject() {
+        audioAsset = nil
+        subtitles = []
+        resetInternalState()
+        dialogState = nil
+        playback.stop()
+    }
+
+    private func resetInternalState() {
+        resetLyricsEditState()
+        status = .idle
+        analysisProgress = nil
+        alignmentProgressText = ""
+        currentTime = 0
+        unsavedChanges.hasUnsavedChanges = false
+        undoStack.removeAll()
+        redoStack.removeAll()
     }
 
     func togglePlayback() {

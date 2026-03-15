@@ -5,20 +5,31 @@ struct HeaderBar: View {
 
     var body: some View {
         HStack {
-            HStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 12)
+            HStack(spacing: 16) {
+                RoundedRectangle(cornerRadius: 14)
                     .fill(Color.brandViolet)
                     .stroke(Color.black, lineWidth: 2)
-                    .frame(width: 42, height: 42)
-                    .overlay(Image(systemName: "waveform").font(.title3.weight(.black)).foregroundStyle(.white))
-                Text("Subtitle")
-                    .font(.system(size: 28, weight: .black, design: .rounded))
-                + Text("Studio")
-                    .font(.system(size: 28, weight: .black, design: .rounded))
-                    .foregroundStyle(Color.brandViolet)
-                + Text("Plus")
-                    .font(.system(size: 28, weight: .black, design: .rounded))
+                    .frame(width: 54, height: 54)
+                    .overlay(
+                        Image(systemName: "waveform")
+                            .font(.system(size: 26, weight: .black))
+                            .foregroundStyle(.white)
+                    )
+                
+                HStack(spacing: 0) {
+                    Text("Subtitle")
+                        .font(.system(size: 32, weight: .black, design: .rounded))
+                    Text("Studio")
+                        .font(.system(size: 32, weight: .black, design: .rounded))
+                        .foregroundStyle(Color.brandViolet)
+                    Text("Plus")
+                        .font(.system(size: 32, weight: .black, design: .rounded))
+                }
             }
+            .onTapGesture {
+                viewModel.requestReset()
+            }
+            .help("Return to Start Screen")
 
             Spacer()
 
@@ -33,6 +44,17 @@ struct HeaderBar: View {
             }
 
             HStack(spacing: 12) {
+                if viewModel.audioAsset != nil {
+                    Button {
+                        viewModel.requestReset()
+                    } label: {
+                        Image(systemName: "house.fill")
+                            .font(.system(size: 20))
+                    }
+                    .buttonStyle(StudioIconButton())
+                    .help("Home")
+                }
+
                 Button("Settings") {
                     viewModel.isSettingsPresented = true
                 }
@@ -46,7 +68,7 @@ struct HeaderBar: View {
             }
         }
         .padding(.horizontal, 24)
-        .padding(.vertical, 16)
+        .padding(.vertical, 14)
         .background(Color.white)
     }
 }
