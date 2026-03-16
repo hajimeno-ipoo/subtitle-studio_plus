@@ -308,22 +308,35 @@ final class AppViewModel {
         unsavedChanges.hasUnsavedChanges = true
     }
 
-    func addSubtitle() {
+    func insertSubtitle(after id: UUID?) {
         pushUndoState()
         
+        let newItemDuration: TimeInterval = 2.0
+        let gap: TimeInterval = 0.1
+        let shiftAmount = newItemDuration + gap
+        
         let startTime: TimeInterval
-        if let selectedID = selectedSubtitleID ?? editingSubtitleID,
-           let selected = subtitles.first(where: { $0.id == selectedID }) {
-            startTime = selected.endTime + 0.1
-        } else if let last = subtitles.last {
-            startTime = last.endTime + 0.1
+        let insertIndex: Int
+        
+        if let id = id, let index = subtitles.firstIndex(where: { $0.id == id }) {
+            // 指定された字幕の直後に挿入
+            startTime = subtitles[index].endTime + gap
+            insertIndex = index + 1
         } else {
-            startTime = currentTime
+            // IDがnilの場合はリストの先頭に挿入
+            startTime = subtitles.first?.startTime.advanced(by: -shiftAmount) ?? currentTime
+            insertIndex = 0
         }
         
-        let newItem = SubtitleItem(startTime: startTime, endTime: startTime + 2.0, text: "New Lyric")
-        subtitles.append(newItem)
-        subtitles.sort { $0.startTime < $1.startTime }
+        // リップル編集: 挿入地点以降のすべての字幕をシフト
+        // (重複を避けるため、後ろから順番に処理する必要はないが、ロジックとして明確にする)
+        for i in insertIndex..<subtitles.count {
+            subtitles[i].startTime += shiftAmount
+            subtitles[i].endTime += shiftAmount
+        }
+        
+        let newItem = SubtitleItem(startTime: max(0, startTime), endTime: max(newItemDuration, startTime + newItemDuration), text: "")
+        subtitles.insert(newItem, at: insertIndex)
         
         selectedSubtitleID = newItem.id
         if isLyricsEditMode {
@@ -331,6 +344,11 @@ final class AppViewModel {
         }
         
         unsavedChanges.hasUnsavedChanges = true
+    }
+
+    func addSubtitle() {
+        // 既存の機能との互換性のため維持。基本的には insertSubtitle(after: subtitles.last?.id) と同等。
+        insertSubtitle(after: subtitles.last?.id)
     }
 
     func selectSubtitle(id: UUID?) {

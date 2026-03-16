@@ -71,7 +71,7 @@ struct SubtitleListPanel: View {
 
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 12) {
+                    LazyVStack(spacing: 4) { // 字幕間の余白を調整
                         if viewModel.subtitles.isEmpty {
                             VStack(spacing: 6) {
                                 Text("NO SUBTITLES")
@@ -82,6 +82,10 @@ struct SubtitleListPanel: View {
                             }
                             .frame(maxWidth: .infinity, minHeight: 220)
                         } else {
+                            if viewModel.isLyricsEditMode {
+                                InlineAddButton(after: nil)
+                            }
+                            
                             ForEach($bindableViewModel.subtitles) { $subtitle in
                                 let index = bindableViewModel.subtitles.firstIndex(where: { $0.id == subtitle.id }) ?? 0
                                 SubtitleRow(
@@ -91,30 +95,15 @@ struct SubtitleListPanel: View {
                                     isPlayingNow: viewModel.subtitleIsPlayingNow(subtitle)
                                 )
                                 .id(subtitle.id)
-                            }
-                        }
-
-                        if viewModel.isLyricsEditMode {
-                            Button {
-                                viewModel.addSubtitle()
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "plus.circle.fill")
-                                    Text("ADD LYRIC")
+                                
+                                if viewModel.isLyricsEditMode {
+                                    InlineAddButton(after: subtitle.id)
                                 }
-                                .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 44)
-                                .background(Color.brandYellow)
-                                .foregroundStyle(.black)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .studioOffsetShadow(cornerRadius: 12, x: 3, y: 3)
                             }
-                            .buttonStyle(.plain)
-                            .padding(.top, 8)
                         }
                     }
-                    .padding(14)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
                 }
                 .onChange(of: viewModel.editingSubtitleID) {
                     guard viewModel.isLyricsEditMode, let editingSubtitleID = viewModel.editingSubtitleID else { return }
@@ -133,6 +122,47 @@ struct SubtitleListPanel: View {
             }
         }
         .studioPanelChrome()
+    }
+}
+
+struct InlineAddButton: View {
+    @Environment(AppViewModel.self) private var viewModel
+    let after: UUID?
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button {
+            viewModel.insertSubtitle(after: after)
+        } label: {
+            ZStack {
+                Rectangle()
+                    .fill(isHovered ? Color.brandYellow.opacity(0.3) : Color.white.opacity(0.001))
+                    .frame(height: 16)
+                
+                HStack {
+                    Rectangle()
+                        .fill(isHovered ? Color.brandYellow : Color.brandYellow.opacity(0.3))
+                        .frame(height: 1)
+                    
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(isHovered ? Color.brandYellow : Color.brandYellow.opacity(0.5))
+                        .background(Circle().fill(.black).frame(width: 8, height: 8))
+                    
+                    Rectangle()
+                        .fill(isHovered ? Color.brandYellow : Color.brandYellow.opacity(0.3))
+                        .frame(height: 1)
+                }
+                .opacity(isHovered ? 1.0 : 0.0)
+            }
+            .contentShape(Rectangle()) // 透明な領域でもヒットテストを有効にする
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.12)) {
+                isHovered = hovering
+            }
+        }
     }
 }
 
