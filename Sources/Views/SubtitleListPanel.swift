@@ -71,7 +71,7 @@ struct SubtitleListPanel: View {
 
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 4) { // 字幕間の余白を調整
+                    LazyVStack(spacing: 8) { // 字幕間の余白を調整
                         if viewModel.subtitles.isEmpty {
                             VStack(spacing: 6) {
                                 Text("NO SUBTITLES")
@@ -102,8 +102,8 @@ struct SubtitleListPanel: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                 }
                 .onChange(of: viewModel.editingSubtitleID) {
                     guard viewModel.isLyricsEditMode, let editingSubtitleID = viewModel.editingSubtitleID else { return }
@@ -188,7 +188,7 @@ struct SubtitleRow: View {
                     Image(systemName: "clock")
                     Text("\(SRTCodec.formatDisplayTime(subtitle.startTime)) → \(SRTCodec.formatDisplayTime(subtitle.endTime))")
                 }
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(isHighlighted ? Color.webHighlightChip : Color.black.opacity(0.05))
@@ -197,7 +197,7 @@ struct SubtitleRow: View {
                 Spacer()
 
                 Text("#\(subtitleNumber)")
-                    .font(.system(size: 12, weight: .black, design: .rounded))
+                    .font(.system(size: 14, weight: .black, design: .rounded))
                     .foregroundStyle(.secondary)
 
                 if viewModel.isLyricsEditMode {
@@ -219,7 +219,7 @@ struct SubtitleRow: View {
             VStack(alignment: .leading, spacing: 8) {
                 cardInnerContent
                 TextEditor(text: $subtitle.text)
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .font(.system(size: 17, weight: .medium, design: .rounded))
                     .scrollContentBackground(.hidden)
                     .background(Color.clear)
                     .onChange(of: subtitle.text) {
@@ -238,7 +238,7 @@ struct SubtitleRow: View {
             VStack(alignment: .leading, spacing: 8) {
                 cardInnerContent
                 Text(subtitle.text)
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .font(.system(size: 17, weight: .medium, design: .rounded))
                     .frame(maxWidth: .infinity, minHeight: editorHeight, alignment: .topLeading)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -252,7 +252,7 @@ struct SubtitleRow: View {
 
     private func cardChrome<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
-        .padding(12)
+        .padding(16)
         .background(isHighlighted ? Color.webHighlightYellow : .white)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .studioOffsetShadow(cornerRadius: 14, x: 4, y: 4, enabled: isHighlighted)
@@ -266,7 +266,7 @@ struct SubtitleRow: View {
     private var editorHeight: CGFloat {
         let text = subtitle.text
         let newlineCount = max(1, text.split(separator: "\n", omittingEmptySubsequences: false).count)
-        let wrappedLineCount = max(1, Int(ceil(Double(max(text.count, 1)) / 30.0)))
+        let wrappedLineCount = max(1, Int(ceil(Double(max(text.count, 1)) / 25.0)))
         let visibleLines = max(newlineCount, wrappedLineCount)
         return 34 + (CGFloat(visibleLines - 1) * 20)
     }
