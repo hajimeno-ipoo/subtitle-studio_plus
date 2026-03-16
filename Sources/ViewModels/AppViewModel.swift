@@ -32,7 +32,21 @@ final class AppViewModel {
     private(set) var redoStack: [[SubtitleItem]] = []
 
     private let analysisService = AudioAnalysisService()
-    private let alignmentService = SubtitleAlignmentService()
+    @ObservationTracked
+    var alignmentService: SubtitleAlignmentService {
+        let config = AlignmentConfig(
+            searchWindowPad: 2.0,
+            rmsWindowSize: settings.autoAlignRMSWindowSize,
+            thresholdRatio: settings.autoAlignThresholdRatio,
+            minVolumeAbsolute: 0.002,
+            padStart: 0.15,
+            padEnd: 0.25,
+            maxSnapDistance: 1.0,
+            minGapFill: settings.autoAlignMinGapFill,
+            useAdaptiveThreshold: settings.autoAlignUseAdaptiveThreshold
+        )
+        return SubtitleAlignmentService(config: config)
+    }
     let playback = AudioPlaybackController()
     private let waveformService = WaveformService()
     private var analysisDisplayTask: Task<Void, Never>?

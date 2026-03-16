@@ -12,6 +12,7 @@ struct SettingsView: View {
     }
 
     var body: some View {
+        @Bindable var bindableViewModel = viewModel
         VStack(alignment: .leading, spacing: 18) {
             Text("Gemini Settings")
                 .font(.system(size: 28, weight: .black, design: .rounded))
@@ -88,6 +89,47 @@ struct SettingsView: View {
                 }
                 .buttonStyle(StudioPrimaryButton(color: .brandGreen))
                 .disabled(isBusy)
+            }
+
+            Divider()
+                .padding(.vertical, 12)
+
+            Text("Auto-Align Settings")
+                .font(.system(size: 28, weight: .black, design: .rounded))
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("RMS Window Size (seconds):")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                    Spacer()
+                    TextField("", value: $bindableViewModel.settings.autoAlignRMSWindowSize, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 80)
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                }
+
+                HStack {
+                    Text("Threshold Ratio:")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                    Spacer()
+                    TextField("", value: $bindableViewModel.settings.autoAlignThresholdRatio, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 80)
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                }
+
+                HStack {
+                    Text("Min Gap Fill (seconds):")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                    Spacer()
+                    TextField("", value: $bindableViewModel.settings.autoAlignMinGapFill, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 80)
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                }
+
+                Toggle("Use Adaptive Threshold", isOn: $bindableViewModel.settings.autoAlignUseAdaptiveThreshold)
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
             }
         }
         .padding(24)
