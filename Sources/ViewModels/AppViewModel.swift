@@ -291,7 +291,19 @@ final class AppViewModel {
     func deleteSubtitle(id: UUID) {
         guard let index = subtitles.firstIndex(where: { $0.id == id }) else { return }
         pushUndoState()
+        
+        // リップル削除のための移動量を計算 (削除する字幕の長さ + 余白0.1秒)
+        let removedItem = subtitles[index]
+        let shiftAmount = (removedItem.endTime - removedItem.startTime) + 0.1
+        
         subtitles.remove(at: index)
+        
+        // リップル削除: 削除地点以降のすべての字幕を前にシフト
+        for i in index..<subtitles.count {
+            subtitles[i].startTime = max(0, subtitles[i].startTime - shiftAmount)
+            subtitles[i].endTime = max(0.1, subtitles[i].endTime - shiftAmount)
+        }
+        
         if isLyricsEditMode {
             if editingSubtitleID == id {
                 editingSubtitleID = nil
