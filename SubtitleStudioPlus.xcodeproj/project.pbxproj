@@ -18,6 +18,10 @@
 		4C269DB69DD739CCEC903867 /* SubtitleListPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 291A14BFF246CE0007F0E136 /* SubtitleListPanel.swift */; };
 		552CD96B634C3DCE25C10E47 /* SubtitleAlignmentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E1FDC354FE936832A40634 /* SubtitleAlignmentService.swift */; };
 		5AFCE4FDE23A301F8EA317DF /* LivePreviewPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12117A54AD541664D4B1F74A /* LivePreviewPanel.swift */; };
+		A7C2D8F1F1E24A0B9F111111 /* SettingsAPITabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C2D8F1F1E24A0B9F221111 /* SettingsAPITabView.swift */; };
+		A7C2D8F1F1E24A0B9F111112 /* SettingsDescriptionRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C2D8F1F1E24A0B9F221112 /* SettingsDescriptionRow.swift */; };
+		A7C2D8F1F1E24A0B9F111113 /* SettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C2D8F1F1E24A0B9F221113 /* SettingsTab.swift */; };
+		A7C2D8F1F1E24A0B9F111114 /* SettingsUTOAlignTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C2D8F1F1E24A0B9F221114 /* SettingsUTOAlignTabView.swift */; };
 		6EBFDC8179410FDACF828699 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B4489650CC48D6185534E8 /* SettingsView.swift */; };
 		73665E536F4C22235CD9D5C2 /* AudioFileSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15778F4F9ACC6AD2A0F6A24 /* AudioFileSupport.swift */; };
 		7941C445D417CC7D4CDC4CE4 /* SRTDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF91567ACE35B883DA96FB18 /* SRTDocument.swift */; };
@@ -65,6 +69,10 @@
 		75E6B003415E9A2261E9EF39 /* WaveformTimelineView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WaveformTimelineView.swift; sourceTree = "<group>"; };
 		7D1B5CC9E713EC96CE08330B /* AppModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppModels.swift; sourceTree = "<group>"; };
 		8DAE4B8A64C240B1A6D7F0E10 /* SettingsStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsStoreTests.swift; sourceTree = "<group>"; };
+		A7C2D8F1F1E24A0B9F221111 /* SettingsAPITabView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsAPITabView.swift; sourceTree = "<group>"; };
+		A7C2D8F1F1E24A0B9F221112 /* SettingsDescriptionRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsDescriptionRow.swift; sourceTree = "<group>"; };
+		A7C2D8F1F1E24A0B9F221113 /* SettingsTab.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsTab.swift; sourceTree = "<group>"; };
+		A7C2D8F1F1E24A0B9F221114 /* SettingsUTOAlignTabView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsUTOAlignTabView.swift; sourceTree = "<group>"; };
 		A0B4489650CC48D6185534E8 /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B0638B780606D94B2A28AAE4 /* AudioAnalysisServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AudioAnalysisServiceTests.swift; sourceTree = "<group>"; };
 		B6884B3768A65E501A80582F /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
@@ -161,6 +169,10 @@
 				F181902E6E34458C02CAF794 /* HeaderBar.swift */,
 				12117A54AD541664D4B1F74A /* LivePreviewPanel.swift */,
 				B6884B3768A65E501A80582F /* RootView.swift */,
+				A7C2D8F1F1E24A0B9F221111 /* SettingsAPITabView.swift */,
+				A7C2D8F1F1E24A0B9F221112 /* SettingsDescriptionRow.swift */,
+				A7C2D8F1F1E24A0B9F221113 /* SettingsTab.swift */,
+				A7C2D8F1F1E24A0B9F221114 /* SettingsUTOAlignTabView.swift */,
 				A0B4489650CC48D6185534E8 /* SettingsView.swift */,
 				291A14BFF246CE0007F0E136 /* SubtitleListPanel.swift */,
 				15AC0425C484B34CF5078720 /* UploadDropZone.swift */,
@@ -361,6 +373,10 @@
 				8CA9968468E845C735FC2F83 /* HeaderBar.swift in Sources */,
 				5AFCE4FDE23A301F8EA317DF /* LivePreviewPanel.swift in Sources */,
 				C77E9310DD9DB8D952DAEDF5 /* RootView.swift in Sources */,
+				A7C2D8F1F1E24A0B9F111111 /* SettingsAPITabView.swift in Sources */,
+				A7C2D8F1F1E24A0B9F111112 /* SettingsDescriptionRow.swift in Sources */,
+				A7C2D8F1F1E24A0B9F111113 /* SettingsTab.swift in Sources */,
+				A7C2D8F1F1E24A0B9F111114 /* SettingsUTOAlignTabView.swift in Sources */,
 				6EBFDC8179410FDACF828699 /* SettingsView.swift in Sources */,
 				4C269DB69DD739CCEC903867 /* SubtitleListPanel.swift in Sources */,
 				2EBA8794643520FE5760B68E /* UploadDropZone.swift in Sources */,

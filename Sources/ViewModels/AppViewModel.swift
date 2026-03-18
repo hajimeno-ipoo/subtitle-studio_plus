@@ -22,7 +22,7 @@ final class AppViewModel {
     var viewport = TimelineViewport()
     var settings = SettingsStore()
     var isDropTargeted = false
-    var isSettingsPresented = false
+    var isSettingsWindowRequested = false
     var isFileImporterPresented = false
     var isFileExporterPresented = false
     var isLyricsEditMode = false
@@ -94,6 +94,10 @@ final class AppViewModel {
     func requestExport() {
         guard !subtitles.isEmpty else { return }
         isFileExporterPresented = true
+    }
+
+    func requestSettingsWindow() {
+        isSettingsWindowRequested = true
     }
 
     func handleImportedURL(_ url: URL) async {
@@ -205,7 +209,7 @@ final class AppViewModel {
         let apiKey = settings.geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !apiKey.isEmpty else {
             present(SubtitleStudioError.missingAPIKey)
-            isSettingsPresented = true
+            requestSettingsWindow()
             return
         }
 

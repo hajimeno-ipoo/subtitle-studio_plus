@@ -9,7 +9,7 @@ struct SubtitleStudioPlusApp: App {
     init() {
         let size = NSSize(width: 1440, height: 960)
         NSWindow.allowsAutomaticWindowTabbing = false
-        DispatchQueue.main.async {
+        Task { @MainActor in
             if let window = NSApplication.shared.windows.first {
                 window.setContentSize(size)
                 window.minSize = NSSize(width: 1280, height: 820)
@@ -34,7 +34,7 @@ struct SubtitleStudioPlusApp: App {
         Settings {
             SettingsView()
                 .environment(viewModel)
-                .frame(width: 520, height: 240)
+                .frame(minWidth: 760, minHeight: 520)
         }
     }
 }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AppViewModel.self) private var viewModel
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(spacing: 0) {
@@ -62,10 +63,10 @@ struct RootView: View {
                 )
             }
         }
-        .sheet(isPresented: bind(\.isSettingsPresented)) {
-            SettingsView()
-                .environment(viewModel)
-                .padding(24)
+        .onChange(of: viewModel.isSettingsWindowRequested) {
+            guard viewModel.isSettingsWindowRequested else { return }
+            openSettings()
+            viewModel.isSettingsWindowRequested = false
         }
     }
 

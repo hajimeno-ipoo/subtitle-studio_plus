@@ -42,6 +42,16 @@ struct WaveformTimelineView: View {
                     .font(.system(size: 19, weight: .bold, design: .monospaced))
             }
 
+            if let asset = viewModel.audioAsset {
+                Label(asset.fileName, systemImage: "music.note")
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.brandBlue.opacity(0.18))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(.black, lineWidth: 2))
+                    .lineLimit(1)
+            }
+
             Spacer()
 
             HStack(spacing: 10) {

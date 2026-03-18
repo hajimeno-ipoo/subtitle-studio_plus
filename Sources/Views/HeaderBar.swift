@@ -33,16 +33,6 @@ struct HeaderBar: View {
 
             Spacer()
 
-            if let asset = viewModel.audioAsset {
-                Label(asset.fileName, systemImage: "music.note")
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Color.brandBlue.opacity(0.18))
-                    .clipShape(Capsule())
-                    .overlay(Capsule().stroke(.black, lineWidth: 2))
-                    .lineLimit(1)
-            }
-
             HStack(spacing: 12) {
                 if viewModel.audioAsset != nil {
                     Button {
@@ -55,10 +45,12 @@ struct HeaderBar: View {
                     .help("Home")
                 }
 
-                Button("Settings") {
-                    viewModel.isSettingsPresented = true
+                Button(action: viewModel.requestSettingsWindow) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 20))
                 }
-                .buttonStyle(StudioSecondaryButton())
+                .buttonStyle(StudioIconButton())
+                .help("Settings")
 
                 Button("EXPORT .SRT") {
                     viewModel.requestExport()

@@ -5,7 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
-        DispatchQueue.main.async {
+        Task { @MainActor in
             _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
             NSApp.windows.first?.makeKeyAndOrderFront(nil)
         }

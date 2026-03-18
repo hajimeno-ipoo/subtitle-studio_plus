@@ -7,10 +7,10 @@ macOS 向けの SwiftUI 字幕エディタです。
 
 1. [SubtitleStudioPlus.xcodeproj](/Users/apple/Desktop/Dev_App/subtitle-studio_plus/SubtitleStudioPlus.xcodeproj) を Xcode で開きます。
 2. `SubtitleStudioPlus` scheme を選んで `Run` します。
-3. 右上の `Settings` で Gemini API Key を保存します。
+3. 右上の `Settings` を開き、`API` タブで Gemini API Key を保存します。
 4. 音声ファイルを読み込みます。
 5. `AUTO GENERATE` で字幕を作ります。
-6. 必要なら `AUTO-ALIGN` とタイムライン編集で微調整します。
+6. 必要なら `UTO-ALIGN` タブで値を調整し、`AUTO-ALIGN` とタイムライン編集で微調整します。
 7. `EXPORT .SRT` で保存します。
 
 ## 動作要件
