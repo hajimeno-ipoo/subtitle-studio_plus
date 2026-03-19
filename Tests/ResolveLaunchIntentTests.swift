@@ -99,8 +99,15 @@ struct ResolveLaunchIntentTests {
             SubtitleItem(startTime: 0.2, endTime: 1.8, text: "hello"),
             SubtitleItem(startTime: 2.1, endTime: 3.4, text: "line 1\nline 2"),
         ]
+        let audioAsset = AudioAsset(
+            url: URL(fileURLWithPath: "/tmp/audio.wav"),
+            fileName: "audio.wav",
+            duration: 12.25,
+            fileSize: 128,
+            contentType: nil
+        )
 
-        let request = ResolveDaVinciExportRequest(session: session, timelineInfo: timelineInfo, subtitles: subtitles)
+        let request = ResolveDaVinciExportRequest(session: session, timelineInfo: timelineInfo, subtitles: subtitles, audioAsset: audioAsset)
 
         #expect(request.command == "AddSubtitles")
         #expect(request.sessionID == "resolve-004")
@@ -110,6 +117,8 @@ struct ResolveLaunchIntentTests {
         #expect(request.timelineStart == 12.5)
         #expect(request.projectName == "Project Alpha")
         #expect(request.timelineName == "Timeline One")
+        #expect(request.audioPath == "/tmp/audio.wav")
+        #expect(request.audioDuration == 12.25)
         #expect(request.segments.count == 2)
         #expect(request.segments[0].text == "hello")
         #expect(request.segments[1].text == "line 1\nline 2")
@@ -145,7 +154,16 @@ struct ResolveLaunchIntentTests {
 
         #expect(object?["func"] as? String == "AddSubtitles")
         #expect(object?["templateName"] as? String == "Default Template")
+        #expect(object?["audioPath"] == nil)
+        #expect(object?["audioDuration"] == nil)
         #expect((object?["segments"] as? [Any])?.isEmpty == true)
+    }
+
+    @Test
+    func resolveExportAudioSupportRejectsVideoContainers() {
+        #expect(AudioFileSupport.isResolveExportSupported(url: URL(fileURLWithPath: "/tmp/audio.wav")))
+        #expect(!AudioFileSupport.isResolveExportSupported(url: URL(fileURLWithPath: "/tmp/clip.mp4")))
+        #expect(!AudioFileSupport.isResolveExportSupported(url: URL(fileURLWithPath: "/tmp/clip.webm")))
     }
 
     @Test

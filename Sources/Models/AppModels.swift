@@ -108,6 +108,7 @@ enum AudioImportIntent {
 enum SubtitleStudioError: LocalizedError, Equatable {
     case missingAPIKey
     case invalidAudioType
+    case invalidResolveExportAudioType
     case fileTooLarge
     case unreadableAudio
     case emptyGeminiResponse
@@ -121,6 +122,8 @@ enum SubtitleStudioError: LocalizedError, Equatable {
             "Gemini API key is missing."
         case .invalidAudioType:
             "Please choose a supported audio or video file."
+        case .invalidResolveExportAudioType:
+            "EXPORT FOR DAVINCI supports audio-only files: mp3, wav, ogg, m4a, flac, aac, wma."
         case .fileTooLarge:
             "File size exceeds the 100MB limit."
         case .unreadableAudio:

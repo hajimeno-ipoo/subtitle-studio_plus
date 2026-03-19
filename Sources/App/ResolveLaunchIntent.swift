@@ -129,12 +129,15 @@ struct ResolveDaVinciExportRequest: Codable, Equatable {
     var timelineStart: TimeInterval
     var projectName: String?
     var timelineName: String?
+    var audioPath: String?
+    var audioDuration: TimeInterval?
     var segments: [Segment]
 
     init(
         session: ResolveSessionPayload?,
         timelineInfo: ResolveBridgeTimelineInfo?,
-        subtitles: [SubtitleItem]
+        subtitles: [SubtitleItem],
+        audioAsset: AudioAsset? = nil
     ) {
         command = "AddSubtitles"
         sessionID = session?.sessionID ?? timelineInfo?.sessionID ?? "resolve-bridge"
@@ -144,6 +147,8 @@ struct ResolveDaVinciExportRequest: Codable, Equatable {
         timelineStart = timelineInfo?.timelineStart ?? session?.timelineStart ?? 0
         projectName = timelineInfo?.projectName ?? session?.projectName
         timelineName = timelineInfo?.name ?? session?.timelineName
+        audioPath = audioAsset?.url.path
+        audioDuration = audioAsset?.duration
         segments = subtitles.map {
             Segment(id: $0.id.uuidString, start: $0.startTime, end: $0.endTime, text: $0.text)
         }
@@ -171,6 +176,8 @@ struct ResolveDaVinciExportRequest: Codable, Equatable {
         case timelineStart
         case projectName
         case timelineName
+        case audioPath
+        case audioDuration
         case segments
     }
 }
@@ -194,6 +201,9 @@ struct ResolveBridgeResponse: Decodable, Equatable {
     var templateName: String?
     var trackIndex: Int?
     var added: Int?
+    var audioAdded: Bool?
+    var audioSkipped: Bool?
+    var audioTrackIndex: Int?
 }
 
 struct ResolveBridgeClient {

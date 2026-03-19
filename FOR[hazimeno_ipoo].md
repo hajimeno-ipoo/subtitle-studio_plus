@@ -38,7 +38,7 @@
   - アプリは主に `--resolve-server-url http://127.0.0.1:56002/` で起動されます。
   - `--resolve-session <path>` は補助の入口としてだけ残します。
   - `EXPORT .SRT` は普通の保存です。
-  - `EXPORT FOR DAVINCI` は保存ダイアログを出さず、字幕 JSON を Resolve へ送ります。
+  - `EXPORT FOR DAVINCI` は保存ダイアログを出さず、字幕 JSON と対応音声 path を Resolve へ送ります。
   - Resolve 側は `Default Template` の Text+ を timeline に自動で並べます。
   - `Default Template` を Resolve 側で直した時は、その設定を user 用の `.drb` へ自動同期します。
   - 新しい project では、app bundle の初期 template より user 用の同期済み template を優先して使います。
@@ -133,7 +133,7 @@
 - Resolve の入口は `Workspace -> Scripts -> SubtitleStudioPlus` に固定する。
 - bridge の主経路は `session.json` ではなく localhost JSON にする。
 - app 側の export は `EXPORT .SRT` と `EXPORT FOR DAVINCI` の 2 つに分ける。
-- `EXPORT FOR DAVINCI` は `segments`、`templateName`、`trackIndex`、`timelineStart` を Resolve へ送る。
+- `EXPORT FOR DAVINCI` は `segments`、`templateName`、`trackIndex`、`timelineStart`、必要なら `audioPath` と `audioDuration` を Resolve へ送る。
 - Resolve 側は `Resolve()` ではなく埋め込みの `resolve` グローバルを使う。
 - `Default Template` が無い時は `.drb` から Media Pool へ自動投入する。
 - `Default Template` を Resolve で調整したら、その folder を user 用 `.drb` に同期して次の project でも同じ見た目を使う。

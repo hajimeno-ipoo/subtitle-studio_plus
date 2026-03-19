@@ -23,6 +23,7 @@ local current_session_id = nil
 local projectManager = nil
 local project = nil
 local mediaPool = nil
+local mediaStorage = nil
 
 local DEV_MODE = false
 
@@ -157,6 +158,7 @@ local function refresh_project_state()
     projectManager = resolve:GetProjectManager()
     project = projectManager and projectManager:GetCurrentProject() or nil
     mediaPool = project and project:GetMediaPool() or nil
+    mediaStorage = resolve and resolve.GetMediaStorage and resolve:GetMediaStorage() or nil
 end
 
 local function walk_media_pool(folder, on_clip)
@@ -443,6 +445,26 @@ local function timeline_has_overlap(timeline, track_index, start_frame, end_fram
     return false
 end
 
+local function audio_track_has_overlap(timeline, track_index, start_frame, end_frame)
+    local items = timeline:GetItemListInTrack("audio", track_index) or {}
+    if #items == 0 then
+        return false
+    end
+
+    for _, item in ipairs(items) do
+        local item_start = item:GetStart()
+        local item_end = item:GetEnd()
+        if not (item_end <= start_frame or item_start >= end_frame) then
+            return true
+        end
+        if item_start > end_frame then
+            break
+        end
+    end
+
+    return false
+end
+
 local function sanitize_track_index(timeline, requested_index, start_frame, end_frame)
     local track_index = tonumber(requested_index) or 1
     local track_count = timeline:GetTrackCount("video") or 0
@@ -453,6 +475,187 @@ local function sanitize_track_index(timeline, requested_index, start_frame, end_
     end
 
     return track_index
+end
+
+local function normalize_file_path(path)
+    local trimmed = trim(path)
+    if not trimmed then
+        return nil
+    end
+
+    if detect_os() == "Windows" then
+        return string.lower(trimmed:gsub("/", "\\"))
+    end
+
+    return trimmed
+end
+
+local function media_pool_item_file_path(item)
+    if not item or not item.GetClipProperty then
+        return nil
+    end
+
+    local props = item:GetClipProperty() or {}
+    return normalize_file_path(props["File Path"] or props["FilePath"])
+end
+
+local function timeline_item_source_path(item)
+    if not item then
+        return nil
+    end
+
+    local media_pool_item = item.GetMediaPoolItem and item:GetMediaPoolItem() or nil
+    if media_pool_item then
+        return media_pool_item_file_path(media_pool_item)
+    end
+
+    if item.GetClipProperty then
+        local props = item:GetClipProperty() or {}
+        return normalize_file_path(props["File Path"] or props["FilePath"])
+    end
+
+    return nil
+end
+
+local function find_media_pool_item_by_path(target_path)
+    local normalized_target = normalize_file_path(target_path)
+    if not normalized_target or not mediaPool then
+        return nil
+    end
+
+    local root = mediaPool:GetRootFolder()
+    local found = nil
+    walk_media_pool(root, function(clip)
+        if media_pool_item_file_path(clip) == normalized_target then
+            found = clip
+            return true
+        end
+        return false
+    end)
+
+    return found
+end
+
+local function import_audio_media_item(audio_path)
+    if not mediaStorage or not mediaStorage.AddItemListToMediaPool then
+        return nil, "media storage unavailable"
+    end
+
+    local imported = mediaStorage:AddItemListToMediaPool({ audio_path }) or {}
+    if type(imported) ~= "table" or #imported == 0 then
+        return nil, "audio import returned no media pool item"
+    end
+
+    return imported[1], nil
+end
+
+local function timeline_has_existing_audio_at_start(timeline, target_path, record_frame)
+    local normalized_target = normalize_file_path(target_path)
+    local track_count = timeline:GetTrackCount("audio") or 0
+
+    for index = 1, track_count do
+        local items = timeline:GetItemListInTrack("audio", index) or {}
+        for _, item in ipairs(items) do
+            local item_start = item:GetStart()
+            local item_end = item:GetEnd()
+            if item_start == record_frame
+                and item_start <= record_frame
+                and item_end > record_frame
+                and timeline_item_source_path(item) == normalized_target then
+                return true, index
+            end
+            if item_start > record_frame then
+                break
+            end
+        end
+    end
+
+    return false, nil
+end
+
+local function find_first_available_audio_track(timeline, start_frame, end_frame)
+    local track_count = timeline:GetTrackCount("audio") or 0
+    for index = 1, track_count do
+        if not audio_track_has_overlap(timeline, index, start_frame, end_frame) then
+            return index
+        end
+    end
+
+    timeline:AddTrack("audio")
+    return timeline:GetTrackCount("audio") or 1
+end
+
+local function add_audio_to_timeline(payload, timeline, timeline_start_frame)
+    local audio_path = trim(payload and payload.audioPath)
+    if not audio_path then
+        return {
+            added = false,
+            skipped = false,
+            trackIndex = nil,
+        }, nil
+    end
+
+    if not file_exists(audio_path) then
+        return nil, "audio file not found: " .. tostring(audio_path)
+    end
+
+    local existing, existing_track = timeline_has_existing_audio_at_start(timeline, audio_path, timeline_start_frame)
+    if existing then
+        return {
+            added = false,
+            skipped = true,
+            trackIndex = existing_track,
+        }, nil
+    end
+
+    local audio_item = find_media_pool_item_by_path(audio_path)
+    if not audio_item then
+        local err = nil
+        audio_item, err = import_audio_media_item(audio_path)
+        if not audio_item then
+            return nil, err
+        end
+    end
+
+    local clip_properties = audio_item:GetClipProperty() or {}
+    local clip_frame_rate = tonumber(clip_properties["FPS"]) or get_frame_rate(timeline)
+    local clip_frames = tonumber(clip_properties["Frames"]) or tonumber(clip_properties["End Frame"]) or nil
+    local audio_duration = tonumber(payload.audioDuration)
+    if clip_frames == nil then
+        if audio_duration == nil or audio_duration <= 0 then
+            return nil, "audio duration is missing"
+        end
+        clip_frames = seconds_to_frames(audio_duration, clip_frame_rate)
+    end
+
+    if clip_frames == nil or clip_frames <= 0 then
+        return nil, "audio clip length could not be resolved"
+    end
+
+    local timeline_frame_rate = get_frame_rate(timeline)
+    local timeline_end_frame = timeline_start_frame + math.max(1, seconds_to_frames(audio_duration or frames_to_seconds(clip_frames, clip_frame_rate), timeline_frame_rate))
+    local audio_track_index = find_first_available_audio_track(timeline, timeline_start_frame, timeline_end_frame)
+
+    local items = mediaPool:AppendToTimeline({
+        {
+            mediaPoolItem = audio_item,
+            mediaType = 2,
+            startFrame = 0,
+            endFrame = clip_frames,
+            recordFrame = timeline_start_frame,
+            trackIndex = audio_track_index,
+        }
+    })
+
+    if type(items) ~= "table" or #items == 0 then
+        return nil, "audio AppendToTimeline returned no timeline items"
+    end
+
+    return {
+        added = true,
+        skipped = false,
+        trackIndex = audio_track_index,
+    }, nil
 end
 
 local function ensure_template_item(template_name)
@@ -550,6 +753,11 @@ local function add_subtitles(payload)
     end
     local timeline_start_frame = seconds_to_frames(timeline_start_seconds, frame_rate)
 
+    local audio_result, audio_error = add_audio_to_timeline(payload, timeline, timeline_start_frame)
+    if not audio_result then
+        return false, audio_error
+    end
+
     local ordered_segments = sorted_segments(segments)
     local first_start = tonumber(ordered_segments[1].start) or 0
     local last_end = tonumber(ordered_segments[#ordered_segments]["end"]) or first_start
@@ -621,10 +829,14 @@ local function add_subtitles(payload)
     end)
 
     return true, {
-        message = "Subtitles added",
+        message = audio_result.skipped and "Subtitles added. Audio already exists at timeline start, so audio placement was skipped."
+            or (audio_result.added and audio_result.trackIndex and ("Subtitles added. Audio placed on A" .. tostring(audio_result.trackIndex) .. ".") or "Subtitles added"),
         templateName = resolved_template_name,
         trackIndex = track_index,
         added = #timeline_items,
+        audioAdded = audio_result.added,
+        audioSkipped = audio_result.skipped,
+        audioTrackIndex = audio_result.trackIndex,
     }
 end
 

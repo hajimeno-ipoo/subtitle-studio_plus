@@ -500,12 +500,14 @@ final class AppViewModel {
         guard canExportForDaVinci else { return }
 
         do {
+            let exportAudio = try validatedResolveExportAudioAsset()
             let serverURL = resolveBridgeURL ?? resolveSessionPayload?.serverURL ?? ResolveBridgeClient.defaultServerURL
             let client = ResolveBridgeClient(serverURL: serverURL)
             let request = ResolveDaVinciExportRequest(
                 session: resolveSessionPayload,
                 timelineInfo: resolveTimelineInfo,
-                subtitles: subtitles
+                subtitles: subtitles,
+                audioAsset: exportAudio
             )
             let response = try await client.addSubtitles(request)
             unsavedChanges.hasUnsavedChanges = false
@@ -515,7 +517,7 @@ final class AppViewModel {
             if let message, !message.isEmpty {
                 body = message
             } else {
-                body = "Subtitle payload was sent to Resolve."
+                body = resolveExportSuccessMessage(response: response)
             }
             dialogState = .init(
                 title: "Sent to Resolve",
@@ -525,6 +527,26 @@ final class AppViewModel {
         } catch {
             present(error)
         }
+    }
+
+    private func validatedResolveExportAudioAsset() throws -> AudioAsset? {
+        guard let audioAsset else { return nil }
+        guard AudioFileSupport.isResolveExportSupported(url: audioAsset.url) else {
+            throw SubtitleStudioError.invalidResolveExportAudioType
+        }
+        return audioAsset
+    }
+
+    private func resolveExportSuccessMessage(response: ResolveBridgeResponse) -> String {
+        if response.audioSkipped == true {
+            return "Subtitles added. Audio already exists at timeline start, so audio placement was skipped."
+        }
+
+        if response.audioAdded == true, let trackIndex = response.audioTrackIndex {
+            return "Subtitles added. Audio placed on A\(trackIndex)."
+        }
+
+        return "Subtitle payload was sent to Resolve."
     }
 
     private func refreshResolveBridgeStatus(silent: Bool) async {
