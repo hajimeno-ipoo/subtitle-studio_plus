@@ -197,7 +197,7 @@ private struct ResolveBridgeSimpleRequest: Encodable {
 struct ResolveBridgeResponse: Decodable, Equatable {
     var message: String?
     var success: Bool?
-    var error: String?
+    var error: Bool?
     var templateName: String?
     var trackIndex: Int?
     var added: Int?
@@ -260,7 +260,7 @@ struct ResolveBridgeClient {
             }
 
             if data.isEmpty {
-                if let emptyResponse = ResolveBridgeResponse(message: nil, success: true, error: nil, templateName: nil, trackIndex: nil, added: nil) as? Response {
+                if let emptyResponse = ResolveBridgeResponse(message: nil, success: true, error: nil, templateName: nil, trackIndex: nil, added: nil, audioAdded: nil, audioSkipped: nil, audioTrackIndex: nil) as? Response {
                     return emptyResponse
                 }
                 throw ResolveBridgeError.invalidBridgeResponse(url: serverURL, responseBody: responseBody)
@@ -269,17 +269,6 @@ struct ResolveBridgeClient {
             do {
                 return try JSONDecoder().decode(Response.self, from: data)
             } catch {
-                if Response.self == ResolveBridgeResponse.self {
-                    let fallback = ResolveBridgeResponse(
-                        message: responseBody,
-                        success: true,
-                        error: nil,
-                        templateName: nil,
-                        trackIndex: nil,
-                        added: nil
-                    )
-                    return fallback as! Response
-                }
                 throw ResolveBridgeError.invalidBridgeResponse(url: serverURL, responseBody: responseBody)
             }
         } catch let error as ResolveBridgeError {

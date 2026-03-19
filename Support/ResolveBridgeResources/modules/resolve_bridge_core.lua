@@ -258,6 +258,130 @@ local function current_timeline_name()
     return timeline:GetName()
 end
 
+local function folder_unique_id(folder)
+    if not folder or not folder.GetUniqueId then
+        return nil
+    end
+
+    return folder:GetUniqueId()
+end
+
+local function same_folder(left, right)
+    local left_id = folder_unique_id(left)
+    local right_id = folder_unique_id(right)
+
+    if left_id and right_id then
+        return left_id == right_id
+    end
+
+    return left == right
+end
+
+local function with_media_pool_folder(folder, callback)
+    if not mediaPool or not folder or type(callback) ~= "function" then
+        return false, "media pool folder callback unavailable"
+    end
+
+    local previous_folder = mediaPool.GetCurrentFolder and mediaPool:GetCurrentFolder() or nil
+    if mediaPool.SetCurrentFolder and not mediaPool:SetCurrentFolder(folder) then
+        return false, "failed to switch media pool folder"
+    end
+
+    local ok, result, extra = pcall(callback)
+
+    if previous_folder and mediaPool.SetCurrentFolder then
+        pcall(function()
+            mediaPool:SetCurrentFolder(previous_folder)
+        end)
+    end
+
+    if not ok then
+        return false, result
+    end
+
+    return true, result, extra
+end
+
+local function delete_folder_tree(folder)
+    if not mediaPool or not folder then
+        return false
+    end
+
+    local subfolders = folder:GetSubFolderList() or {}
+    for _, subfolder in ipairs(subfolders) do
+        if not delete_folder_tree(subfolder) then
+            return false
+        end
+    end
+
+    return mediaPool:DeleteFolders({ folder }) == true
+end
+
+local function export_folder_to_path(folder, target_path)
+    local ok, exported = pcall(function()
+        return folder:Export(target_path)
+    end)
+    return ok and exported == true
+end
+
+local function new_temp_folder_name(prefix)
+    local millis = math.floor((os.clock() or 0) * 1000)
+    return string.format("%s_%d_%d", prefix, os.time(), millis)
+end
+
+local function create_temp_media_pool_folder(root, prefix)
+    if not mediaPool or not root or not mediaPool.AddSubFolder then
+        return nil
+    end
+
+    return mediaPool:AddSubFolder(root, new_temp_folder_name(prefix))
+end
+
+local function move_clip_to_folder(clip, target_folder)
+    if not mediaPool or not clip or not target_folder or not mediaPool.MoveClips then
+        return false
+    end
+
+    return mediaPool:MoveClips({ clip }, target_folder) == true
+end
+
+local function prune_empty_folder_tree(folder)
+    if not mediaPool or not folder then
+        return false
+    end
+
+    local subfolders = folder:GetSubFolderList() or {}
+    for _, subfolder in ipairs(subfolders) do
+        prune_empty_folder_tree(subfolder)
+    end
+
+    local remaining_clips = folder:GetClipList() or {}
+    local remaining_folders = folder:GetSubFolderList() or {}
+    if #remaining_clips == 0 and #remaining_folders == 0 then
+        return mediaPool:DeleteFolders({ folder }) == true
+    end
+
+    return true
+end
+
+local function purge_folder_tree(folder)
+    if not mediaPool or not folder then
+        return false
+    end
+
+    local subfolders = folder:GetSubFolderList() or {}
+    for _, subfolder in ipairs(subfolders) do
+        purge_folder_tree(subfolder)
+    end
+
+    local clips = folder:GetClipList() or {}
+    if #clips > 0 and mediaPool.DeleteClips then
+        mediaPool:DeleteClips(clips)
+    end
+
+    return mediaPool:DeleteFolders({ folder }) == true
+end
+
 local function get_template_item(folder, template_name)
     if not folder then
         return nil, nil
@@ -282,8 +406,30 @@ local function get_template_item(folder, template_name)
     return nil, nil
 end
 
-local function sync_template_asset(folder)
-    if not folder or not user_assets_path then
+local function export_template_clip_to_path(clip, owner_folder, target_path)
+    local root = mediaPool and mediaPool:GetRootFolder() or nil
+    if not clip or not owner_folder or not root then
+        return false
+    end
+
+    local temp_folder = create_temp_media_pool_folder(root, "__SubtitleStudioPlusTemplateExport")
+    if not temp_folder then
+        return false
+    end
+
+    if not move_clip_to_folder(clip, temp_folder) then
+        mediaPool:DeleteFolders({ temp_folder })
+        return false
+    end
+
+    local exported = export_folder_to_path(temp_folder, target_path)
+    move_clip_to_folder(clip, owner_folder)
+    purge_folder_tree(temp_folder)
+    return exported
+end
+
+local function sync_template_asset(folder, clip)
+    if not folder or not clip or not user_assets_path then
         return
     end
 
@@ -293,11 +439,9 @@ local function sync_template_asset(folder)
     end
 
     local target_path = join_path(user_assets_path, "subtitle-template.drb")
-    local ok, exported = pcall(function()
-        return folder:Export(target_path)
-    end)
+    local exported = export_template_clip_to_path(clip, folder, target_path)
 
-    if ok and exported then
+    if exported then
         log("Synced Default Template to " .. target_path)
     end
 end
@@ -312,9 +456,32 @@ local function import_default_template_if_missing()
         return
     end
 
-    pcall(function()
+    local root = mediaPool:GetRootFolder()
+    if not root then
+        return
+    end
+
+    local temp_folder = create_temp_media_pool_folder(root, "__SubtitleStudioPlusTemplateImport")
+    if not temp_folder then
+        return
+    end
+
+    with_media_pool_folder(temp_folder, function()
         mediaPool:ImportFolderFromFile(template_path)
     end)
+
+    refresh_project_state()
+    root = mediaPool and mediaPool:GetRootFolder() or nil
+    if not root then
+        return
+    end
+
+    local imported_template, _ = get_template_item(temp_folder, DEFAULT_TEMPLATE_NAME)
+    if imported_template then
+        move_clip_to_folder(imported_template, root)
+    end
+
+    purge_folder_tree(temp_folder)
 end
 
 local function get_templates()
@@ -490,6 +657,14 @@ local function normalize_file_path(path)
     return trimmed
 end
 
+local function media_pool_item_unique_id(item)
+    if not item or not item.GetUniqueId then
+        return nil
+    end
+
+    return item:GetUniqueId()
+end
+
 local function media_pool_item_file_path(item)
     if not item or not item.GetClipProperty then
         return nil
@@ -536,12 +711,67 @@ local function find_media_pool_item_by_path(target_path)
     return found
 end
 
+local function folder_contains_clip(folder, clip_id)
+    if not folder or not clip_id then
+        return false
+    end
+
+    local clips = folder:GetClipList() or {}
+    for _, clip in ipairs(clips) do
+        if media_pool_item_unique_id(clip) == clip_id then
+            return true
+        end
+    end
+
+    local subfolders = folder:GetSubFolderList() or {}
+    for _, subfolder in ipairs(subfolders) do
+        if folder_contains_clip(subfolder, clip_id) then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function flatten_template_branch_to_root(template_item)
+    if not mediaPool or not template_item then
+        return
+    end
+
+    local root = mediaPool:GetRootFolder()
+    local clip_id = media_pool_item_unique_id(template_item)
+    if not root or not clip_id then
+        return
+    end
+
+    local subfolders = root:GetSubFolderList() or {}
+    for _, subfolder in ipairs(subfolders) do
+        if folder_contains_clip(subfolder, clip_id) then
+            if move_clip_to_folder(template_item, root) then
+                prune_empty_folder_tree(subfolder)
+            end
+            return
+        end
+    end
+end
+
 local function import_audio_media_item(audio_path)
     if not mediaStorage or not mediaStorage.AddItemListToMediaPool then
         return nil, "media storage unavailable"
     end
 
-    local imported = mediaStorage:AddItemListToMediaPool({ audio_path }) or {}
+    local root = mediaPool and mediaPool:GetRootFolder() or nil
+    if not root then
+        return nil, "media pool root unavailable"
+    end
+
+    local ok, imported = with_media_pool_folder(root, function()
+        return mediaStorage:AddItemListToMediaPool({ audio_path }) or {}
+    end)
+    if not ok then
+        return nil, imported
+    end
+
     if type(imported) ~= "table" or #imported == 0 then
         return nil, "audio import returned no media pool item"
     end
@@ -667,14 +897,26 @@ local function ensure_template_item(template_name)
     local requested_name = trim(template_name) or DEFAULT_TEMPLATE_NAME
     local template_item, template_folder = get_template_item(root, requested_name)
     if template_item then
-        sync_template_asset(template_folder)
+        if not same_folder(template_folder, root) then
+            flatten_template_branch_to_root(template_item)
+            refresh_project_state()
+            root = mediaPool and mediaPool:GetRootFolder() or nil
+            template_item, template_folder = get_template_item(root, requested_name)
+        end
+        sync_template_asset(template_folder, template_item)
         return template_item, requested_name
     end
 
     if requested_name ~= DEFAULT_TEMPLATE_NAME then
         template_item, template_folder = get_template_item(root, DEFAULT_TEMPLATE_NAME)
         if template_item then
-            sync_template_asset(template_folder)
+            if not same_folder(template_folder, root) then
+                flatten_template_branch_to_root(template_item)
+                refresh_project_state()
+                root = mediaPool and mediaPool:GetRootFolder() or nil
+                template_item, template_folder = get_template_item(root, DEFAULT_TEMPLATE_NAME)
+            end
+            sync_template_asset(template_folder, template_item)
             return template_item, DEFAULT_TEMPLATE_NAME
         end
     end
@@ -685,14 +927,26 @@ local function ensure_template_item(template_name)
 
     template_item, template_folder = get_template_item(root, requested_name)
     if template_item then
-        sync_template_asset(template_folder)
+        if not same_folder(template_folder, root) then
+            flatten_template_branch_to_root(template_item)
+            refresh_project_state()
+            root = mediaPool and mediaPool:GetRootFolder() or nil
+            template_item, template_folder = get_template_item(root, requested_name)
+        end
+        sync_template_asset(template_folder, template_item)
         return template_item, requested_name
     end
 
     if requested_name ~= DEFAULT_TEMPLATE_NAME then
         template_item, template_folder = get_template_item(root, DEFAULT_TEMPLATE_NAME)
         if template_item then
-            sync_template_asset(template_folder)
+            if not same_folder(template_folder, root) then
+                flatten_template_branch_to_root(template_item)
+                refresh_project_state()
+                root = mediaPool and mediaPool:GetRootFolder() or nil
+                template_item, template_folder = get_template_item(root, DEFAULT_TEMPLATE_NAME)
+            end
+            sync_template_asset(template_folder, template_item)
             return template_item, DEFAULT_TEMPLATE_NAME
         end
     end

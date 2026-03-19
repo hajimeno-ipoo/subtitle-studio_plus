@@ -510,15 +510,10 @@ final class AppViewModel {
                 audioAsset: exportAudio
             )
             let response = try await client.addSubtitles(request)
+            try validateResolveExportResponse(response)
             unsavedChanges.hasUnsavedChanges = false
 
-            let message = response.message?.trimmingCharacters(in: .whitespacesAndNewlines)
-            let body: String
-            if let message, !message.isEmpty {
-                body = message
-            } else {
-                body = resolveExportSuccessMessage(response: response)
-            }
+            let body = resolveExportSuccessMessage(response: response)
             dialogState = .init(
                 title: "Sent to Resolve",
                 message: body,
@@ -537,7 +532,23 @@ final class AppViewModel {
         return audioAsset
     }
 
+    private func validateResolveExportResponse(_ response: ResolveBridgeResponse) throws {
+        if response.error == true || response.success == false {
+            let message = response.message?.trimmingCharacters(in: .whitespacesAndNewlines)
+                ?? "Resolve export failed."
+            throw SubtitleStudioError.network(message)
+        }
+    }
+
     private func resolveExportSuccessMessage(response: ResolveBridgeResponse) -> String {
+        let trimmedMessage = response.message?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let baseMessage = (trimmedMessage?.isEmpty == false ? trimmedMessage! : nil)
+            ?? fallbackResolveExportSuccessMessage(response: response)
+
+        return baseMessage
+    }
+
+    private func fallbackResolveExportSuccessMessage(response: ResolveBridgeResponse) -> String {
         if response.audioSkipped == true {
             return "Subtitles added. Audio already exists at timeline start, so audio placement was skipped."
         }

@@ -40,6 +40,9 @@
   - `EXPORT .SRT` は普通の保存です。
   - `EXPORT FOR DAVINCI` は保存ダイアログを出さず、字幕 JSON と対応音声 path を Resolve へ送ります。
   - Resolve 側は `Default Template` の Text+ を timeline に自動で並べます。
+  - audio は Media Pool の root に入れます。
+  - template も最終的には root に置きます。
+  - template の `.drb` は一時 folder で読み書きし、`Default Template` だけを取り出します。
   - `Default Template` を Resolve 側で直した時は、その設定を user 用の `.drb` へ自動同期します。
   - 新しい project では、app bundle の初期 template より user 用の同期済み template を優先して使います。
   - さらに export 時に、追加する `Text+` へ `Hiragino Sans W6` を自動適用して、日本語が `□□□□` にならないようにします。
@@ -133,8 +136,9 @@
 - Resolve の入口は `Workspace -> Scripts -> SubtitleStudioPlus` に固定する。
 - bridge の主経路は `session.json` ではなく localhost JSON にする。
 - app 側の export は `EXPORT .SRT` と `EXPORT FOR DAVINCI` の 2 つに分ける。
-- `EXPORT FOR DAVINCI` は `segments`、`templateName`、`trackIndex`、`timelineStart`、必要なら `audioPath` と `audioDuration` を Resolve へ送る。
+- `EXPORT FOR DAVINCI` は `segments`、`templateName`、`trackIndex`、`timelineStart`、必要なら `audioPath`、`audioDuration` を Resolve へ送る。
 - Resolve 側は `Resolve()` ではなく埋め込みの `resolve` グローバルを使う。
 - `Default Template` が無い時は `.drb` から Media Pool へ自動投入する。
+- Media Pool へ入れる asset は root にそろえ、template の import/export は `Default Template` 1個だけを対象にする。
 - `Default Template` を Resolve で調整したら、その folder を user 用 `.drb` に同期して次の project でも同じ見た目を使う。
 - `EXPORT FOR DAVINCI` で置く `Text+` は、日本語対応の既定フォントへ自動でそろえる。

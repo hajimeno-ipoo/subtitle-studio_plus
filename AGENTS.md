@@ -16,6 +16,7 @@ No backward-compat shims or fallback paths unless they come free without adding 
 - 専門用語は初回だけ短く言い換える
 - 1文は長くしすぎない
 - 箇条書きを優先して読みやすくする
+- 実質同じ提案は、運用と実装などの別表現に分けず、1つの結論としてまとめる
 
 ## 読み込み確認
 セッション開始時は、次を短く報告する

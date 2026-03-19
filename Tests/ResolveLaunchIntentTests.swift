@@ -160,6 +160,23 @@ struct ResolveLaunchIntentTests {
     }
 
     @Test
+    func decodesResolveBridgeResponseWithBooleanError() throws {
+        let data = Data(
+            """
+            {
+              "error": true,
+              "message": "resolve export failed"
+            }
+            """.utf8
+        )
+
+        let response = try JSONDecoder().decode(ResolveBridgeResponse.self, from: data)
+
+        #expect(response.error == true)
+        #expect(response.message == "resolve export failed")
+    }
+
+    @Test
     func resolveExportAudioSupportRejectsVideoContainers() {
         #expect(AudioFileSupport.isResolveExportSupported(url: URL(fileURLWithPath: "/tmp/audio.wav")))
         #expect(!AudioFileSupport.isResolveExportSupported(url: URL(fileURLWithPath: "/tmp/clip.mp4")))
