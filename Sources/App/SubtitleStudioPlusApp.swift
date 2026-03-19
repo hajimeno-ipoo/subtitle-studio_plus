@@ -7,15 +7,7 @@ struct SubtitleStudioPlusApp: App {
     @State private var viewModel = AppViewModel()
 
     init() {
-        let size = NSSize(width: 1440, height: 960)
         NSWindow.allowsAutomaticWindowTabbing = false
-        Task { @MainActor in
-            if let window = NSApplication.shared.windows.first {
-                window.setContentSize(size)
-                window.minSize = NSSize(width: 1280, height: 820)
-                window.title = "SubtitleStudioPlus"
-            }
-        }
     }
 
     var body: some Scene {

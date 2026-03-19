@@ -1,0 +1,289 @@
+{\rtf1\ansi\ansicpg932\cocoartf2868
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\froman\fcharset0 Times-Roman;\f1\fmodern\fcharset0 Courier;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red0\green0\blue233;}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;\cssrgb\c0\c0\c93333;}
+{\*\listtable{\list\listtemplateid1\listhybrid{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{decimal\}}{\leveltext\leveltemplateid1\'01\'00;}{\levelnumbers\'01;}\fi-360\li720\lin720 }{\listname ;}\listid1}}
+{\*\listoverridetable{\listoverride\listid1\listoverridecount0\ls1}}
+\paperw11900\paperh16840\margl1440\margr1440\vieww16960\viewh17340\viewkind0
+\deftab720
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 \uc0\u12399 \u12356 \u12290 \u12391 \u12399 \u12289 \u12354 \u12394 \u12383 \u12398 \u26465 \u20214 \u21521 \u12369 \u12395 \u12289 \u23455 \u34892 \u38918 \u12392 Swift\u12363 \u12425 \u12398 \u12388 \u12394 \u12366 \u26041 \u12434 \u12381 \u12398 \u12414 \u12414 \u20351 \u12360 \u12427 \u24418 \u12391 \u25972 \u29702 \u12375 \u12414 \u12377 \u12290 \
+\uc0\u32080 \u35542 \u12363 \u12425 \u35328 \u12358 \u12392 \u12289 \u26368 \u32066 \u24418 \u12399 \u12371 \u12428 \u12364 \u12356 \u12385 \u12400 \u12435 \u25201 \u12356 \u12420 \u12377 \u12356 \u12391 \u12377 \u12290 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f1\fs26 \cf0 \uc0\u31532 1\u27573 : whisper.cpp + Core ML + Kotoba-Whisper v2.x / Bilingual
+\f0\fs24 \uc0\u8232 
+\f1\fs26 \uc0\u31532 2\u27573 : \u24618 \u12375 \u12356 \u21306 \u38291 \u12384 \u12369  Qwen3-ASR \u12391 \u20877 \u21028 \u23450 
+\f0\fs24 \uc0\u8232 
+\f1\fs26 \uc0\u31532 3\u27573 : Forced Aligner \u12391 \u26178 \u21051 \u21512 \u12431 \u12379 
+\f0\fs24 \uc0\u8232 
+\f1\fs26 \uc0\u31532 4\u27573 : \u36766 \u26360 \u35036 \u27491 \u12539 \u12363 \u12394 \u28450 \u23383 \u35036 \u27491 \u12539 \u26082 \u30693 \u27468 \u35422 \u29031 \u21512 
+\f0\fs24 \
+\uc0\u12371 \u12398 \u27083 \u25104 \u12364 \u33391 \u12356 \u29702 \u30001 \u12399 \u12289 whisper.cpp \u12399  Apple Silicon \u12391  Core ML \u12434 \u20351 \u12387 \u12390 \u12456 \u12531 \u12467 \u12540 \u12480 \u12434  ANE \u12391 \u21205 \u12363 \u12379 \u12427 \u12383 \u12417 \u39640 \u36895 \u12391 \u12289 Kotoba v2.0 \u12399 \u26085 \u26412 \u35486 ASR\u21521 \u12369 \u12398 \u33976 \u30041 Whisper\u12392 \u12375 \u12390 \u20844 \u38283 \u12373 \u12428 \u12289 Bilingual \u12399  whisper.cpp \u20114 \u25563 \u12398 GGML\u37325 \u12415 \u12364 \u37197 \u24067 \u12373 \u12428 \u12390 \u12356 \u12414 \u12377 \u12290 \u12373 \u12425 \u12395  Qwen3-ASR \u12399 \u26085 \u26412 \u35486 \u23550 \u24540 \u12434 \u21547 \u12416 \u22810 \u35328 \u35486 ASR\u12392 \u21029 \u31995 \u32113 \u12398  ForcedAligner \u12434 \u20844 \u38283 \u12375 \u12390 \u12356 \u12414 \u12377 \u12290 ({\field{\*\fldinst{HYPERLINK "https://github.com/ggml-org/whisper.cpp"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 GitHub}})\
+\uc0\u35211 \u26041 \u12392 \u12375 \u12390 \u12399 \u12371 \u12358 \u12391 \u12377 \u12290 \
+\uc0\u12539 whisper.cpp \u12399 \u12300 \u23455 \u34892 \u12456 \u12531 \u12472 \u12531 \u12301 \u8232 \u12539 Kotoba \u12399 \u12300 \u36617 \u12379 \u12427 \u12514 \u12487 \u12523 \u12301 \u8232 \u12539 Qwen3-ASR \u12399 \u12300 \u20877 \u21028 \u23450 \u29992 \u12398 \u19978 \u20301 \u25937 \u28168 \u12301 \u8232 \u12539 ForcedAligner \u12399 \u12300 \u12479 \u12452 \u12511 \u12531 \u12464 \u20462 \u27491 \u25285 \u24403 \u12301 \
+\uc0\u12388 \u12414 \u12426 \u12289 Kotoba \u12392  Qwen \u12434 \u20840 \u37096 \u30452 \u21015 \u12395 \u27969 \u12377 \u12424 \u12426 \u12289 \u12414 \u12378 \u36605 \u12367 \u24195 \u12367 \u25342 \u12387 \u12390 \u12289 \u24618 \u12375 \u12356 \u22580 \u25152 \u12384 \u12369 \u37325 \u12356 \u12514 \u12487 \u12523 \u12395 \u22238 \u12377 \u12411 \u12358 \u12364 \u33258 \u28982 \u12391 \u12377 \u12290 \
+\uc0\u23455 \u34892 \u38918 \
+1\uc0\u27573 \u30446 \u12399 \u12505 \u12540 \u12473 \u36578 \u20889 \u12391 \u12377 \u12290 \u8232 \u32020 \u26085 \u26412 \u35486 \u12398 \u26354 \u12394 \u12425 \u12289 \u12414 \u12378  Kotoba-Whisper v2.x \u12434 \u20808 \u12395 \u35430 \u12377 \u12398 \u12364 \u32032 \u30452 \u12391 \u12377 \u12290 v2.0 \u12399 \u26085 \u26412 \u35486 ASR\u21521 \u12369 \u12398 \u33976 \u30041 Whisper\u12392 \u12375 \u12390 \u20844 \u38283 \u12373 \u12428 \u12390 \u12356 \u12390 \u12289 whisper.cpp \u37325 \u12415 \u12418  faster-whisper \u29992 \u22793 \u25563 \u12418 \u12354 \u12426 \u12414 \u12377 \u12290 Bilingual \u12399 \u26085 \u33521 ASR\u12392 \u21452 \u26041 \u21521 \u38899 \u22768 \u32763 \u35379 \u12364 \u20027 \u30446 \u30340 \u12394 \u12398 \u12391 \u12289 \u33521 \u35486 \u12501 \u12524 \u12540 \u12474 \u12364 \u28151 \u12374 \u12427 \u26354 \u12391 \u20778 \u20808 \u24230 \u12364 \u19978 \u12364 \u12426 \u12414 \u12377 \u12290 ({\field{\*\fldinst{HYPERLINK "https://huggingface.co/kotoba-tech/kotoba-whisper-v2.0"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 Hugging Face}})\
+\uc0\u23455 \u38555 \u12398 \u20778 \u20808 \u38918 \u12399 \u12289 \u12371 \u12358 \u12377 \u12427 \u12392 \u20998 \u12363 \u12426 \u12420 \u12377 \u12356 \u12391 \u12377 \u12290 \
+\uc0\u32020 \u26085 \u26412 \u35486 \u26354 \u8232 
+\f1\fs26 Kotoba v2.x \uc0\u8594  Bilingual \u8594  Qwen3-ASR
+\f0\fs24 \
+\uc0\u26085 \u33521 \u28151 \u22312 \u26354 \u8232 
+\f1\fs26 Bilingual \uc0\u8594  Kotoba v2.x \u8594  Qwen3-ASR
+\f0\fs24 \
+2\uc0\u27573 \u30446 \u12399 \u20877 \u21028 \u23450 \u12391 \u12377 \u12290 \u8232 \u12505 \u12540 \u12473 \u32080 \u26524 \u12398 \u12358 \u12385 \u12289 \u26126 \u12425 \u12363 \u12395 \u23849 \u12428 \u12390 \u12356 \u12427 \u21306 \u38291 \u12384 \u12369 \u12434  Qwen3-ASR \u12395 \u25237 \u12370 \u12414 \u12377 \u12290 Qwen3-ASR \u12399 \u38263 \u38899 \u22768 \u23550 \u24540 \u12289 \u35079 \u38609 \u12394 \u38899 \u38911 \u29872 \u22659 \u12391 \u12398 \u38929 \u20581 \u24615 \u12289 \u22810 \u35328 \u35486 \u23550 \u24540 \u12434 \u25171 \u12385 \u20986 \u12375 \u12390 \u12356 \u12414 \u12377 \u12290 \u20840 \u37096 \u12434  Qwen \u12395 \u12377 \u12427 \u12392 \u37325 \u12356 \u12398 \u12391 \u12289 \u12371 \u12371 \u12399 \u12300 \u25937 \u24613 \u25644 \u36865 \u12301 \u12384 \u12392 \u24605 \u12358 \u12398 \u12364 \u12356 \u12385 \u12400 \u12435 \u20998 \u12363 \u12426 \u12420 \u12377 \u12356 \u12391 \u12377 \u12290 ({\field{\*\fldinst{HYPERLINK "https://github.com/QwenLM/Qwen3-ASR/blob/main/README.md"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 GitHub}})\
+3\uc0\u27573 \u30446 \u12399 \u12450 \u12521 \u12452 \u12513 \u12531 \u12488 \u12391 \u12377 \u12290 \u8232 Qwen3-ForcedAligner \u12399 \u26368 \u22823 5\u20998 \u12414 \u12391 \u12398 \u20219 \u24847 \u21336 \u20301 \u12398 \u26178 \u21051 \u20104 \u28204 \u12434 11\u35328 \u35486 \u12391 \u12469 \u12509 \u12540 \u12488 \u12377 \u12427 \u12392 \u26696 \u20869 \u12373 \u12428 \u12390 \u12356 \u12414 \u12377 \u12290 \u27468 \u35422 \u23383 \u24149 \u12420 LRC\u12434 \u20316 \u12427 \u12394 \u12425 \u12289 \u12371 \u12398 \u27573 \u12391 \u26178 \u21051 \u12434 \u35440 \u12417 \u12427 \u12398 \u12364 \u33258 \u28982 \u12391 \u12377 \u12290 ({\field{\*\fldinst{HYPERLINK "https://github.com/QwenLM/Qwen3-ASR/blob/main/README.md"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 GitHub}})\
+4\uc0\u27573 \u30446 \u12399 \u35036 \u27491 \u12391 \u12377 \u12290 \u8232 \u12371 \u12371 \u12399 \u12514 \u12487 \u12523 \u12392 \u12356 \u12358 \u12424 \u12426 \u12289 \u25991 \u23383 \u21015 \u20966 \u29702 \u12391 \u12377 \u12290 \u8232 \u12383 \u12392 \u12360 \u12400 \u12289 \
+\uc0\u12300 \u12354 \u12356 \u12375 \u12390 \u12427 \u12301 \u8594 \u12300 \u24859 \u12375 \u12390 \u12427 \u12301 \u8232 \u12300 \u12365 \u12415 \u12301 \u8594 \u12300 \u21531 \u12301 \u8232 \u12300 \u12414 \u12412 \u12429 \u12375 \u12301 \u8594 \u12300 \u24187 \u12301 \
+\uc0\u12398 \u12424 \u12358 \u12394 \u12289 \u27468 \u12391 \u12399 \u12354 \u12426 \u12364 \u12385 \u12394 \u34920 \u35352 \u25594 \u12428 \u12434 \u12381 \u12429 \u12360 \u12414 \u12377 \u12290 \u8232 \u12371 \u12398 \u27573 \u12399 \u22320 \u21619 \u12391 \u12377 \u12364 \u12289 \u20307 \u24863 \u31934 \u24230 \u12434 \u12363 \u12394 \u12426 \u19978 \u12370 \u12414 \u12377 \u12290 \
+Swift\uc0\u12363 \u12425 \u12398 \u29694 \u23455 \u30340 \u12394 \u27083 \u25104 \
+\uc0\u12356 \u12385 \u12400 \u12435 \u12362 \u12377 \u12377 \u12417 \u12399 \u12289 Swift\u26412 \u20307 \u12399 \u21496 \u20196 \u22612 \u12395 \u12375 \u12390 \u12289 \u37325 \u12356 \u35469 \u35672 \u20966 \u29702 \u12399 CLI\u12391 \u21628 \u12406 \u27083 \u25104 \u12391 \u12377 \u12290 \
+\uc0\u27083 \u25104 \u22259 \u12395 \u12377 \u12427 \u12392 \u12371 \u12358 \u12391 \u12377 \u12290 \
+
+\f1\fs26 Swift App
+\f0\fs24 \uc0\u8232 \u8595 \u8232 
+\f1\fs26 Audio chunking
+\f0\fs24 \uc0\u8232 \u8595 \u8232 
+\f1\fs26 whisper.cpp CLI (Kotoba v2.x or Bilingual)
+\f0\fs24 \uc0\u8232 \u8595 \u8232 
+\f1\fs26 \uc0\u30097 \u12431 \u12375 \u12356 \u21306 \u38291 \u12434 \u25277 \u20986 
+\f0\fs24 \uc0\u8232 \u8595 \u8232 
+\f1\fs26 Python CLI for Qwen3-ASR
+\f0\fs24 \uc0\u8232 \u8595 \u8232 
+\f1\fs26 Python CLI for ForcedAligner
+\f0\fs24 \uc0\u8232 \u8595 \u8232 
+\f1\fs26 Swift\uc0\u12391 \u32113 \u21512 \u12539 \u35036 \u27491 \u12539 LRC/SRT\u29983 \u25104 
+\f0\fs24 \
+\uc0\u12371 \u12398 \u24418 \u12364 \u24375 \u12356 \u12398 \u12399 \u12289 Swift\u12363 \u12425 \u30452 \u25509 PyTorch\u12420 Transformers\u12434 \u25265 \u12360 \u36796 \u12414 \u12394 \u12367 \u12390 \u28168 \u12416 \u12363 \u12425 \u12391 \u12377 \u12290 \u8232 macOS\u12450 \u12503 \u12522 \u12398 \u20013 \u12395 \u20840 \u37096 \u35440 \u12417 \u36796 \u12416 \u12424 \u12426 \u12289 \u22806 \u37096 \u12503 \u12525 \u12475 \u12473 \u12392 \u12375 \u12390 \u21628 \u12406 \u12411 \u12358 \u12364 \u22730 \u12428 \u12395 \u12367 \u12356 \u12391 \u12377 \u12290 \
+\uc0\u12362 \u12377 \u12377 \u12417 \u12487 \u12451 \u12524 \u12463 \u12488 \u12522 \u27083 \u25104 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs26 \cf0 project/\
+  App/\
+    Sources/\
+  Tools/\
+    whisper/\
+      whisper-cli\
+      models/\
+        ggml-kotoba-v2.bin\
+        ggml-kotoba-bilingual.bin\
+        ggml-base.en-encoder.mlmodelc\
+    qwen/\
+      transcribe.py\
+      align.py\
+  Work/\
+    input/\
+    chunks/\
+    base_json/\
+    qwen_json/\
+    aligned_json/\
+    final/\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Swift\uc0\u20596 \u12398 \u36012 \u21209 \
+Swift\uc0\u12399 \u27425 \u12398 4\u12388 \u12384 \u12369 \u12395 \u32094 \u12427 \u12392 \u23433 \u23450 \u12375 \u12414 \u12377 \u12290 \
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa240\partightenfactor0
+\ls1\ilvl0\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	1	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 \uc0\u38899 \u22768 \u12434 5\u12316 12\u31186 \u31243 \u24230 \u12395 \u20999 \u12427 \
+\ls1\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	2	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 whisper.cpp \uc0\u12434 \u21628 \u12406 \
+\ls1\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	3	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 \uc0\u12473 \u12467 \u12450 \u12364 \u20302 \u12356 \u21306 \u38291 \u12420 \u24618 \u12375 \u12356 \u21306 \u38291 \u12384 \u12369  Qwen \u12395 \u22238 \u12377 \
+\ls1\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	4	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 \uc0\u26368 \u24460 \u12395 \u32080 \u26524 \u12434 \u32113 \u21512 \u12375 \u12390 LRC/SRT/TXT\u12395 \u12377 \u12427 \
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 \uc0\u12371 \u12398 \u24441 \u21106 \u20998 \u25285 \u12384 \u12392 \u12289 Swift\u12399 \u12300 \u37197 \u36554 \u20418 \u12301 \u12289 ASR\u12514 \u12487 \u12523 \u12399 \u12300 \u36939 \u36578 \u25163 \u12301 \u12415 \u12383 \u12356 \u12394 \u38306 \u20418 \u12395 \u12394 \u12426 \u12414 \u12377 \u12290 \
+\uc0\u24618 \u12375 \u12356 \u21306 \u38291 \u12398 \u21028 \u23450 \u22522 \u28310 \
+\uc0\u12371 \u12371 \u12399 \u37325 \u35201 \u12391 \u12377 \u12290 \u8232 \u20877 \u21028 \u23450 \u12434 \u36066 \u12367 \u12377 \u12427 \u12395 \u12399 \u12289 \u12300 \u12393 \u12371 \u12364 \u24618 \u12375 \u12356 \u12363 \u12301 \u12434 \u27770 \u12417 \u12427 \u24517 \u35201 \u12364 \u12354 \u12426 \u12414 \u12377 \u12290 \
+\uc0\u23455 \u21209 \u19978 \u12399 \u12289 \u12371 \u12435 \u12394 \u26465 \u20214 \u12391 \u21313 \u20998 \u12391 \u12377 \u12290 \
+\uc0\u12539 \u31354 \u25991 \u23383 \u12395 \u36817 \u12356 \u8232 \u12539 \u21516 \u12376 \u25991 \u23383 \u12398 \u24341 \u12365 \u20280 \u12400 \u12375 \u12364 \u22810 \u12356 \u8232 \u12539 \u12402 \u12425 \u12364 \u12394 \u12400 \u12363 \u12426 \u12391 \u19981 \u33258 \u28982 \u8232 \u12539 \u21477 \u35501 \u28857 \u12420 \u31354 \u30333 \u12398 \u20837 \u12426 \u26041 \u12364 \u23849 \u12428 \u12390 \u12356 \u12427 \u8232 \u12539 \u20449 \u38972 \u12473 \u12467 \u12450 \u12364 \u20302 \u12356 \u8232 \u12539 \u21069 \u24460 \u12398 \u25991 \u33032 \u12395 \u27604 \u12409 \u12390 \u26997 \u31471 \u12395 \u30701 \u12356 \
+\uc0\u12383 \u12392 \u12360 \u12400 \u12289 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f1\fs26 \cf0 \uc0\u12354  \u12354  \u12354 
+\f0\fs24 \uc0\u8232 
+\f1\fs26 \uc0\u12358 \u12540  \u12358 \u12540 
+\f0\fs24 \uc0\u8232 
+\f1\fs26 \uc0\u35211 \u12360 \u12394 \u12356  \u12398  \u12398  \u12398 
+\f0\fs24 \
+\uc0\u12415 \u12383 \u12356 \u12394 \u21306 \u38291 \u12384 \u12369  Qwen \u12395 \u20877 \u36865 \u12375 \u12414 \u12377 \u12290 \
+Swift\uc0\u12398 \u23455 \u35013 \u12452 \u12513 \u12540 \u12472 \
+\uc0\u12414 \u12378  whisper.cpp \u12434 \u21481 \u12367 \u37096 \u20998 \u12391 \u12377 \u12290 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs26 \cf0 import Foundation\
+\
+struct WhisperSegment: Decodable \{\
+    let t0: Int?\
+    let t1: Int?\
+    let text: String?\
+\}\
+\
+final class ASRRunner \{\
+    func runWhisper(\
+        audioPath: String,\
+        modelPath: String,\
+        language: String = "ja"\
+    ) throws -> String \{\
+        let process = Process()\
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")\
+        process.arguments = [\
+            "bash", "-lc",\
+            """\
+            ./Tools/whisper/whisper-cli \\\
+              -m \\(modelPath) \\\
+              -f \\(audioPath) \\\
+              -l \\(language) \\\
+              -oj -otxt\
+            """\
+        ]\
+\
+        let pipe = Pipe()\
+        process.standardOutput = pipe\
+        process.standardError = pipe\
+        try process.run()\
+        process.waitUntilExit()\
+\
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()\
+        return String(decoding: data, as: UTF8.self)\
+    \}\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 \uc0\u27425 \u12395 \u12289 \u24618 \u12375 \u12356 \u21306 \u38291 \u12434 \u36984 \u12406 \u20363 \u12391 \u12377 \u12290 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs26 \cf0 func looksSuspicious(_ text: String) -> Bool \{\
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)\
+    if trimmed.count <= 1 \{ return true \}\
+\
+    let hiraOnly = trimmed.unicodeScalars.allSatisfy \{\
+        CharacterSet(charactersIn: "\uc0\u12353 \u12354 \u12355 \u12356 \u12357 \u12358 \u12359 \u12360 \u12361 \u12362 \u12363 \u12365 \u12367 \u12369 \u12371 \u12373 \u12375 \u12377 \u12379 \u12381 \u12383 \u12385 \u12388 \u12390 \u12392 \u12394 \u12395 \u12396 \u12397 \u12398 \u12399 \u12402 \u12405 \u12408 \u12411 \u12414 \u12415 \u12416 \u12417 \u12418 \u12420 \u12422 \u12424 \u12425 \u12426 \u12427 \u12428 \u12429 \u12431 \u12434 \u12435 \u12540  ").contains($0)\
+    \}\
+\
+    if hiraOnly && trimmed.count <= 4 \{ return true \}\
+\
+    let repeated = ["\uc0\u12354 \u12354 \u12354 ", "\u12540 \u12540 ", "\u12398 \u12398 ", "\u12358 \u12358 "]\
+    if repeated.contains(where: trimmed.contains) \{ return true \}\
+\
+    return false\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Qwen3-ASR\uc0\u12399  Swift \u12363 \u12425 \u30452 \u25509 \u12424 \u12426 \u12289 Python\u12473 \u12463 \u12522 \u12503 \u12488 \u21628 \u12403 \u20986 \u12375 \u12364 \u23433 \u20840 \u12391 \u12377 \u12290 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs26 \cf0 func runQwen(audioPath: String) throws -> String \{\
+    let process = Process()\
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/env")\
+    process.arguments = [\
+        "python3",\
+        "./Tools/qwen/transcribe.py",\
+        audioPath\
+    ]\
+\
+    let pipe = Pipe()\
+    process.standardOutput = pipe\
+    process.standardError = pipe\
+    try process.run()\
+    process.waitUntilExit()\
+\
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()\
+    return String(decoding: data, as: UTF8.self)\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 \uc0\u36939 \u29992 \u12501 \u12525 \u12540 \u12399 \u12289 \u12371 \u12435 \u12394 \u24863 \u12376 \u12391 \u12377 \u12290 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs26 \cf0 for chunk in chunks \{\
+    let baseText = try runWhisper(\
+        audioPath: chunk.path,\
+        modelPath: selectedKotobaModelPath\
+    )\
+\
+    if looksSuspicious(baseText) \{\
+        let repaired = try runQwen(audioPath: chunk.path)\
+        mergedResults.append(repaired)\
+    \} else \{\
+        mergedResults.append(baseText)\
+    \}\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 \uc0\u12514 \u12487 \u12523 \u36984 \u25246 \u12523 \u12540 \u12523 \
+\uc0\u12371 \u12371 \u12434 \u22266 \u23450 \u12377 \u12427 \u12392 \u12289 \u20351 \u12356 \u12420 \u12377 \u12367 \u12394 \u12426 \u12414 \u12377 \u12290 \
+\uc0\u26354 \u12513 \u12479 \u12487 \u12540 \u12479 \u12420 \u26368 \u21021 \u12398 \u25968 \u12481 \u12515 \u12531 \u12463 \u12363 \u12425 \u21028 \u23450 \u12375 \u12390 \u12289 \
+\uc0\u33521 \u35486 \u29575 \u12364 \u20302 \u12356 \u8232 \u8594  Kotoba v2.x\
+\uc0\u33521 \u35486 \u29575 \u12364 \u39640 \u12356 \u12289 \u12414 \u12383 \u12399 \u33521 \u21336 \u35486 \u12364 \u38971 \u20986 \u8232 \u8594  Kotoba Bilingual\
+\uc0\u23849 \u12428 \u12364 \u22810 \u12356 \u8232 \u8594  Qwen\u25937 \u28168 \u12434 \u22679 \u12420 \u12377 \
+\uc0\u12392 \u12356 \u12358 3\u27573 \u38542 \u12391 \u21313 \u20998 \u12391 \u12377 \u12290 \
+\uc0\u12362 \u12377 \u12377 \u12417 \u12481 \u12515 \u12531 \u12463 \u38263 \
+\uc0\u27468 \u12391 \u12399 \u38263 \u12377 \u12366 \u12427 \u12481 \u12515 \u12531 \u12463 \u12364 \u19981 \u21033 \u12395 \u12394 \u12426 \u12420 \u12377 \u12356 \u12398 \u12391 \u12289 \u31169 \u12399 \u12371 \u12358 \u21223 \u12417 \u12414 \u12377 \u12290 \
+\uc0\u12505 \u12540 \u12473 \u36578 \u20889 \u8232 
+\f1\fs26 6\uc0\u12316 10\u31186 
+\f0\fs24 \
+Qwen\uc0\u20877 \u21028 \u23450 \u8232 
+\f1\fs26 4\uc0\u12316 8\u31186 
+\f0\fs24 \
+Forced Alignment\uc0\u8232 
+\f1\fs26 1\uc0\u12501 \u12524 \u12540 \u12474 \u21336 \u20301 \u12289 \u12414 \u12383 \u12399 \u26368 \u22823 5\u20998 \u20197 \u20869 
+\f0\fs24 \
+\uc0\u26368 \u24460 \u12398 \u26465 \u20214 \u12399 \u12289 Qwen3-ForcedAligner \u12364 \u26368 \u22823 5\u20998 \u12414 \u12391 \u12398 \u20219 \u24847 \u21336 \u20301 \u12398 \u26178 \u21051 \u20104 \u28204 \u12434 \u26696 \u20869 \u12375 \u12390 \u12356 \u12427 \u12371 \u12392 \u12395 \u27839 \u12387 \u12390 \u12356 \u12414 \u12377 \u12290 ({\field{\*\fldinst{HYPERLINK "https://github.com/QwenLM/Qwen3-ASR/blob/main/README.md"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 GitHub}})\
+M3 Pro\uc0\u21521 \u12369 \u12398 \u20778 \u20808 \u38918 \u20301 \
+\uc0\u12354 \u12394 \u12383 \u12398 \u29872 \u22659 \u12394 \u12425 \u12289 \u12414 \u12378 \u12371 \u12371 \u12363 \u12425 \u22987 \u12417 \u12427 \u12398 \u12364 \u12356 \u12385 \u12400 \u12435 \u12365 \u12428 \u12356 \u12391 \u12377 \u12290 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f1\fs26 \cf0 1. whisper.cpp + Core ML \uc0\u12434 \u36890 \u12377 
+\f0\fs24 \uc0\u8232 
+\f1\fs26 2. Kotoba v2.x \uc0\u12434 \u20027 \u21147 \u12395 \u12377 \u12427 
+\f0\fs24 \uc0\u8232 
+\f1\fs26 3. \uc0\u33521 \u35486 \u28151 \u22312 \u26354 \u12384 \u12369  Bilingual \u12395 \u20999 \u12426 \u26367 \u12360 \u12427 
+\f0\fs24 \uc0\u8232 
+\f1\fs26 4. \uc0\u24618 \u12375 \u12356 \u21306 \u38291 \u12384 \u12369  Qwen3-ASR
+\f0\fs24 \uc0\u8232 
+\f1\fs26 5. \uc0\u26368 \u24460 \u12395  ForcedAligner
+\f0\fs24 \
+\uc0\u29702 \u30001 \u12399 \u21336 \u32020 \u12391 \u12289 whisper.cpp \u12399  Apple Silicon \u12391  Core ML \u12395 \u12424 \u12426 \u12456 \u12531 \u12467 \u12540 \u12480 \u12434  ANE \u23455 \u34892 \u12391 \u12365 \u12289 3\u20493 \u36229 \u12398 \u39640 \u36895 \u21270 \u12364 \u35211 \u36796 \u12417 \u12427 \u19968 \u26041 \u12289 Kotoba v2.0 \u12399 \u26085 \u26412 \u35486 ASR\u21521 \u12369 \u12391 \u12289 Bilingual \u12399 \u26085 \u33521 \u23550 \u24540 \u12395 \u21521 \u12356 \u12390 \u12356 \u12427 \u12363 \u12425 \u12391 \u12377 \u12290 ({\field{\*\fldinst{HYPERLINK "https://github.com/ggml-org/whisper.cpp"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 GitHub}})\
+\uc0\u26368 \u21021 \u12398 \u26908 \u35388 \u12475 \u12483 \u12488 \
+\uc0\u12414 \u12378 3\u26354 \u12384 \u12369 \u12391 \u27604 \u36611 \u12377 \u12427 \u12392 \u12289 \u26041 \u21521 \u12364 \u35211 \u12360 \u12420 \u12377 \u12356 \u12391 \u12377 \u12290 \
+\uc0\u12539 \u32020 \u26085 \u26412 \u35486 \u12496 \u12521 \u12540 \u12489 \u8232 \u12539 \u26089 \u21475 \u27671 \u21619 \u12398 J-POP\u8232 \u12539 \u33521 \u35486 \u28151 \u12376 \u12426 \u12398 \u26354 \
+\uc0\u12371 \u12398 3\u12388 \u12395 \u23550 \u12375 \u12390 \u12289 \
+
+\f1\fs26 Kotoba v2.x \uc0\u21336 \u29420 
+\f0\fs24 \uc0\u8232 
+\f1\fs26 Bilingual \uc0\u21336 \u29420 
+\f0\fs24 \uc0\u8232 
+\f1\fs26 Kotoba v2.x + Qwen\uc0\u25937 \u28168 
+\f0\fs24 \
+\uc0\u12434 \u35211 \u27604 \u12409 \u12427 \u12392 \u12289 \u12393 \u12371 \u12395 \u24046 \u12364 \u20986 \u12427 \u12363 \u12363 \u12394 \u12426 \u12399 \u12387 \u12365 \u12426 \u12375 \u12414 \u12377 \u12290 \
+\uc0\u26368 \u32066 \u25552 \u26696 \
+\uc0\u12354 \u12394 \u12383 \u21521 \u12369 \u12398 \u12300 \u12414 \u12378 \u22806 \u12375 \u12395 \u12367 \u12356 \u27083 \u25104 \u12301 \u12399 \u12371 \u12428 \u12391 \u12377 \u12290 \
+
+\f1\fs26 \uc0\u27161 \u28310 \u12523 \u12540 \u12488 
+\f0\fs24 \uc0\u8232 
+\f1\fs26 whisper.cpp(Core ML) + Kotoba v2.x
+\f0\fs24 \uc0\u8232 
+\f1\fs26 \uc0\u8594  \u24618 \u12375 \u12356 \u21306 \u38291 \u12384 \u12369  Qwen3-ASR
+\f0\fs24 \uc0\u8232 
+\f1\fs26 \uc0\u8594  Qwen3-ForcedAligner
+\f0\fs24 \uc0\u8232 
+\f1\fs26 \uc0\u8594  \u36766 \u26360 \u35036 \u27491 
+\f0\fs24 \
+
+\f1\fs26 \uc0\u26085 \u33521 \u28151 \u22312 \u12523 \u12540 \u12488 
+\f0\fs24 \uc0\u8232 
+\f1\fs26 whisper.cpp(Core ML) + Kotoba Bilingual
+\f0\fs24 \uc0\u8232 
+\f1\fs26 \uc0\u8594  \u24618 \u12375 \u12356 \u21306 \u38291 \u12384 \u12369  Qwen3-ASR
+\f0\fs24 \uc0\u8232 
+\f1\fs26 \uc0\u8594  Qwen3-ForcedAligner
+\f0\fs24 \uc0\u8232 
+\f1\fs26 \uc0\u8594  \u36766 \u26360 \u35036 \u27491 
+\f0\fs24 \
+\uc0\u12371 \u12398 2\u26412 \u31435 \u12390 \u12391 \u21313 \u20998 \u23455 \u25126 \u30340 \u12391 \u12377 \u12290 \
+\uc0\u27425 \u12399 \u12289 \u12371 \u12428 \u12434 \u12381 \u12398 \u12414 \u12414 \u21205 \u12363 \u12379 \u12427 \u12424 \u12358 \u12395 \u12289 macOS\u21521 \u12369 \u12398 \u8232 \u12300 \u12475 \u12483 \u12488 \u12450 \u12483 \u12503 \u25163 \u38918 \u12301 \u8232 \u12300 Swift Package\u27083 \u25104 \u12301 \u8232 \u12300 whisper.cpp\u21628 \u12403 \u20986 \u12375 \u12521 \u12483 \u12497 \u12301 \u8232 \u12414 \u12391 \u19968 \u27671 \u12395 \u26360 \u12369 \u12414 \u12377 \u12290 \
+}

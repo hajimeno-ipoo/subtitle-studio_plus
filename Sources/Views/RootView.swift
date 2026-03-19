@@ -84,6 +84,12 @@ struct RootView: View {
             openSettings()
             viewModel.isSettingsPresented = false
         }
+        .onAppear {
+            AppDelegate.shared?.adjustMainWindowFrame(resolveSessionActive: viewModel.isResolveSessionActive)
+        }
+        .onChange(of: viewModel.isResolveSessionActive) {
+            AppDelegate.shared?.adjustMainWindowFrame(resolveSessionActive: viewModel.isResolveSessionActive)
+        }
     }
 
     @ViewBuilder

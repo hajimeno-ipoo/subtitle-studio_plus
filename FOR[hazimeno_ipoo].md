@@ -40,6 +40,7 @@
   - `EXPORT .SRT` は普通の保存です。
   - `EXPORT FOR DAVINCI` は保存ダイアログを出さず、字幕 JSON と対応音声 path を Resolve へ送ります。
   - Resolve 側は `Default Template` の Text+ を timeline に自動で並べます。
+  - Resolve session banner が出る時は、その分だけ app の window 高さを少し足して上下が切れにくいようにします。
   - audio は Media Pool の root に入れます。
   - template も最終的には root に置きます。
   - template の `.drb` は一時 folder で読み書きし、`Default Template` だけを取り出します。
