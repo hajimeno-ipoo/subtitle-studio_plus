@@ -10,6 +10,7 @@
 		188DEB462F667A3D009DBDC8 /* DSWaveformImage in Frameworks */ = {isa = PBXBuildFile; productRef = 188DEB452F667A3D009DBDC8 /* DSWaveformImage */; };
 		188DEB482F667A3D009DBDC8 /* DSWaveformImageViews in Frameworks */ = {isa = PBXBuildFile; productRef = 188DEB472F667A3D009DBDC8 /* DSWaveformImageViews */; };
 		1AFB35A42765E2D6287C4BE4 /* AudioAnalysisServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0638B780606D94B2A28AAE4 /* AudioAnalysisServiceTests.swift */; };
+		1C8D4A60A8F14AF0B7FA1001 /* ResolveBridgeResources in Resources */ = {isa = PBXBuildFile; fileRef = 1C8D4A60A8F14AF0B7FA1000 /* ResolveBridgeResources */; };
 		296556DB0B83B4D3C3E8F7D3 /* SRTCodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CA6016BF0E5EDDEAEDB8E61 /* SRTCodecTests.swift */; };
 		2E1A19CD2865B3BEB316D12C /* WaveformService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23634F3D99F80D93C18C6F56 /* WaveformService.swift */; };
 		2EBA8794643520FE5760B68E /* UploadDropZone.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15AC0425C484B34CF5078720 /* UploadDropZone.swift */; };
@@ -22,6 +23,8 @@
 		A7C2D8F1F1E24A0B9F111112 /* SettingsDescriptionRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C2D8F1F1E24A0B9F221112 /* SettingsDescriptionRow.swift */; };
 		A7C2D8F1F1E24A0B9F111113 /* SettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C2D8F1F1E24A0B9F221113 /* SettingsTab.swift */; };
 		A7C2D8F1F1E24A0B9F111114 /* SettingsUTOAlignTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C2D8F1F1E24A0B9F221114 /* SettingsUTOAlignTabView.swift */; };
+		A1D7C0E9F1A24C5DB6C3A002 /* ResolveLaunchIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D7C0E9F1A24C5DB6C3A001 /* ResolveLaunchIntent.swift */; };
+		A1D7C0E9F1A24C5DB6C3A005 /* ResolveLaunchIntentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D7C0E9F1A24C5DB6C3A004 /* ResolveLaunchIntentTests.swift */; };
 		6EBFDC8179410FDACF828699 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B4489650CC48D6185534E8 /* SettingsView.swift */; };
 		73665E536F4C22235CD9D5C2 /* AudioFileSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15778F4F9ACC6AD2A0F6A24 /* AudioFileSupport.swift */; };
 		7941C445D417CC7D4CDC4CE4 /* SRTDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF91567ACE35B883DA96FB18 /* SRTDocument.swift */; };
@@ -56,6 +59,7 @@
 		12117A54AD541664D4B1F74A /* LivePreviewPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LivePreviewPanel.swift; sourceTree = "<group>"; };
 		15AC0425C484B34CF5078720 /* UploadDropZone.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UploadDropZone.swift; sourceTree = "<group>"; };
 		1D1B987793001724561F583E /* SubtitleAlignmentServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubtitleAlignmentServiceTests.swift; sourceTree = "<group>"; };
+		1C8D4A60A8F14AF0B7FA1000 /* ResolveBridgeResources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ResolveBridgeResources; sourceTree = "<group>"; };
 		23634F3D99F80D93C18C6F56 /* WaveformService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WaveformService.swift; sourceTree = "<group>"; };
 		23DF2BDE45F686A685241D2C /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		291A14BFF246CE0007F0E136 /* SubtitleListPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubtitleListPanel.swift; sourceTree = "<group>"; };
@@ -69,6 +73,9 @@
 		75E6B003415E9A2261E9EF39 /* WaveformTimelineView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WaveformTimelineView.swift; sourceTree = "<group>"; };
 		7D1B5CC9E713EC96CE08330B /* AppModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppModels.swift; sourceTree = "<group>"; };
 		8DAE4B8A64C240B1A6D7F0E10 /* SettingsStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsStoreTests.swift; sourceTree = "<group>"; };
+		A1D7C0E9F1A24C5DB6C3A001 /* ResolveLaunchIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ResolveLaunchIntent.swift; sourceTree = "<group>"; };
+		A1D7C0E9F1A24C5DB6C3A003 /* ResolveBridge.lua */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = ResolveBridge.lua; sourceTree = "<group>"; };
+		A1D7C0E9F1A24C5DB6C3A004 /* ResolveLaunchIntentTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ResolveLaunchIntentTests.swift; sourceTree = "<group>"; };
 		A7C2D8F1F1E24A0B9F221111 /* SettingsAPITabView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsAPITabView.swift; sourceTree = "<group>"; };
 		A7C2D8F1F1E24A0B9F221112 /* SettingsDescriptionRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsDescriptionRow.swift; sourceTree = "<group>"; };
 		A7C2D8F1F1E24A0B9F221113 /* SettingsTab.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsTab.swift; sourceTree = "<group>"; };
@@ -213,6 +220,7 @@
 			children = (
 				B0638B780606D94B2A28AAE4 /* AudioAnalysisServiceTests.swift */,
 				3CA6016BF0E5EDDEAEDB8E61 /* SRTCodecTests.swift */,
+				A1D7C0E9F1A24C5DB6C3A004 /* ResolveLaunchIntentTests.swift */,
 				8DAE4B8A64C240B1A6D7F0E10 /* SettingsStoreTests.swift */,
 				1D1B987793001724561F583E /* SubtitleAlignmentServiceTests.swift */,
 			);
@@ -231,6 +239,8 @@
 			isa = PBXGroup;
 			children = (
 				BF0E17EE082047C89D5160CE /* AppInfo.plist */,
+				A1D7C0E9F1A24C5DB6C3A003 /* ResolveBridge.lua */,
+				1C8D4A60A8F14AF0B7FA1000 /* ResolveBridgeResources */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -239,6 +249,7 @@
 			isa = PBXGroup;
 			children = (
 				4B21C9FACAAF4164F4936875 /* AppDelegate.swift */,
+				A1D7C0E9F1A24C5DB6C3A001 /* ResolveLaunchIntent.swift */,
 				6C6BE98C07F455840CAED68A /* SubtitleStudioPlusApp.swift */,
 			);
 			path = App;
@@ -328,6 +339,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1C8D4A60A8F14AF0B7FA1001 /* ResolveBridgeResources in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -347,6 +359,7 @@
 			files = (
 				1AFB35A42765E2D6287C4BE4 /* AudioAnalysisServiceTests.swift in Sources */,
 				296556DB0B83B4D3C3E8F7D3 /* SRTCodecTests.swift in Sources */,
+				A1D7C0E9F1A24C5DB6C3A005 /* ResolveLaunchIntentTests.swift in Sources */,
 				8DAE4B8A64C240B1A6D7F0E1 /* SettingsStoreTests.swift in Sources */,
 				8CE8C2F9EF8370F281BC67B0 /* SubtitleAlignmentServiceTests.swift in Sources */,
 			);
@@ -379,6 +392,7 @@
 				A7C2D8F1F1E24A0B9F111114 /* SettingsUTOAlignTabView.swift in Sources */,
 				6EBFDC8179410FDACF828699 /* SettingsView.swift in Sources */,
 				4C269DB69DD739CCEC903867 /* SubtitleListPanel.swift in Sources */,
+				A1D7C0E9F1A24C5DB6C3A002 /* ResolveLaunchIntent.swift in Sources */,
 				2EBA8794643520FE5760B68E /* UploadDropZone.swift in Sources */,
 				A0B3435321B1DC32F6F68EA3 /* WaveformTimelineView.swift in Sources */,
 			);

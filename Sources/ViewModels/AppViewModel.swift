@@ -28,6 +28,9 @@ final class AppViewModel {
     var isLyricsEditMode = false
     var unsavedChanges = UnsavedChangesState()
 
+    private(set) var resolveSessionPayload: ResolveSessionPayload?
+    private(set) var resolveTimelineInfo: ResolveBridgeTimelineInfo?
+
     private(set) var undoStack: [[SubtitleItem]] = []
     private(set) var redoStack: [[SubtitleItem]] = []
 
@@ -50,6 +53,8 @@ final class AppViewModel {
     let playback = AudioPlaybackController()
     private let waveformService = WaveformService()
     private var analysisDisplayTask: Task<Void, Never>?
+    private var resolveBridgeURL: URL?
+    private var resolveBridgeMonitorTask: Task<Void, Never>?
 
     init() {
         playback.onTimeChange = { [weak self] time in
@@ -71,6 +76,9 @@ final class AppViewModel {
     var canUseTimelineShortcuts: Bool { canEditSubtitles && selectedSubtitleID != nil && !isLyricsEditMode && !isTextInputActive }
     var canTogglePlayback: Bool { hasAudio && !isLyricsEditMode && !isTextInputActive }
     var canDeleteSelectedSubtitle: Bool { canEditSubtitles && selectedSubtitleID != nil && !isLyricsEditMode && !isTextInputActive }
+    var isResolveSessionActive: Bool { resolveTimelineInfo != nil }
+    var canExportStandardSRT: Bool { !subtitles.isEmpty }
+    var canExportForDaVinci: Bool { isResolveSessionActive && !subtitles.isEmpty }
     var activeSubtitleText: String {
         subtitles.first(where: { currentTime >= $0.startTime && currentTime <= $0.endTime })?.text ?? ""
     }
@@ -91,9 +99,39 @@ final class AppViewModel {
         isFileImporterPresented = true
     }
 
-    func requestExport() {
-        guard !subtitles.isEmpty else { return }
+    func startResolveBridgeMonitoring() {
+        guard resolveBridgeMonitorTask == nil else { return }
+        resolveBridgeMonitorTask = Task { [weak self] in
+            while let self, !Task.isCancelled {
+                await self.refreshResolveBridgeStatus(silent: true)
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
+    }
+
+    func requestStandardExport() {
+        guard canExportStandardSRT else { return }
         isFileExporterPresented = true
+    }
+
+    func requestDaVinciExport() {
+        guard canExportForDaVinci else { return }
+        Task { await exportForDaVinci() }
+    }
+
+    func handleResolveLaunch(_ intent: ResolveLaunchIntent) async {
+        do {
+            resolveBridgeURL = intent.serverURL ?? resolveBridgeURL
+            if intent.sessionURL != nil {
+                resolveSessionPayload = try intent.loadSessionPayload()
+                if let sessionURL = resolveSessionPayload?.serverURL {
+                    resolveBridgeURL = sessionURL
+                }
+            }
+            await refreshResolveBridgeStatus(silent: true)
+        } catch {
+            present(error)
+        }
     }
 
     func handleImportedURL(_ url: URL) async {
@@ -168,6 +206,31 @@ final class AppViewModel {
         unsavedChanges.hasUnsavedChanges = false
         undoStack.removeAll()
         redoStack.removeAll()
+    }
+
+    private func loadSubtitles(from url: URL) {
+        do {
+            let gotAccess = url.startAccessingSecurityScopedResource()
+            defer {
+                if gotAccess { url.stopAccessingSecurityScopedResource() }
+            }
+
+            let contents = try String(contentsOf: url, encoding: .utf8)
+            let parsed = SRTCodec.parseSRT(contents)
+            guard !parsed.isEmpty else {
+                throw SubtitleStudioError.invalidSRTResponse
+            }
+
+            subtitles = parsed
+            resetLyricsEditState()
+            status = .completed
+            currentTime = 0
+            unsavedChanges.hasUnsavedChanges = false
+            undoStack.removeAll()
+            redoStack.removeAll()
+        } catch {
+            present(error)
+        }
     }
 
     func togglePlayback() {
@@ -430,6 +493,111 @@ final class AppViewModel {
             unsavedChanges.hasUnsavedChanges = false
         case .failure(let error):
             present(error)
+        }
+    }
+
+    private func exportForDaVinci() async {
+        guard canExportForDaVinci else { return }
+
+        do {
+            let serverURL = resolveBridgeURL ?? resolveSessionPayload?.serverURL ?? ResolveBridgeClient.defaultServerURL
+            let client = ResolveBridgeClient(serverURL: serverURL)
+            let request = ResolveDaVinciExportRequest(
+                session: resolveSessionPayload,
+                timelineInfo: resolveTimelineInfo,
+                subtitles: subtitles
+            )
+            let response = try await client.addSubtitles(request)
+            unsavedChanges.hasUnsavedChanges = false
+
+            let message = response.message?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let body: String
+            if let message, !message.isEmpty {
+                body = message
+            } else {
+                body = "Subtitle payload was sent to Resolve."
+            }
+            dialogState = .init(
+                title: "Sent to Resolve",
+                message: body,
+                kind: .success
+            )
+        } catch {
+            present(error)
+        }
+    }
+
+    private func refreshResolveBridgeStatus(silent: Bool) async {
+        let candidates = resolveBridgeCandidates()
+        guard !candidates.isEmpty else {
+            resolveTimelineInfo = nil
+            return
+        }
+
+        var lastError: Error?
+        for candidate in candidates {
+            do {
+                let info = try await ResolveBridgeClient(serverURL: candidate).getTimelineInfo()
+                resolveBridgeURL = candidate
+                resolveTimelineInfo = info
+                mergeResolveContext(with: info, serverURL: candidate)
+                return
+            } catch {
+                lastError = error
+            }
+        }
+
+        resolveTimelineInfo = nil
+        if !silent, let lastError {
+            present(lastError)
+        }
+    }
+
+    private func resolveBridgeCandidates() -> [URL] {
+        var results: [URL] = []
+        let candidates = [
+            resolveBridgeURL,
+            resolveSessionPayload?.serverURL,
+            ResolveBridgeClient.defaultServerURL,
+        ]
+
+        for candidate in candidates {
+            guard let candidate else { continue }
+            if !results.contains(candidate) {
+                results.append(candidate)
+            }
+        }
+
+        return results
+    }
+
+    private func mergeResolveContext(with info: ResolveBridgeTimelineInfo, serverURL: URL) {
+        let port = serverURL.port ?? ResolveBridgeClient.defaultPort
+        if resolveSessionPayload == nil {
+            resolveSessionPayload = ResolveSessionPayload(
+                sessionID: info.sessionID ?? "resolve-bridge",
+                mode: "launch",
+                bridgePort: port,
+                audioPath: nil,
+                subtitleTrackIndex: 1,
+                templateName: "Default Template",
+                projectName: info.projectName,
+                timelineName: info.name,
+                timelineStart: info.timelineStart
+            )
+            return
+        }
+
+        resolveSessionPayload?.bridgePort = port
+        resolveSessionPayload?.projectName = info.projectName
+        resolveSessionPayload?.timelineName = info.name
+        resolveSessionPayload?.timelineStart = info.timelineStart
+        resolveSessionPayload?.sessionID = info.sessionID ?? resolveSessionPayload?.sessionID ?? "resolve-bridge"
+        if resolveSessionPayload?.templateName?.isEmpty != false {
+            resolveSessionPayload?.templateName = "Default Template"
+        }
+        if resolveSessionPayload?.subtitleTrackIndex == nil {
+            resolveSessionPayload?.subtitleTrackIndex = 1
         }
     }
 

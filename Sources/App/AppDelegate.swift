@@ -1,10 +1,14 @@
 import AppKit
+import Foundation
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var viewModel: AppViewModel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+        if let intent = ResolveLaunchIntent.from(arguments: ProcessInfo.processInfo.arguments) {
+            AppSession.shared.pendingResolveIntent = intent
+        }
         Task { @MainActor in
             _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
             NSApp.windows.first?.makeKeyAndOrderFront(nil)
@@ -30,4 +34,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 final class AppSession {
     static let shared = AppSession()
     var viewModel: AppViewModel?
+    var pendingResolveIntent: ResolveLaunchIntent?
 }

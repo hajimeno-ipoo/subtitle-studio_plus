@@ -76,6 +76,8 @@ struct TimelineViewport: Equatable {
 
 struct AppDialogState: Identifiable, Equatable {
     enum Kind: Equatable {
+        case info
+        case success
         case error
         case unsavedChanges
         case confirmReset

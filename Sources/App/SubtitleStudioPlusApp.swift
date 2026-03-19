@@ -25,6 +25,11 @@ struct SubtitleStudioPlusApp: App {
                 .onAppear {
                     AppSession.shared.viewModel = viewModel
                     appDelegate.viewModel = viewModel
+                    viewModel.startResolveBridgeMonitoring()
+                    if let intent = AppSession.shared.pendingResolveIntent {
+                        AppSession.shared.pendingResolveIntent = nil
+                        Task { await viewModel.handleResolveLaunch(intent) }
+                    }
                 }
         }
         .commands {
@@ -52,10 +57,18 @@ struct SubtitleStudioCommands: Commands {
             .keyboardShortcut("o", modifiers: [.command])
 
             Button("Export SRT…") {
-                viewModel.requestExport()
+                viewModel.requestStandardExport()
             }
             .keyboardShortcut("s", modifiers: [.command])
-            .disabled(viewModel.subtitles.isEmpty)
+            .disabled(!viewModel.canExportStandardSRT)
+
+            if viewModel.isResolveSessionActive {
+                Button("Export for DaVinci") {
+                    viewModel.requestDaVinciExport()
+                }
+                .keyboardShortcut("S", modifiers: [.command, .shift])
+                .disabled(!viewModel.canExportForDaVinci)
+            }
         }
 
         CommandMenu("Playback") {

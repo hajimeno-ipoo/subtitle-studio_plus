@@ -32,7 +32,17 @@
 - `Resolve 連携`
   - DaVinci Resolve の中に入れ込むのではなく、外のアプリとして動かします。
   - Resolve 側には小さな Lua スクリプトを置きます。
-  - 最初は SRT をやり取りするだけにします。
+  - AutoSubs と同じ考え方で、Resolve は起点と Text+ 配置を担当します。
+  - `ResolveBridge.lua` は app bundle の中にある `ResolveBridgeResources` を読みます。
+  - bridge core は `127.0.0.1:56002` で小さな JSON サーバを立てます。
+  - アプリは主に `--resolve-server-url http://127.0.0.1:56002/` で起動されます。
+  - `--resolve-session <path>` は補助の入口としてだけ残します。
+  - `EXPORT .SRT` は普通の保存です。
+  - `EXPORT FOR DAVINCI` は保存ダイアログを出さず、字幕 JSON を Resolve へ送ります。
+  - Resolve 側は `Default Template` の Text+ を timeline に自動で並べます。
+  - `Default Template` を Resolve 側で直した時は、その設定を user 用の `.drb` へ自動同期します。
+  - 新しい project では、app bundle の初期 template より user 用の同期済み template を優先して使います。
+  - さらに export 時に、追加する `Text+` へ `Hiragino Sans W6` を自動適用して、日本語が `□□□□` にならないようにします。
 
 ## フォルダの意味
 - `Sources/App`
@@ -52,8 +62,8 @@
 - `Sources/Utilities`
   - 時刻変換やSRT処理の小道具です。
 - `docs/20260319_resolve_bridge`
-  - Resolve 連携の最小構成案です。
-  - 起動引数の受け口と作業手順をまとめます。
+  - Resolve 連携の運用資料です。
+  - 親エージェントのチェックリスト、アーキテクチャ、検証手順、報告書をここに置きます。
 
 ## なぜこの技術を選んだ？
 - SwiftUI
@@ -119,5 +129,12 @@
 - 歌詞編集モードで黄色を動かすのは `selectedSubtitleID`、今どのカードを触っているかの記録は `editingSubtitleID` と役割を分ける。
 - Web を再現したい時は、保険の state や補助タップを足さず、まず構造を同じにする。
 - 文字入力欄がある画面では、キー入力中だけアプリ全体ショートカットを止める。
-- Resolve 連携は、まず SRT の受け渡しから始める。
 - Resolve 専用に作り直さず、今の SwiftUI アプリを本体にする。
+- Resolve の入口は `Workspace -> Scripts -> ResolveBridge` に固定する。
+- bridge の主経路は `session.json` ではなく localhost JSON にする。
+- app 側の export は `EXPORT .SRT` と `EXPORT FOR DAVINCI` の 2 つに分ける。
+- `EXPORT FOR DAVINCI` は `segments`、`templateName`、`trackIndex`、`timelineStart` を Resolve へ送る。
+- Resolve 側は `Resolve()` ではなく埋め込みの `resolve` グローバルを使う。
+- `Default Template` が無い時は `.drb` から Media Pool へ自動投入する。
+- `Default Template` を Resolve で調整したら、その folder を user 用 `.drb` に同期して次の project でも同じ見た目を使う。
+- `EXPORT FOR DAVINCI` で置く `Text+` は、日本語対応の既定フォントへ自動でそろえる。

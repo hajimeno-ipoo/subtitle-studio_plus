@@ -33,6 +33,22 @@ struct RootView: View {
         }
         .alert(item: bind(\.dialogState)) { state in
             switch state.kind {
+            case .info:
+                Alert(
+                    title: Text(state.title),
+                    message: Text(state.message),
+                    dismissButton: .default(Text("OK")) {
+                        viewModel.dialogState = nil
+                    }
+                )
+            case .success:
+                Alert(
+                    title: Text(state.title),
+                    message: Text(state.message),
+                    dismissButton: .default(Text("Done")) {
+                        viewModel.dialogState = nil
+                    }
+                )
             case .error:
                 Alert(
                     title: Text(state.title),
@@ -63,26 +79,32 @@ struct RootView: View {
                 )
             }
         }
-        .onChange(of: viewModel.isSettingsWindowRequested) {
-            guard viewModel.isSettingsWindowRequested else { return }
+        .onChange(of: viewModel.isSettingsPresented) {
+            guard viewModel.isSettingsPresented else { return }
             openSettings()
-            viewModel.isSettingsWindowRequested = false
+            viewModel.isSettingsPresented = false
         }
     }
 
     @ViewBuilder
     private var content: some View {
-        if viewModel.audioAsset == nil {
-            UploadDropZone()
-        } else {
-            VStack(spacing: 24) {
-                HStack(alignment: .top, spacing: 24) {
-                    LivePreviewPanel()
-                    SubtitleListPanel()
-                        .frame(width: 520)
+        VStack(spacing: 24) {
+            if viewModel.isResolveSessionActive {
+                ResolveSessionBanner()
+            }
+
+            if viewModel.audioAsset == nil && viewModel.subtitles.isEmpty {
+                UploadDropZone()
+            } else {
+                VStack(spacing: 24) {
+                    HStack(alignment: .top, spacing: 24) {
+                        LivePreviewPanel()
+                        SubtitleListPanel()
+                            .frame(width: 520)
+                    }
+                    WaveformTimelineView()
+                        .frame(height: 320)
                 }
-                WaveformTimelineView()
-                    .frame(height: 320)
             }
         }
     }
@@ -92,5 +114,31 @@ struct RootView: View {
             get: { viewModel[keyPath: keyPath] },
             set: { viewModel[keyPath: keyPath] = $0 }
         )
+    }
+}
+
+private struct ResolveSessionBanner: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "rectangle.connected.to.line.below")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(Color.brandViolet)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Resolve session is active")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                Text("Use EXPORT .SRT for a normal file, or EXPORT FOR DAVINCI to place Text+ subtitles on the current Resolve timeline.")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 12)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.black, lineWidth: 2))
+        .studioOffsetShadow(cornerRadius: 18, x: 4, y: 4)
     }
 }

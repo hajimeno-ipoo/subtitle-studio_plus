@@ -34,6 +34,16 @@ struct HeaderBar: View {
             Spacer()
 
             HStack(spacing: 12) {
+                if viewModel.isResolveSessionActive {
+                    Text("RESOLVE LINKED")
+                        .font(.system(size: 11, weight: .black, design: .rounded))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.brandGreen.opacity(0.18))
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(.black, lineWidth: 1.5))
+                }
+
                 if viewModel.audioAsset != nil {
                     Button {
                         viewModel.requestReset()
@@ -45,18 +55,36 @@ struct HeaderBar: View {
                     .help("Home")
                 }
 
-                Button(action: viewModel.requestSettingsWindow) {
+                Button {
+                    viewModel.isSettingsPresented = true
+                } label: {
                     Image(systemName: "gearshape.fill")
                         .font(.system(size: 20))
                 }
                 .buttonStyle(StudioIconButton())
                 .help("Settings")
 
-                Button("EXPORT .SRT") {
-                    viewModel.requestExport()
+                if viewModel.isResolveSessionActive {
+                    HStack(spacing: 8) {
+                        Button("EXPORT .SRT") {
+                            viewModel.requestStandardExport()
+                        }
+                        .buttonStyle(StudioPrimaryButton(color: .brandGreen))
+                        .disabled(!viewModel.canExportStandardSRT)
+
+                        Button("EXPORT FOR DAVINCI") {
+                            viewModel.requestDaVinciExport()
+                        }
+                        .buttonStyle(StudioPrimaryButton(color: .brandViolet, textColor: .white))
+                        .disabled(!viewModel.canExportForDaVinci)
+                    }
+                } else {
+                    Button("EXPORT .SRT") {
+                        viewModel.requestStandardExport()
+                    }
+                    .buttonStyle(StudioPrimaryButton(color: .brandGreen))
+                    .disabled(!viewModel.canExportStandardSRT)
                 }
-                .buttonStyle(StudioPrimaryButton(color: .brandGreen))
-                .disabled(viewModel.subtitles.isEmpty)
             }
         }
         .padding(.horizontal, 24)

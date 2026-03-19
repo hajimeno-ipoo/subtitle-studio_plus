@@ -1,0 +1,9 @@
+This directory includes files adapted from AutoSubs, licensed under the MIT License.
+
+Source:
+- https://github.com/tmoroney/auto-subs
+
+Files:
+- modules/dkjson.lua
+- modules/ljsocket.lua
+- AutoSubs/subtitle-template.drb
