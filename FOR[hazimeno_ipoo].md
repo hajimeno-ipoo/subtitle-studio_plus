@@ -33,7 +33,7 @@
   - DaVinci Resolve の中に入れ込むのではなく、外のアプリとして動かします。
   - Resolve 側には小さな Lua スクリプトを置きます。
   - AutoSubs と同じ考え方で、Resolve は起点と Text+ 配置を担当します。
-  - `ResolveBridge.lua` は app bundle の中にある `ResolveBridgeResources` を読みます。
+  - `SubtitleStudioPlus.lua` は app bundle の中にある `ResolveBridgeResources` を読みます。
   - bridge core は `127.0.0.1:56002` で小さな JSON サーバを立てます。
   - アプリは主に `--resolve-server-url http://127.0.0.1:56002/` で起動されます。
   - `--resolve-session <path>` は補助の入口としてだけ残します。
@@ -130,7 +130,7 @@
 - Web を再現したい時は、保険の state や補助タップを足さず、まず構造を同じにする。
 - 文字入力欄がある画面では、キー入力中だけアプリ全体ショートカットを止める。
 - Resolve 専用に作り直さず、今の SwiftUI アプリを本体にする。
-- Resolve の入口は `Workspace -> Scripts -> ResolveBridge` に固定する。
+- Resolve の入口は `Workspace -> Scripts -> SubtitleStudioPlus` に固定する。
 - bridge の主経路は `session.json` ではなく localhost JSON にする。
 - app 側の export は `EXPORT .SRT` と `EXPORT FOR DAVINCI` の 2 つに分ける。
 - `EXPORT FOR DAVINCI` は `segments`、`templateName`、`trackIndex`、`timelineStart` を Resolve へ送る。

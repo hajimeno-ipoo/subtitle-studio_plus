@@ -1,4 +1,4 @@
--- ResolveBridge.lua
+-- SubtitleStudioPlus.lua
 -- Launcher only. The real bridge lives under ResolveBridgeResources/modules.
 
 ---@diagnostic disable: undefined-global

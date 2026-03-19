@@ -74,7 +74,7 @@
 		7D1B5CC9E713EC96CE08330B /* AppModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppModels.swift; sourceTree = "<group>"; };
 		8DAE4B8A64C240B1A6D7F0E10 /* SettingsStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsStoreTests.swift; sourceTree = "<group>"; };
 		A1D7C0E9F1A24C5DB6C3A001 /* ResolveLaunchIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ResolveLaunchIntent.swift; sourceTree = "<group>"; };
-		A1D7C0E9F1A24C5DB6C3A003 /* ResolveBridge.lua */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = ResolveBridge.lua; sourceTree = "<group>"; };
+		A1D7C0E9F1A24C5DB6C3A003 /* SubtitleStudioPlus.lua */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = SubtitleStudioPlus.lua; sourceTree = "<group>"; };
 		A1D7C0E9F1A24C5DB6C3A004 /* ResolveLaunchIntentTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ResolveLaunchIntentTests.swift; sourceTree = "<group>"; };
 		A7C2D8F1F1E24A0B9F221111 /* SettingsAPITabView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsAPITabView.swift; sourceTree = "<group>"; };
 		A7C2D8F1F1E24A0B9F221112 /* SettingsDescriptionRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsDescriptionRow.swift; sourceTree = "<group>"; };
@@ -239,7 +239,7 @@
 			isa = PBXGroup;
 			children = (
 				BF0E17EE082047C89D5160CE /* AppInfo.plist */,
-				A1D7C0E9F1A24C5DB6C3A003 /* ResolveBridge.lua */,
+				A1D7C0E9F1A24C5DB6C3A003 /* SubtitleStudioPlus.lua */,
 				1C8D4A60A8F14AF0B7FA1000 /* ResolveBridgeResources */,
 			);
 			path = Support;
