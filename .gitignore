@@ -53,4 +53,6 @@ xcuserdata/
 migrated_prompt_history/
 
 # Documentation
-docs/
+docs/*
+!docs/20260320_local_asr_pipeline/
+!docs/20260320_local_asr_pipeline/**
