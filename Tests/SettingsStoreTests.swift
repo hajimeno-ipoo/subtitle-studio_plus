@@ -180,6 +180,48 @@ struct SettingsStoreTests {
     }
 
     @Test
+    func legacyLocalPipelineSettingsWithWhisperCLIPathStillDecode() async {
+        let defaults = makeDefaults()
+        defaults.set(
+            Data(
+                """
+                {
+                  "baseModel": "kotobaWhisperV2",
+                  "language": "ja",
+                  "initialPrompt": "legacy prompt",
+                  "chunkLengthSeconds": 8,
+                  "overlapSeconds": 1,
+                  "temperature": 0,
+                  "beamSize": 5,
+                  "noSpeechThreshold": 0.6,
+                  "logprobThreshold": -1,
+                  "whisperCLIPath": "/opt/homebrew/bin/whisper-cli",
+                  "whisperModelPath": "/tmp/model.bin",
+                  "whisperCoreMLModelPath": "",
+                  "aeneasPythonPath": "python3",
+                  "aeneasScriptPath": "Tools/aeneas/align_subtitles.py",
+                  "correctionDictionaryPath": "Tools/dictionaries/default_ja_corrections.json",
+                  "knownLyricsPath": "Tools/dictionaries/sample_known_lyrics.txt",
+                  "outputDirectoryPath": "Work"
+                }
+                """.utf8
+            ),
+            forKey: "localPipelineSettings"
+        )
+
+        let store = await makeStore(
+            loadKeychain: { "" },
+            saveKeychain: { _ in },
+            userDefaults: defaults
+        )
+        await store.loadIfNeeded()
+
+        #expect(await MainActor.run { store.localPipelineSettings.baseModel == .kotobaWhisperV2 })
+        #expect(await MainActor.run { store.localPipelineSettings.initialPrompt == "legacy prompt" })
+        #expect(await MainActor.run { store.localPipelineSettings.aeneasPythonPath == "python3" })
+    }
+
+    @Test
     func settingsStoreDefinesEngineAndLocalPipelinePersistenceContract() async {
         let defaults = makeDefaults()
         let store = await makeStore(
@@ -200,6 +242,7 @@ struct SettingsStoreTests {
         #expect(SRTGenerationEngine.gemini.rawValue == "gemini")
         #expect(SRTGenerationEngine.localPipeline.rawValue == "localPipeline")
         #expect(LocalPipelineSettings.productionDefault.baseModel == .kotobaWhisperV2)
+        #expect(LocalBaseModel.kotobaWhisperV22.rawValue == "kotobaWhisperV22")
         #expect(LocalPipelineSettings.productionDefault.initialPrompt.isEmpty)
         #expect(LocalPipelinePhase.preparing.rawValue == "preparing")
         #expect(LocalPipelineProgress(

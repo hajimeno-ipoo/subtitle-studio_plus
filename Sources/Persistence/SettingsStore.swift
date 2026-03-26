@@ -174,9 +174,6 @@ final class SettingsStore {
     private func normalizeLocalPipelineSettings(_ settings: LocalPipelineSettings) -> LocalPipelineSettings {
         var normalized = settings
 
-        if normalized.whisperCLIPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            normalized.whisperCLIPath = LocalPipelineSettings.productionDefault.whisperCLIPath
-        }
         if normalized.aeneasPythonPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             normalized.aeneasPythonPath = LocalPipelineSettings.productionDefault.aeneasPythonPath
         }

@@ -67,6 +67,7 @@ enum SRTGenerationEngine: String, Codable, CaseIterable, Sendable {
 
 enum LocalBaseModel: String, Codable, CaseIterable, Sendable {
     case kotobaWhisperV2
+    case kotobaWhisperV22
     case kotobaWhisperBilingual
 }
 
@@ -80,7 +81,6 @@ struct LocalPipelineSettings: Codable, Equatable, Sendable {
     var beamSize: Int
     var noSpeechThreshold: Double
     var logprobThreshold: Double
-    var whisperCLIPath: String
     var whisperModelPath: String
     var whisperCoreMLModelPath: String
     var aeneasPythonPath: String
@@ -99,7 +99,6 @@ struct LocalPipelineSettings: Codable, Equatable, Sendable {
         beamSize: 5,
         noSpeechThreshold: 0.6,
         logprobThreshold: -1.0,
-        whisperCLIPath: "Tools/whisper/whisper-cli",
         whisperModelPath: "",
         whisperCoreMLModelPath: "",
         aeneasPythonPath: "python3",

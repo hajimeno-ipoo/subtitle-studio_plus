@@ -27,12 +27,13 @@ struct SettingsLocalSRTTabView: View {
                         description: "whisper.cpp で使うベースモデルです。"
                     ) {
                         Picker("", selection: baseModelBinding) {
-                            Text("Kotoba-Whisper v2").tag(LocalBaseModel.kotobaWhisperV2)
+                            Text("Kotoba-Whisper v2.0").tag(LocalBaseModel.kotobaWhisperV2)
+                            Text("Kotoba-Whisper v2.2").tag(LocalBaseModel.kotobaWhisperV22)
                             Text("Kotoba-Whisper Bilingual").tag(LocalBaseModel.kotobaWhisperBilingual)
                         }
                         .labelsHidden()
                         .pickerStyle(.segmented)
-                        .frame(width: 340)
+                        .frame(width: 460)
                         .accessibilityLabel("ベースモデル")
                     }
 
@@ -152,11 +153,6 @@ struct SettingsLocalSRTTabView: View {
                 .disabled(viewModel.isBusy)
 
                 VStack(alignment: .leading, spacing: 16) {
-                    pathField(
-                        title: "whisper.cpp 実行ファイル",
-                        description: "例: /opt/homebrew/bin/whisper-cli",
-                        keyPath: \.whisperCLIPath
-                    )
                     pathField(
                         title: "Whisper モデルファイル",
                         description: "空なら ~/Library/Application Support/SubtitleStudioPlus/Models/ を自動検出します",

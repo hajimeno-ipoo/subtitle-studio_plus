@@ -15,14 +15,14 @@
   - 既存のクラウド字幕生成です。
 - `Local Pipeline`
   - 新しいローカル字幕生成です。
-  - 中身は `whisper.cpp + Kotoba-Whisper + aeneas` です。
+  - 中身は `whisper.spm + whisper.cpp C API + Kotoba-Whisper + aeneas` です。
 - `Keychain`
   - API キーを安全に保存します。
 - `Resolve 連携`
   - `.srt` や字幕データを Resolve 側へ渡します。
 
 ## Local Pipeline の考え方
-- まず `whisper.cpp` で歌詞の下書きを作ります。
+- まず `whisper.cpp C API` で歌詞の下書きを作ります。
 - 次に、下書きを短い字幕ブロックにまとめます。
 - その小さいブロックごとに `aeneas` で時間を合わせます。
 - `aeneas` が失敗した所だけ、`whisper.cpp` が持っている時間に戻します。
@@ -55,6 +55,7 @@
   - ローカル字幕生成の正式資料です。
 - `Work/run-...`
   - 実行ごとのログと中間ファイルを保存する場所です。
+  - 成功時は `manifest.json`、`logs/`、`final/final.srt` だけ残します。
 
 ## なぜこの技術を選んだ？
 - `SwiftUI`
@@ -72,12 +73,9 @@
 - API キー未設定
   - 症状: `Gemini` 生成が止まります。
   - 修正: `Settings` の `API` タブでキーを入れます。
-- `whisper-cli` が見つからない
-  - 症状: `Local Pipeline` の開始前に止まります。
-  - 修正: `LOCAL SRT` の `whisperCLIPath` を確認します。
 - whisper model が見つからない
   - 症状: `Local Pipeline` の開始前に止まります。
-  - 修正: `whisperModelPath` を確認します。
+  - 修正: `whisperModelPath` を確認します。空なら `Models` 配下の自動検出名を確認します。
 - `aeneas` が見つからない
   - 症状: `Local Pipeline` の時間合わせで止まります。
   - 修正: `aeneasPythonPath` と `aeneasScriptPath` を確認します。
@@ -104,6 +102,7 @@
 - `Gemini` 用の prompt を勝手に要約すると、精度が崩れやすいです。
 - ただし、`Gemini` 用の長い命令文をそのまま `whisper.cpp` に渡すのも逆効果です。
 - そのため、`whisper.cpp` には **歌詞向けの短い専用 prompt** を使います。
+- `LOCAL SRT` で選べるモデルは `Kotoba-Whisper v2.0 / v2.2 / Bilingual` です。
 - 長い音声を一気に時間合わせするとズレやすいです。
 - そのため、`aeneas` は短い block ごとに実行します。
 - `aeneas` が全部うまくいく前提で作ると、また 0 秒固定に戻ります。

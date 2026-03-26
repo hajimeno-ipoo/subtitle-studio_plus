@@ -18,6 +18,8 @@
 		180DB97B2F6D243B006F8CAC /* LocalPipelineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180DB97A2F6D243B006F8CAC /* LocalPipelineService.swift */; };
 		188DEB462F667A3D009DBDC8 /* DSWaveformImage in Frameworks */ = {isa = PBXBuildFile; productRef = 188DEB452F667A3D009DBDC8 /* DSWaveformImage */; };
 		188DEB482F667A3D009DBDC8 /* DSWaveformImageViews in Frameworks */ = {isa = PBXBuildFile; productRef = 188DEB472F667A3D009DBDC8 /* DSWaveformImageViews */; };
+		C1A7B1032F70000100AAA001 /* WhisperSPMTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A7B1022F70000100AAA001 /* WhisperSPMTranscriber.swift */; };
+		C1A7B1062F70000100AAA001 /* whisper in Frameworks */ = {isa = PBXBuildFile; productRef = C1A7B1052F70000100AAA001 /* whisper */; };
 		1AFB35A42765E2D6287C4BE4 /* AudioAnalysisServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0638B780606D94B2A28AAE4 /* AudioAnalysisServiceTests.swift */; };
 		1C8D4A60A8F14AF0B7FA1001 /* ResolveBridgeResources in Resources */ = {isa = PBXBuildFile; fileRef = 1C8D4A60A8F14AF0B7FA1000 /* ResolveBridgeResources */; };
 		296556DB0B83B4D3C3E8F7D3 /* SRTCodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CA6016BF0E5EDDEAEDB8E61 /* SRTCodecTests.swift */; };
@@ -83,6 +85,7 @@
 		1C8D4A60A8F14AF0B7FA1000 /* ResolveBridgeResources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ResolveBridgeResources; sourceTree = "<group>"; };
 		B2D1A1012F6D600100AAA001 /* AppRuntimePathResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRuntimePathResolver.swift; sourceTree = "<group>"; };
 		B2D1A1022F6D600100AAA001 /* Tools */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Tools; sourceTree = SOURCE_ROOT; };
+		C1A7B1022F70000100AAA001 /* WhisperSPMTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperSPMTranscriber.swift; sourceTree = "<group>"; };
 		1D1B987793001724561F583E /* SubtitleAlignmentServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubtitleAlignmentServiceTests.swift; sourceTree = "<group>"; };
 		23634F3D99F80D93C18C6F56 /* WaveformService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WaveformService.swift; sourceTree = "<group>"; };
 		23DF2BDE45F686A685241D2C /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
@@ -140,6 +143,7 @@
 			files = (
 				188DEB482F667A3D009DBDC8 /* DSWaveformImageViews in Frameworks */,
 				188DEB462F667A3D009DBDC8 /* DSWaveformImage in Frameworks */,
+				C1A7B1062F70000100AAA001 /* whisper in Frameworks */,
 				FF32F73EEC12DBDE298C2D5B /* Cocoa.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -199,6 +203,7 @@
 				180DB9702F6D2355006F8CAC /* RunDirectoryBuilder.swift */,
 				180DB9722F6D235C006F8CAC /* RunLogger.swift */,
 				180DB9742F6D236A006F8CAC /* ExternalProcessRunner.swift */,
+				C1A7B1022F70000100AAA001 /* WhisperSPMTranscriber.swift */,
 				180DB9762F6D237B006F8CAC /* LocalPipelineCorrectionService.swift */,
 				180DB9782F6D2389006F8CAC /* LocalPipelineAssembler.swift */,
 				180DB97A2F6D243B006F8CAC /* LocalPipelineService.swift */,
@@ -368,6 +373,7 @@
 			mainGroup = 1A5115A37F6134EED174AB01;
 			packageReferences = (
 				188DEB442F667A3D009DBDC8 /* XCRemoteSwiftPackageReference "DSWaveformImage" */,
+				C1A7B1042F70000100AAA001 /* XCRemoteSwiftPackageReference "whisper.spm" */,
 			);
 			productRefGroup = EFEDCFFD3C63B20530A75FB6 /* Products */;
 			projectDirPath = "";
@@ -448,6 +454,7 @@
 				A7C2D8F1F1E24A0B9F111113 /* SettingsTab.swift in Sources */,
 				A7C2D8F1F1E24A0B9F111114 /* SettingsUTOAlignTabView.swift in Sources */,
 				180DB9772F6D237B006F8CAC /* LocalPipelineCorrectionService.swift in Sources */,
+				C1A7B1032F70000100AAA001 /* WhisperSPMTranscriber.swift in Sources */,
 				A7C2D8F1F1E24A0B9F111115 /* SettingsLocalSRTTabView.swift in Sources */,
 				6EBFDC8179410FDACF828699 /* SettingsView.swift in Sources */,
 				4C269DB69DD739CCEC903867 /* SubtitleListPanel.swift in Sources */,
@@ -708,6 +715,14 @@
 				minimumVersion = 14.3.0;
 			};
 		};
+		C1A7B1042F70000100AAA001 /* XCRemoteSwiftPackageReference "whisper.spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ggml-org/whisper.spm.git";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -720,6 +735,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 188DEB442F667A3D009DBDC8 /* XCRemoteSwiftPackageReference "DSWaveformImage" */;
 			productName = DSWaveformImageViews;
+		};
+		C1A7B1052F70000100AAA001 /* whisper */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C1A7B1042F70000100AAA001 /* XCRemoteSwiftPackageReference "whisper.spm" */;
+			productName = whisper;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

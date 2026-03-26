@@ -41,12 +41,6 @@ struct AppRuntimePathResolver: @unchecked Sendable {
         var candidates = candidateURLs(forResourcePath: expanded)
         let executableName = URL(fileURLWithPath: expanded).lastPathComponent
 
-        if executableName == "whisper-cli" {
-            candidates.append(contentsOf: pathExecutableCandidates(named: executableName))
-            candidates.append(URL(fileURLWithPath: "/opt/homebrew/bin/whisper-cli"))
-            candidates.append(URL(fileURLWithPath: "/usr/local/bin/whisper-cli"))
-        }
-
         if executableName == "python3" || executableName == "python" {
             candidates.append(contentsOf: managedPythonExecutableCandidates())
             candidates.append(contentsOf: pathExecutableCandidates(named: executableName))
@@ -62,6 +56,8 @@ struct AppRuntimePathResolver: @unchecked Sendable {
         switch baseModel {
         case .kotobaWhisperV2:
             fileName = "ggml-kotoba-whisper-v2.0.bin"
+        case .kotobaWhisperV22:
+            fileName = "ggml-kotoba-whisper-v2.2.bin"
         case .kotobaWhisperBilingual:
             fileName = "ggml-kotoba-whisper-bilingual-v1.0.bin"
         }

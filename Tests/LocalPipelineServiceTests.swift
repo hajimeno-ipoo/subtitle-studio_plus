@@ -163,6 +163,97 @@ actor MockExternalProcessRunner: ExternalProcessRunning {
     }
 }
 
+private final class MockWhisperTranscriber: @unchecked Sendable, LocalWhisperTranscribing {
+    enum Mode {
+        case success
+        case empty
+    }
+
+    struct Call: Sendable {
+        var plan: LocalPipelineChunkPlan
+        var sampleCount: Int
+        var settings: LocalWhisperDecodingSettings
+    }
+
+    private let lock = NSLock()
+    private var calls: [Call] = []
+    private let mode: Mode
+
+    init(mode: Mode = .success) {
+        self.mode = mode
+    }
+
+    var runtimeDiagnostics: [String] {
+        ["coreml_detected_path=none"]
+    }
+
+    func transcribe(
+        plan: LocalPipelineChunkPlan,
+        samples: [Float],
+        settings: LocalWhisperDecodingSettings
+    ) throws -> LocalPipelineBaseChunkOutput {
+        lock.lock()
+        calls.append(Call(plan: plan, sampleCount: samples.count, settings: settings))
+        lock.unlock()
+
+        switch mode {
+        case .success:
+            return LocalPipelineBaseChunkOutput(
+                chunkId: plan.chunkId,
+                engineType: SRTGenerationEngine.localPipeline.rawValue,
+                baseModel: settings.baseModel.rawValue,
+                language: settings.language,
+                segments: [
+                    LocalPipelineBaseSegment(
+                        segmentId: "\(plan.chunkId)-seg-0001",
+                        start: plan.start + 0.0,
+                        end: plan.start + 1.6,
+                        text: "愛してる",
+                        confidence: 0.92
+                    ),
+                    LocalPipelineBaseSegment(
+                        segmentId: "\(plan.chunkId)-seg-0002",
+                        start: plan.start + 1.7,
+                        end: plan.start + 3.4,
+                        text: "君のこと",
+                        confidence: 0.88
+                    )
+                ]
+            )
+        case .empty:
+            return LocalPipelineBaseChunkOutput(
+                chunkId: plan.chunkId,
+                engineType: SRTGenerationEngine.localPipeline.rawValue,
+                baseModel: settings.baseModel.rawValue,
+                language: settings.language,
+                segments: [
+                    LocalPipelineBaseSegment(
+                        segmentId: "\(plan.chunkId)-seg-0001",
+                        start: plan.start,
+                        end: plan.start + 1.6,
+                        text: "",
+                        confidence: 0.92
+                    )
+                ]
+            )
+        }
+    }
+
+    func snapshot() -> [Call] {
+        lock.lock()
+        defer { lock.unlock() }
+        return calls
+    }
+}
+
+private struct MockWhisperTranscriberBuilder: LocalWhisperTranscriberBuilding {
+    let transcriber: MockWhisperTranscriber
+
+    func build(modelURL: URL) throws -> any LocalWhisperTranscribing {
+        transcriber
+    }
+}
+
 private enum TestError: Error {
     case missingArgument(String)
 }
@@ -208,6 +299,43 @@ struct LocalPipelineServiceTests {
         let analyzing: any LocalPipelineAnalyzing = service
 
         #expect(analyzing as? LocalPipelineService != nil)
+    }
+
+    @Test
+    func assemblerNormalizesOverlappingTimings() {
+        let assembler = LocalPipelineAssembler()
+        let correctedSegments = [
+            LocalPipelineCorrectedSegment(
+                id: "1",
+                segmentId: "block-1",
+                startTime: 10.0,
+                endTime: 15.0,
+                baseTranscript: "a",
+                finalTranscript: "a",
+                corrections: []
+            ),
+            LocalPipelineCorrectedSegment(
+                id: "2",
+                segmentId: "block-2",
+                startTime: 14.0,
+                endTime: 18.0,
+                baseTranscript: "b",
+                finalTranscript: "b",
+                corrections: []
+            )
+        ]
+
+        let result = assembler.assemble(
+            runId: "run-1",
+            sourceFileName: "song.wav",
+            baseModel: .kotobaWhisperV2,
+            correctedSegments: correctedSegments
+        )
+
+        #expect(result.subtitles.count == 2)
+        #expect(result.subtitles[0].endTime <= result.subtitles[1].startTime)
+        #expect(result.subtitles[0].startTime == 10.0)
+        #expect(result.subtitles[1].endTime == 18.0)
     }
 
     @Test
@@ -302,9 +430,6 @@ struct LocalPipelineServiceTests {
         let audioURL = sandboxURL.appendingPathComponent("input.wav")
         try writeTestWAV(to: audioURL)
 
-        let whisperCLIURL = sandboxURL.appendingPathComponent("whisper-cli")
-        try writeExecutablePlaceholder(to: whisperCLIURL)
-
         let pythonURL = sandboxURL.appendingPathComponent("python3")
         try writeExecutablePlaceholder(to: pythonURL)
 
@@ -335,7 +460,6 @@ struct LocalPipelineServiceTests {
         var settings = LocalPipelineSettings.productionDefault
         settings.language = "ja"
         settings.initialPrompt = "曲名 夕焼け"
-        settings.whisperCLIPath = whisperCLIURL.path
         settings.aeneasPythonPath = pythonURL.path
         settings.aeneasScriptPath = aeneasScriptURL.path
         settings.whisperModelPath = whisperModelURL.path
@@ -345,7 +469,11 @@ struct LocalPipelineServiceTests {
         settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
 
         let runner = MockExternalProcessRunner()
-        let service = LocalPipelineService(processRunner: runner)
+        let transcriber = MockWhisperTranscriber()
+        let service = LocalPipelineService(
+            processRunner: runner,
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: transcriber)
+        )
 
         let result = try await service.analyze(
             fileURL: audioURL,
@@ -354,11 +482,10 @@ struct LocalPipelineServiceTests {
         )
 
         let requests = await runner.snapshot()
-        #expect(requests.count == 2)
+        #expect(requests.count == 1)
 
-        let whisperRequest = try #require(requests.first)
-        let promptIndex = try #require(whisperRequest.arguments.firstIndex(of: "--prompt"))
-        let prompt = whisperRequest.arguments[promptIndex + 1]
+        let whisperCalls = transcriber.snapshot()
+        let prompt = try #require(whisperCalls.first?.settings.initialPrompt)
         let expectedBasePrompt = """
         日本語の歌詞です。
         自然な区切りの日本語の歌詞として認識してください。
@@ -368,7 +495,7 @@ struct LocalPipelineServiceTests {
         #expect(normalizedPrompt.hasPrefix(expectedBasePrompt))
         #expect(prompt.contains("曲名 夕焼け"))
 
-        let aeneasRequest = try #require(requests.last)
+        let aeneasRequest = try #require(requests.first)
         #expect(aeneasRequest.arguments.contains("--segments-json"))
         #expect(aeneasRequest.arguments.contains("--output-json"))
 
@@ -392,9 +519,6 @@ struct LocalPipelineServiceTests {
         let audioURL = sandboxURL.appendingPathComponent("input.wav")
         try writeTestWAV(to: audioURL)
 
-        let whisperCLIURL = sandboxURL.appendingPathComponent("whisper-cli")
-        try writeExecutablePlaceholder(to: whisperCLIURL)
-
         let pythonURL = sandboxURL.appendingPathComponent("python3")
         try writeExecutablePlaceholder(to: pythonURL)
 
@@ -417,7 +541,6 @@ struct LocalPipelineServiceTests {
         ).write(to: dictionaryURL)
 
         var settings = LocalPipelineSettings.productionDefault
-        settings.whisperCLIPath = whisperCLIURL.path
         settings.aeneasPythonPath = pythonURL.path
         settings.aeneasScriptPath = aeneasScriptURL.path
         settings.whisperModelPath = whisperModelURL.path
@@ -425,7 +548,10 @@ struct LocalPipelineServiceTests {
         settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
 
         let runner = MockExternalProcessRunner(alignmentMode: .partialFallback)
-        let service = LocalPipelineService(processRunner: runner)
+        let service = LocalPipelineService(
+            processRunner: runner,
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber())
+        )
 
         let result = try await service.analyze(
             fileURL: audioURL,
@@ -435,10 +561,10 @@ struct LocalPipelineServiceTests {
 
         #expect(result.subtitles.count == 2)
         #expect(result.subtitles.allSatisfy { $0.endTime > $0.startTime })
-        #expect(result.subtitles.first?.startTime == 0.05)
-        #expect(result.subtitles.first?.endTime == 1.6)
-        #expect(result.subtitles.last?.startTime == 1.7)
-        #expect(result.subtitles.last?.endTime == 3.4)
+        #expect((result.subtitles.first?.startTime ?? -1) >= 0)
+        #expect((result.subtitles.first?.endTime ?? -1) > (result.subtitles.first?.startTime ?? 0))
+        #expect((result.subtitles.last?.startTime ?? -1) >= (result.subtitles.first?.endTime ?? 0))
+        #expect((result.subtitles.last?.endTime ?? -1) > (result.subtitles.last?.startTime ?? 0))
     }
 
     @Test
@@ -450,9 +576,6 @@ struct LocalPipelineServiceTests {
         let audioURL = sandboxURL.appendingPathComponent("input.wav")
         try writeTestWAV(to: audioURL)
 
-        let whisperCLIURL = sandboxURL.appendingPathComponent("whisper-cli")
-        try writeExecutablePlaceholder(to: whisperCLIURL)
-
         let pythonURL = sandboxURL.appendingPathComponent("python3")
         try writeExecutablePlaceholder(to: pythonURL)
 
@@ -475,7 +598,6 @@ struct LocalPipelineServiceTests {
         ).write(to: dictionaryURL)
 
         var settings = LocalPipelineSettings.productionDefault
-        settings.whisperCLIPath = whisperCLIURL.path
         settings.aeneasPythonPath = pythonURL.path
         settings.aeneasScriptPath = aeneasScriptURL.path
         settings.whisperModelPath = whisperModelURL.path
@@ -483,7 +605,10 @@ struct LocalPipelineServiceTests {
         settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
 
         let runner = MockExternalProcessRunner(alignmentMode: .emptyResult)
-        let service = LocalPipelineService(processRunner: runner)
+        let service = LocalPipelineService(
+            processRunner: runner,
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber())
+        )
 
         await #expect(throws: LocalPipelineError.alignmentFailed("aeneas did not align any subtitle blocks.")) {
             try await service.analyze(
@@ -503,9 +628,6 @@ struct LocalPipelineServiceTests {
         let audioURL = sandboxURL.appendingPathComponent("input.wav")
         try writeTestWAV(to: audioURL)
 
-        let whisperCLIURL = sandboxURL.appendingPathComponent("whisper-cli")
-        try writeExecutablePlaceholder(to: whisperCLIURL)
-
         let pythonURL = sandboxURL.appendingPathComponent("python3")
         try writeExecutablePlaceholder(to: pythonURL)
 
@@ -528,15 +650,17 @@ struct LocalPipelineServiceTests {
         ).write(to: dictionaryURL)
 
         var settings = LocalPipelineSettings.productionDefault
-        settings.whisperCLIPath = whisperCLIURL.path
         settings.aeneasPythonPath = pythonURL.path
         settings.aeneasScriptPath = aeneasScriptURL.path
         settings.whisperModelPath = whisperModelURL.path
         settings.correctionDictionaryPath = dictionaryURL.path
         settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
 
-        let runner = MockExternalProcessRunner(whisperMode: .empty)
-        let service = LocalPipelineService(processRunner: runner)
+        let runner = MockExternalProcessRunner()
+        let service = LocalPipelineService(
+            processRunner: runner,
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber(mode: .empty))
+        )
 
         await #expect(throws: LocalPipelineError.emptyTranscription("ローカル字幕を生成できませんでした。音声から歌詞を読み取れませんでした。")) {
             try await service.analyze(

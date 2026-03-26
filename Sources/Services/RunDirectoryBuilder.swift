@@ -40,10 +40,7 @@ struct RunDirectoryLayout: Sendable {
     var manifestURL: URL
     var inputDirectoryURL: URL
     var chunksDirectoryURL: URL
-    var baseJSONDirectoryURL: URL
-    var draftJSONDirectoryURL: URL
     var alignmentInputDirectoryURL: URL
-    var alignedJSONDirectoryURL: URL
     var finalDirectoryURL: URL
     var logsDirectoryURL: URL
     var runLogURL: URL
@@ -83,13 +80,11 @@ struct RunDirectoryBuilder {
             in: baseOutputDirectory,
             keeping: max(Self.retainedRunDirectoryCount - 1, 0)
         )
+        try scrubIntermediateArtifacts(in: baseOutputDirectory)
         let rootURL = baseOutputDirectory.appendingPathComponent(runId, isDirectory: true)
         let inputDirectoryURL = rootURL.appendingPathComponent("input", isDirectory: true)
         let chunksDirectoryURL = rootURL.appendingPathComponent("chunks", isDirectory: true)
-        let baseJSONDirectoryURL = rootURL.appendingPathComponent("base_json", isDirectory: true)
-        let draftJSONDirectoryURL = rootURL.appendingPathComponent("draft_json", isDirectory: true)
         let alignmentInputDirectoryURL = rootURL.appendingPathComponent("alignment_input", isDirectory: true)
-        let alignedJSONDirectoryURL = rootURL.appendingPathComponent("aligned_json", isDirectory: true)
         let finalDirectoryURL = rootURL.appendingPathComponent("final", isDirectory: true)
         let logsDirectoryURL = rootURL.appendingPathComponent("logs", isDirectory: true)
         let manifestURL = rootURL.appendingPathComponent("manifest.json")
@@ -100,10 +95,7 @@ struct RunDirectoryBuilder {
         try createDirectory(at: rootURL)
         try createDirectory(at: inputDirectoryURL)
         try createDirectory(at: chunksDirectoryURL)
-        try createDirectory(at: baseJSONDirectoryURL)
-        try createDirectory(at: draftJSONDirectoryURL)
         try createDirectory(at: alignmentInputDirectoryURL)
-        try createDirectory(at: alignedJSONDirectoryURL)
         try createDirectory(at: finalDirectoryURL)
         try createDirectory(at: logsDirectoryURL)
 
@@ -133,10 +125,7 @@ struct RunDirectoryBuilder {
                 manifestURL: manifestURL,
                 inputDirectoryURL: inputDirectoryURL,
                 chunksDirectoryURL: chunksDirectoryURL,
-                baseJSONDirectoryURL: baseJSONDirectoryURL,
-                draftJSONDirectoryURL: draftJSONDirectoryURL,
                 alignmentInputDirectoryURL: alignmentInputDirectoryURL,
-                alignedJSONDirectoryURL: alignedJSONDirectoryURL,
                 finalDirectoryURL: finalDirectoryURL,
                 logsDirectoryURL: logsDirectoryURL,
                 runLogURL: runLogURL,
@@ -226,6 +215,34 @@ struct RunDirectoryBuilder {
 
         for url in runDirectories.prefix(overflow) {
             try fileManager.removeItem(at: url)
+        }
+    }
+
+    private func scrubIntermediateArtifacts(in baseDirectoryURL: URL) throws {
+        let runDirectories = try fileManager.contentsOfDirectory(
+            at: baseDirectoryURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )
+        .filter { url in
+            url.lastPathComponent.hasPrefix("run-") && fileManager.isDirectory(atPath: url.path)
+        }
+
+        let removableNames = [
+            "input",
+            "chunks",
+            "base_json",
+            "draft_json",
+            "alignment_input",
+            "aligned_json"
+        ]
+
+        for runURL in runDirectories {
+            for name in removableNames {
+                let artifactURL = runURL.appendingPathComponent(name, isDirectory: true)
+                guard fileManager.fileExists(atPath: artifactURL.path) else { continue }
+                try? fileManager.removeItem(at: artifactURL)
+            }
         }
     }
 }

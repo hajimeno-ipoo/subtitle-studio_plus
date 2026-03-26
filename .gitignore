@@ -51,6 +51,7 @@ xcuserdata/
 # Local tool state
 .serena/
 migrated_prompt_history/
+Work/
 
 # Documentation
 docs/*

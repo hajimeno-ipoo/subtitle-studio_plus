@@ -38,10 +38,7 @@ struct RunDirectoryBuilderTests {
         #expect(isDirectory(layout.rootURL))
         #expect(isDirectory(layout.inputDirectoryURL))
         #expect(isDirectory(layout.chunksDirectoryURL))
-        #expect(isDirectory(layout.baseJSONDirectoryURL))
-        #expect(isDirectory(layout.draftJSONDirectoryURL))
         #expect(isDirectory(layout.alignmentInputDirectoryURL))
-        #expect(isDirectory(layout.alignedJSONDirectoryURL))
         #expect(isDirectory(layout.finalDirectoryURL))
         #expect(isDirectory(layout.logsDirectoryURL))
         #expect(manifest.runId.hasPrefix("run-"))
@@ -137,5 +134,39 @@ struct RunDirectoryBuilderTests {
         .filter { $0.lastPathComponent.hasPrefix("run-") && isDirectory($0) }
 
         #expect(remainingRuns.count == 8)
+    }
+
+    @Test
+    func scrubsIntermediateArtifactsFromRetainedRuns() throws {
+        let tempDirectory = try makeTempDirectory()
+        let retainedRunURL = tempDirectory.appendingPathComponent("run-20260321-000009-deadbeef", isDirectory: true)
+        try FileManager.default.createDirectory(at: retainedRunURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: retainedRunURL.appendingPathComponent("input", isDirectory: true), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: retainedRunURL.appendingPathComponent("chunks", isDirectory: true), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: retainedRunURL.appendingPathComponent("base_json", isDirectory: true), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: retainedRunURL.appendingPathComponent("draft_json", isDirectory: true), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: retainedRunURL.appendingPathComponent("alignment_input", isDirectory: true), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: retainedRunURL.appendingPathComponent("aligned_json", isDirectory: true), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: retainedRunURL.appendingPathComponent("final", isDirectory: true), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: retainedRunURL.appendingPathComponent("logs", isDirectory: true), withIntermediateDirectories: true)
+
+        let builder = RunDirectoryBuilder(fileManager: .default)
+        let settings = makeSettings(outputDirectoryPath: tempDirectory.path)
+
+        _ = try builder.build(
+            sourceFileName: "song.wav",
+            sourceDuration: 42,
+            settings: settings,
+            engineType: .localPipeline
+        )
+
+        #expect(!FileManager.default.fileExists(atPath: retainedRunURL.appendingPathComponent("input").path))
+        #expect(!FileManager.default.fileExists(atPath: retainedRunURL.appendingPathComponent("chunks").path))
+        #expect(!FileManager.default.fileExists(atPath: retainedRunURL.appendingPathComponent("base_json").path))
+        #expect(!FileManager.default.fileExists(atPath: retainedRunURL.appendingPathComponent("draft_json").path))
+        #expect(!FileManager.default.fileExists(atPath: retainedRunURL.appendingPathComponent("alignment_input").path))
+        #expect(!FileManager.default.fileExists(atPath: retainedRunURL.appendingPathComponent("aligned_json").path))
+        #expect(FileManager.default.fileExists(atPath: retainedRunURL.appendingPathComponent("final").path))
+        #expect(FileManager.default.fileExists(atPath: retainedRunURL.appendingPathComponent("logs").path))
     }
 }
