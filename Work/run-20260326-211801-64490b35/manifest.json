@@ -1,0 +1,20 @@
+{
+  "engineType" : "localPipeline",
+  "runId" : "run-20260326-211801-64490b35",
+  "settingsSnapshot" : {
+    "baseModel" : "kotobaWhisperV2",
+    "chunkLengthSeconds" : 8,
+    "language" : "ja",
+    "overlapSeconds" : 1
+  },
+  "sourceDuration" : 215.23199546485262,
+  "sourceFileName" : "ori_audio_vocals.wav",
+  "stages" : {
+    "aligned" : true,
+    "baseTranscribed" : true,
+    "chunked" : true,
+    "corrected" : true,
+    "normalized" : true,
+    "outputsWritten" : true
+  }
+}

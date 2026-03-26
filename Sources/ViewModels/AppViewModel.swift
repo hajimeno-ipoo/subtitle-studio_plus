@@ -11,6 +11,7 @@ final class AppViewModel {
     var subtitles: [SubtitleItem] = []
     var status: ProcessingStatus = .idle
     var analysisProgress: AnalysisProgress?
+    var localPipelineProgress: LocalPipelineProgress?
     var alignmentProgressText = ""
     var currentTime: TimeInterval = 0
     var dialogState: AppDialogState?
@@ -30,11 +31,14 @@ final class AppViewModel {
 
     private(set) var resolveSessionPayload: ResolveSessionPayload?
     private(set) var resolveTimelineInfo: ResolveBridgeTimelineInfo?
+    private(set) var lastLocalPipelineRunDirectoryURL: URL?
+    private(set) var lastLocalPipelineResult: LocalPipelineResult?
 
     private(set) var undoStack: [[SubtitleItem]] = []
     private(set) var redoStack: [[SubtitleItem]] = []
 
-    private let analysisService = AudioAnalysisService()
+    private let analysisService: AudioAnalysisService
+    private let localPipelineService: any LocalPipelineAnalyzing
     @ObservationTracked
     var alignmentService: SubtitleAlignmentService {
         let config = AlignmentConfig(
@@ -56,7 +60,12 @@ final class AppViewModel {
     private var resolveBridgeURL: URL?
     private var resolveBridgeMonitorTask: Task<Void, Never>?
 
-    init() {
+    init(
+        analysisService: AudioAnalysisService = AudioAnalysisService(),
+        localPipelineService: any LocalPipelineAnalyzing = LocalPipelineService()
+    ) {
+        self.analysisService = analysisService
+        self.localPipelineService = localPipelineService
         playback.onTimeChange = { [weak self] time in
             self?.currentTime = time
         }
@@ -170,6 +179,7 @@ final class AppViewModel {
             let duration = try waveformService.audioDuration(url: url)
             try playback.load(url: url)
             audioAsset = AudioAsset(url: url, fileName: url.lastPathComponent, duration: duration, fileSize: fileSize, contentType: resource.contentType)
+            settings.applyRecommendedLocalBaseModelIfNeeded(for: url.lastPathComponent)
             subtitles = []
             resetInternalState()
         } catch {
@@ -201,6 +211,7 @@ final class AppViewModel {
         resetLyricsEditState()
         status = .idle
         analysisProgress = nil
+        localPipelineProgress = nil
         alignmentProgressText = ""
         currentTime = 0
         unsavedChanges.hasUnsavedChanges = false
@@ -265,14 +276,9 @@ final class AppViewModel {
     func analyzeAudio() async {
         guard let audioAsset else { return }
         await settings.loadIfNeeded()
-        let apiKey = settings.geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !apiKey.isEmpty else {
-            present(SubtitleStudioError.missingAPIKey)
-            isSettingsPresented = true
-            return
-        }
 
         status = .analyzing
+        localPipelineProgress = nil
         alignmentProgressText = ""
         analysisProgress = .init(
             phase: .loadingAudio,
@@ -282,8 +288,26 @@ final class AppViewModel {
         )
         dialogState = nil
 
+        switch settings.selectedSRTGenerationEngine {
+        case .gemini:
+            await analyzeWithGemini(fileURL: audioAsset.url)
+        case .localPipeline:
+            await analyzeWithLocalPipeline(fileURL: audioAsset.url)
+        }
+    }
+
+    private func analyzeWithGemini(fileURL: URL) async {
+        let apiKey = settings.geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !apiKey.isEmpty else {
+            status = .idle
+            analysisProgress = nil
+            present(SubtitleStudioError.missingAPIKey)
+            isSettingsPresented = true
+            return
+        }
+
         do {
-            let result = try await analysisService.analyze(fileURL: audioAsset.url, apiKey: apiKey) { [weak self] progress in
+            let result = try await analysisService.analyze(fileURL: fileURL, apiKey: apiKey) { [weak self] progress in
                 await MainActor.run {
                     self?.applyAnalysisProgress(progress)
                 }
@@ -298,6 +322,35 @@ final class AppViewModel {
             stopAnalysisDisplayTask()
             status = .error
             analysisProgress = nil
+            present(error)
+        }
+    }
+
+    private func analyzeWithLocalPipeline(fileURL: URL) async {
+        do {
+            let result = try await localPipelineService.analyze(
+                fileURL: fileURL,
+                settings: settings.localPipelineSettings
+            ) { [weak self] progress in
+                await MainActor.run {
+                    self?.localPipelineProgress = progress
+                    self?.applyLocalPipelineProgress(progress)
+                }
+            }
+
+            pushUndoState()
+            subtitles = result.subtitles
+            resetLyricsEditState()
+            lastLocalPipelineRunDirectoryURL = result.runDirectoryURL
+            lastLocalPipelineResult = result
+            await completeAnalysisProgress()
+            status = .completed
+            unsavedChanges.hasUnsavedChanges = true
+        } catch {
+            stopAnalysisDisplayTask()
+            status = .error
+            analysisProgress = nil
+            localPipelineProgress = nil
             present(error)
         }
     }
@@ -561,7 +614,7 @@ final class AppViewModel {
     }
 
     private func refreshResolveBridgeStatus(silent: Bool) async {
-        let candidates = resolveBridgeCandidates()
+        let candidates = resolveBridgeCandidates(includeDefault: !silent)
         guard !candidates.isEmpty else {
             resolveTimelineInfo = nil
             return
@@ -586,12 +639,11 @@ final class AppViewModel {
         }
     }
 
-    private func resolveBridgeCandidates() -> [URL] {
+    private func resolveBridgeCandidates(includeDefault: Bool = true) -> [URL] {
         var results: [URL] = []
         let candidates = [
             resolveBridgeURL,
             resolveSessionPayload?.serverURL,
-            ResolveBridgeClient.defaultServerURL,
         ]
 
         for candidate in candidates {
@@ -599,6 +651,10 @@ final class AppViewModel {
             if !results.contains(candidate) {
                 results.append(candidate)
             }
+        }
+
+        if includeDefault, !results.contains(ResolveBridgeClient.defaultServerURL) {
+            results.append(ResolveBridgeClient.defaultServerURL)
         }
 
         return results
@@ -759,6 +815,43 @@ final class AppViewModel {
         startAnalysisDisplayTask(maxDisplay: displayCeiling)
     }
 
+    private func applyLocalPipelineProgress(_ incoming: LocalPipelineProgress) {
+        let mappedPhase = mapLocalPhaseToAnalysisPhase(incoming.phase)
+        let actualPercent = max(incoming.displayPercent, analysisProgress?.actualPercent ?? 0)
+        let currentDisplay = analysisProgress?.displayPercent ?? 0
+        let message = incoming.totalChunks > 0
+            ? "\(incoming.message) (\(incoming.currentChunk)/\(incoming.totalChunks))"
+            : incoming.message
+
+        analysisProgress = AnalysisProgress(
+            phase: mappedPhase,
+            message: message,
+            actualPercent: actualPercent,
+            displayPercent: max(currentDisplay, actualPercent),
+            currentChunk: incoming.currentChunk,
+            totalChunks: incoming.totalChunks
+        )
+
+        startAnalysisDisplayTask(maxDisplay: actualPercent)
+    }
+
+    private func mapLocalPhaseToAnalysisPhase(_ phase: LocalPipelinePhase) -> AnalysisPhase {
+        switch phase {
+        case .validating:
+            .loadingAudio
+        case .preparing:
+            .optimizingAudio
+        case .chunking:
+            .chunking
+        case .baseTranscribing:
+            .requestingChunk
+        case .aligning, .correcting, .assembling:
+            .parsingChunk
+        case .writingOutputs:
+            .mergingChunks
+        }
+    }
+
     private func startAnalysisDisplayTask(maxDisplay: Double) {
         analysisDisplayTask?.cancel()
         analysisDisplayTask = Task { [weak self] in
@@ -791,6 +884,7 @@ final class AppViewModel {
         analysisProgress = progress
         try? await Task.sleep(for: .milliseconds(700))
         analysisProgress = nil
+        localPipelineProgress = nil
         analysisDisplayTask = nil
     }
 

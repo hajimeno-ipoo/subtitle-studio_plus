@@ -1,7 +1,7 @@
 import Foundation
 import UniformTypeIdentifiers
 
-struct SubtitleItem: Identifiable, Equatable, Codable {
+struct SubtitleItem: Identifiable, Equatable, Codable, Sendable {
     var id: UUID
     var startTime: TimeInterval
     var endTime: TimeInterval
@@ -60,6 +60,108 @@ struct AnalysisProgress: Equatable, Codable {
     }
 }
 
+enum SRTGenerationEngine: String, Codable, CaseIterable, Sendable {
+    case gemini
+    case localPipeline
+}
+
+enum LocalBaseModel: String, Codable, CaseIterable, Sendable {
+    case kotobaWhisperV2
+    case kotobaWhisperBilingual
+}
+
+struct LocalPipelineSettings: Codable, Equatable, Sendable {
+    var baseModel: LocalBaseModel
+    var language: String
+    var initialPrompt: String
+    var chunkLengthSeconds: Double
+    var overlapSeconds: Double
+    var temperature: Double
+    var beamSize: Int
+    var noSpeechThreshold: Double
+    var logprobThreshold: Double
+    var whisperCLIPath: String
+    var whisperModelPath: String
+    var whisperCoreMLModelPath: String
+    var aeneasPythonPath: String
+    var aeneasScriptPath: String
+    var correctionDictionaryPath: String
+    var knownLyricsPath: String
+    var outputDirectoryPath: String
+
+    static let productionDefault = LocalPipelineSettings(
+        baseModel: .kotobaWhisperV2,
+        language: "ja",
+        initialPrompt: "",
+        chunkLengthSeconds: 8.0,
+        overlapSeconds: 1.0,
+        temperature: 0.0,
+        beamSize: 5,
+        noSpeechThreshold: 0.6,
+        logprobThreshold: -1.0,
+        whisperCLIPath: "Tools/whisper/whisper-cli",
+        whisperModelPath: "",
+        whisperCoreMLModelPath: "",
+        aeneasPythonPath: "python3",
+        aeneasScriptPath: "Tools/aeneas/align_subtitles.py",
+        correctionDictionaryPath: "Tools/dictionaries/default_ja_corrections.json",
+        knownLyricsPath: "Tools/dictionaries/sample_known_lyrics.txt",
+        outputDirectoryPath: "Work"
+    )
+}
+
+enum LocalPipelinePhase: String, Codable, Sendable {
+    case validating
+    case preparing
+    case chunking
+    case baseTranscribing
+    case aligning
+    case correcting
+    case assembling
+    case writingOutputs
+}
+
+struct LocalPipelineProgress: Codable, Equatable, Sendable {
+    var phase: LocalPipelinePhase
+    var message: String
+    var currentChunk: Int
+    var totalChunks: Int
+    var displayPercent: Double
+}
+
+struct LocalPipelineResult: Sendable {
+    var subtitles: [SubtitleItem]
+    var runDirectoryURL: URL
+    var finalSRTURL: URL
+}
+
+protocol LocalPipelineAnalyzing: Sendable {
+    func analyze(
+        fileURL: URL,
+        settings: LocalPipelineSettings,
+        progress: @escaping @Sendable (LocalPipelineProgress) async -> Void
+    ) async throws -> LocalPipelineResult
+}
+
+protocol ExternalProcessRunning: Sendable {
+    func run(_ request: ExternalProcessRequest) async throws -> ExternalProcessResult
+}
+
+struct ExternalProcessRequest: Sendable {
+    var executablePath: String
+    var arguments: [String]
+    var workingDirectory: URL?
+    var environment: [String: String]
+    var timeout: TimeInterval
+    var onStderrChunk: (@Sendable (Data) async -> Void)? = nil
+}
+
+struct ExternalProcessResult: Sendable {
+    var stdout: Data
+    var stderr: Data
+    var exitCode: Int32
+}
+
 struct AudioAsset: Equatable {
     var url: URL
     var fileName: String
@@ -114,6 +216,7 @@ enum SubtitleStudioError: LocalizedError, Equatable {
     case emptyGeminiResponse
     case invalidSRTResponse
     case alignmentFailed(String)
+    case localPipelineUnavailable
     case network(String)
 
     var errorDescription: String? {
@@ -134,8 +237,51 @@ enum SubtitleStudioError: LocalizedError, Equatable {
             "Gemini returned text that could not be parsed as SRT."
         case .alignmentFailed(let message):
             "Waveform alignment failed: \(message)"
+        case .localPipelineUnavailable:
+            "Local Pipeline is not configured yet."
         case .network(let message):
             message
+        }
+    }
+}
+
+enum LocalPipelineError: LocalizedError, Equatable {
+    case missingExecutable(String)
+    case missingModelFile(String)
+    case invalidConfiguration(String)
+    case normalizationFailed(String)
+    case chunkingFailed(String)
+    case baseTranscriptionFailed(String)
+    case emptyTranscription(String)
+    case alignmentFailed(String)
+    case correctionFailed(String)
+    case invalidJSON(String)
+    case outputWriteFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .missingExecutable(let path):
+            "Missing executable: \(path)"
+        case .missingModelFile(let path):
+            "Missing model file: \(path)"
+        case .invalidConfiguration(let message):
+            "Invalid local pipeline configuration: \(message)"
+        case .normalizationFailed(let message):
+            "Normalization failed: \(message)"
+        case .chunkingFailed(let message):
+            "Chunking failed: \(message)"
+        case .baseTranscriptionFailed(let message):
+            "Base transcription failed: \(message)"
+        case .emptyTranscription(let message):
+            "Empty transcription: \(message)"
+        case .alignmentFailed(let message):
+            "Forced alignment failed: \(message)"
+        case .correctionFailed(let message):
+            "Correction failed: \(message)"
+        case .invalidJSON(let message):
+            "Invalid JSON: \(message)"
+        case .outputWriteFailed(let message):
+            "Output write failed: \(message)"
         }
     }
 }

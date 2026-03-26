@@ -34,6 +34,15 @@ struct HeaderBar: View {
             Spacer()
 
             HStack(spacing: 12) {
+                Text(currentEngineLabel)
+                    .font(.system(size: 11, weight: .black, design: .rounded))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.brandYellow.opacity(0.22))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(.black, lineWidth: 1.5))
+                    .accessibilityLabel("Current engine \(currentEngineLabel)")
+
                 if viewModel.isResolveSessionActive {
                     Text("RESOLVE LINKED")
                         .font(.system(size: 11, weight: .black, design: .rounded))
@@ -90,6 +99,15 @@ struct HeaderBar: View {
         .padding(.horizontal, 24)
         .padding(.vertical, 14)
         .background(Color.white)
+    }
+
+    private var currentEngineLabel: String {
+        switch viewModel.settings.selectedSRTGenerationEngine {
+        case .gemini:
+            return "ENGINE: GEMINI"
+        case .localPipeline:
+            return "ENGINE: LOCAL"
+        }
     }
 }
 

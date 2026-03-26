@@ -1,149 +1,121 @@
 # Subtitle Studio Plus について
 
 ## これは何をするアプリ？
-- 音声や動画ファイルを読み込みます。
-- AIで字幕を作ります。
-- 波形を見ながら字幕の時間を直します。
-- 最後に `.srt` という字幕ファイルを書き出します。
+- 音声や動画を読み込みます。
+- `Gemini` または `Local Pipeline` で字幕を作ります。
+- 波形を見ながら字幕を直せます。
+- 最後に `.srt` を書き出します。
 
-## 全体の作り
-- `SubtitleStudioPlus.xcodeproj`
-  - 実際に起動して使う macOS アプリ用の project です。
-  - これで `.app` と bundle id が付きます。
-  - 文字入力が必要な画面も、ふだんの起動も、これを基準にします。
+## 今の全体の作り
 - `SwiftUI`
-  - 画面を作る部品です。
-  - 例: ボタンや一覧を組み立てる土台です。
+  - 画面を作る土台です。
 - `AVFoundation`
   - 音を読む仕組みです。
-  - 例: 音楽プレーヤーの心臓部分です。
 - `Gemini API`
-  - AIに音声を送って文字にしてもらいます。
-  - 例: 音を聞いてメモを作る外部スタッフです。
-  - 今は `generateContent` で完成した字幕を受け取ります。
-  - 進み具合はアプリ側で段階表示を作っています。
+  - 既存のクラウド字幕生成です。
+- `Local Pipeline`
+  - 新しいローカル字幕生成です。
+  - 中身は `whisper.cpp + Kotoba-Whisper + aeneas` です。
 - `Keychain`
-  - APIキーを安全に保管します。
-  - 例: Macの中にある鍵付きの引き出しです。
-- `Settings` ウィンドウ
-  - 右上の `Settings` から開く別ウィンドウです。
-  - `API` と `UTO-ALIGN` の 2 つのタブで分けて見ます。
-  - `UTO-ALIGN` の各項目には、日本語の説明を付けます。
+  - API キーを安全に保存します。
 - `Resolve 連携`
-  - DaVinci Resolve の中に入れ込むのではなく、外のアプリとして動かします。
-  - Resolve 側には小さな Lua スクリプトを置きます。
-  - AutoSubs と同じ考え方で、Resolve は起点と Text+ 配置を担当します。
-  - `SubtitleStudioPlus.lua` は app bundle の中にある `ResolveBridgeResources` を読みます。
-  - bridge core は `127.0.0.1:56002` で小さな JSON サーバを立てます。
-  - アプリは主に `--resolve-server-url http://127.0.0.1:56002/` で起動されます。
-  - `--resolve-session <path>` は補助の入口としてだけ残します。
-  - `EXPORT .SRT` は普通の保存です。
-  - `EXPORT FOR DAVINCI` は保存ダイアログを出さず、字幕 JSON と対応音声 path を Resolve へ送ります。
-  - Resolve 側は `Default Template` の Text+ を timeline に自動で並べます。
-  - Resolve session banner が出る時は、その分だけ app の window 高さを少し足して上下が切れにくいようにします。
-  - audio は Media Pool の root に入れます。
-  - template も最終的には root に置きます。
-  - template の `.drb` は一時 folder で読み書きし、`Default Template` だけを取り出します。
-  - `Default Template` を Resolve 側で直した時は、その設定を user 用の `.drb` へ自動同期します。
-  - 新しい project では、app bundle の初期 template より user 用の同期済み template を優先して使います。
-  - さらに export 時に、追加する `Text+` へ `Hiragino Sans W6` を自動適用して、日本語が `□□□□` にならないようにします。
+  - `.srt` や字幕データを Resolve 側へ渡します。
+
+## Local Pipeline の考え方
+- まず `whisper.cpp` で歌詞の下書きを作ります。
+- 次に、下書きを短い字幕ブロックにまとめます。
+- その小さいブロックごとに `aeneas` で時間を合わせます。
+- `aeneas` が失敗した所だけ、`whisper.cpp` が持っている時間に戻します。
+- 最後に `final.srt` を作ります。
+
+## もう使わないもの
+- `Qwen3-ASR`
+- `Qwen3-ForcedAligner`
+- `Tools/qwen`
+- 最終成果物としての `TXT / JSON / LRC`
 
 ## フォルダの意味
 - `Sources/App`
   - アプリの入口です。
 - `Sources/Models`
-  - 字幕や音声の型です。
+  - 字幕や設定の型です。
 - `Sources/ViewModels`
   - 画面の状態をまとめる司令塔です。
-  - 生成中の進捗もここで調整します。
-  - 字幕の選択状態と歌詞編集モードもここで切り替えます。
 - `Sources/Views`
-  - 実際に見えるUIです。
+  - 実際に見える UI です。
 - `Sources/Services`
-  - 音声解析、波形生成、AI通信などの仕事役です。
+  - 音声処理、AI 呼び出し、字幕組み立ての仕事役です。
 - `Sources/Persistence`
-  - 保存まわりです。
-- `Sources/Utilities`
-  - 時刻変換やSRT処理の小道具です。
-- `docs/20260319_resolve_bridge`
-  - Resolve 連携の運用資料です。
-  - 親エージェントのチェックリスト、アーキテクチャ、検証手順、報告書をここに置きます。
+  - 設定保存です。
+- `Tools/aeneas`
+  - `aeneas` を呼ぶ Python 補助スクリプトです。
+- `Tools/dictionaries`
+  - 辞書補正や既知歌詞の補助ファイルです。
 - `docs/20260320_local_asr_pipeline`
-  - Docs2 をこのプロジェクト向けに作り直した正式資料です。
-  - ローカル歌声ASRパイプライン、Gemini との同居前提、構成図をここに置きます。
-  - 要件定義、基本設計、詳細設計、Swift 側インターフェース、Python 補助スクリプト、JSON スキーマ、ディレクトリ構成、実装計画をここに集約します。
+  - ローカル字幕生成の正式資料です。
+- `Work/run-...`
+  - 実行ごとのログと中間ファイルを保存する場所です。
 
 ## なぜこの技術を選んだ？
-- SwiftUI
-  - macOS向けに自然に作れるからです。
-- AVFoundation
-  - Apple標準で音声処理に強いからです。
-- 依存を増やさない方針
-  - 壊れる場所を減らせるからです。
+- `SwiftUI`
+  - macOS アプリとして自然に作れるからです。
+- `AVFoundation`
+  - Apple 標準で音声処理に強いからです。
+- `whisper.cpp`
+  - Apple Silicon で動かしやすいからです。
+- `aeneas`
+  - 行単位や短いブロック単位の `SRT` 作成と相性が良いからです。
+- `Gemini` は残す
+  - 既存機能を壊さず、用途で切り替えられるからです。
 
 ## よくあるバグと直し方
-- APIキー未設定
-  - 症状: 字幕生成で止まります。
-  - 修正: `Settings` ウィンドウの `API` タブでキーを入れて保存します。
-- 対応外ファイル
-  - 症状: 読み込み時に失敗します。
-  - 修正: 対応拡張子の音声へ変換します。
-- 長い音声で遅い
-  - 症状: AI解析に時間がかかります。
-  - 修正: 300秒ごとに分割して送る仕組みを確認します。
-- 進捗バーが不自然
-  - 症状: 数値とバーが合わない、途中で止まって見えます。
-  - 修正: `AnalysisProgress` の `actualPercent` と `displayPercent` を確認します。
-- 歌詞カードを押しても編集できない
-  - 症状: カーソルは見えても、本文を直しにくいです。
-  - 修正: `EDIT LYRICS` で歌詞編集モードへ入り、一覧の全カードをそのまま `TextEditor` として出します。余計なフォーカス制御やタップ制御を足しません。
-- APIキー欄に文字を打てない
-  - 症状: 右クリックの貼り付けはできても、キー入力や Delete が効きにくいです。
-  - 修正: `SubtitleStudioPlus.xcodeproj` から proper な `.app` として起動します。設定画面は標準の `TextField` / `SecureField` を使い、入力中はアプリ全体の Delete や Space などのショートカットを止めます。Keychain の読み書きは非同期にして、許可ダイアログ待ちで画面を止めにくくします。
-- UTO-ALIGN の意味がわかりにくい
-  - 症状: 何を変える設定か迷います。
-  - 修正: `UTO-ALIGN` タブの日本語説明を読み、音量の見方、しきい値、すき間埋め、適応しきい値の役割を確認します。
-- 波形と字幕が少しずれる
-  - 症状: タイミングが気持ち悪いです。
-  - 修正: 自動補正を実行し、必要なら手で微調整します。
+- API キー未設定
+  - 症状: `Gemini` 生成が止まります。
+  - 修正: `Settings` の `API` タブでキーを入れます。
+- `whisper-cli` が見つからない
+  - 症状: `Local Pipeline` の開始前に止まります。
+  - 修正: `LOCAL SRT` の `whisperCLIPath` を確認します。
+- whisper model が見つからない
+  - 症状: `Local Pipeline` の開始前に止まります。
+  - 修正: `whisperModelPath` を確認します。
+- `aeneas` が見つからない
+  - 症状: `Local Pipeline` の時間合わせで止まります。
+  - 修正: `aeneasPythonPath` と `aeneasScriptPath` を確認します。
+- `aeneas` が入っているのに時間が合わない
+  - 症状: ローカル字幕の時間が粗く、クリップ位置と長さが波形に合いません。
+  - 修正: `aeneas` の存在確認だけでなく、NumPy 互換パッチと `macOS TTS` で実行できているか確認します。
+- `aeneas` が 1 件も timing を返さない
+  - 症状: 以前は Whisper timing に黙って戻っていました。今はエラーで止まります。
+  - 修正: `logs/aeneas.stderr.log` を見て、`exit=1` だけでなく、その直後に出る `aeneas stdout` / `aeneas stderr` / `command` を確認します。
+- 字幕が全部 0 秒に重なる
+  - 症状: タイムラインの左端に固まります。
+  - 修正: `aeneas` の timing が無効な時に Whisper timing fallback が効いているか確認します。
+- 字幕の長さが全部短すぎる
+  - 症状: どのクリップもほぼ同じ短さです。
+  - 修正: `end <= start` の block が fallback されているか確認します。
+- 文字起こしが崩れる
+  - 症状: 歌詞らしくない文になります。
+  - 修正: `initialPrompt`、辞書、既知歌詞を見直します。
+- ローカル字幕の数が少なすぎる
+  - 症状: Gemini よりかなり少ない数のクリップになります。
+  - 修正: 字幕 block をまとめすぎていないか確認します。今は `6〜8秒 / 1行` を目安にしています。
 
 ## 落とし穴
-- 画面の見た目を真似しすぎると、Macらしさが消えます。
-- 逆にMacらしさを強くしすぎると、元UIと違って見えます。
-- 音声を丸ごとメモリに読むので、大きいファイルは重くなります。
-- Geminiは完成した字幕をまとめて返します。
-- 進捗表示はアプリ側の段階表示なので、Gemini内部の本当の処理率とは一致しません。
-- 通常モードの字幕選択と、歌詞編集モードの本文編集は別の状態です。
-- 歌詞編集モードでは、再生やタイムラインの字幕移動は止まります。
-- 歌詞編集モードではカードの中身を全部入力欄として出します。
-- 歌詞編集モードではカーソル位置をアプリ側で強制しません。クリックした入力欄に OS の通常動作で入ります。
-- 歌詞編集の入力欄は、SwiftUI の `TextEditor` をそのまま使う方が安全です。
-- APIキー欄も同じ考え方で、標準の `TextField` / `SecureField` を使います。
-- 設定は sheet より別ウィンドウの方が、タブ切り替えと説明文を置きやすいです。
-- 文字入力中は、Delete や Space などの全体ショートカットを止めないと、入力欄よりショートカットが勝つことがあります。
-- Keychain の許可待ちは時間がかかることがあるので、読み書きをメインスレッドで直接走らせない方が安全です。
-- このプロジェクトは Xcode 一本化です。
-- ふだんの起動、動作確認、実機確認は `SubtitleStudioPlus.xcodeproj` の app target を使います。
-- 開発時に字幕一覧をすぐ出したい時は、DEBUG 起動で `--ui-seed` を付けるとダミー字幕を出せます。
+- `Gemini` 用の prompt を勝手に要約すると、精度が崩れやすいです。
+- ただし、`Gemini` 用の長い命令文をそのまま `whisper.cpp` に渡すのも逆効果です。
+- そのため、`whisper.cpp` には **歌詞向けの短い専用 prompt** を使います。
+- 長い音声を一気に時間合わせするとズレやすいです。
+- そのため、`aeneas` は短い block ごとに実行します。
+- `aeneas` が全部うまくいく前提で作ると、また 0 秒固定に戻ります。
+- 一部 block の失敗だけ Whisper timing に戻す前提が必要です。
+- 逆に、`aeneas` が全部失敗している時は続行せず止めた方が原因を追いやすいです。
+- 字幕が 0 件なのに成功扱いにすると、空の `SRT` ができてしまいます。
+- そのため、字幕 0 件はエラーとして止めます。
 
 ## ベストプラクティス
-- 字幕を変える前に Undo 用の履歴を積む。
-- 失敗はダイアログで止めて分かりやすくする。
-- SRTの時刻変換は必ずテストする。
-- AIの返答はそのまま信用せず、SRTとして解析してから使う。
-- 生成中UIは、文字列1本ではなく進捗用の型で管理する。
-- 歌詞を直す時は、通常モードと歌詞編集モードを混ぜない。
-- 文字を直す時は、`DONE` を押す前に編集した字幕が正しいか一覧で見直す。
-- 歌詞編集モードで黄色を動かすのは `selectedSubtitleID`、今どのカードを触っているかの記録は `editingSubtitleID` と役割を分ける。
-- Web を再現したい時は、保険の state や補助タップを足さず、まず構造を同じにする。
-- 文字入力欄がある画面では、キー入力中だけアプリ全体ショートカットを止める。
-- Resolve 専用に作り直さず、今の SwiftUI アプリを本体にする。
-- Resolve の入口は `Workspace -> Scripts -> SubtitleStudioPlus` に固定する。
-- bridge の主経路は `session.json` ではなく localhost JSON にする。
-- app 側の export は `EXPORT .SRT` と `EXPORT FOR DAVINCI` の 2 つに分ける。
-- `EXPORT FOR DAVINCI` は `segments`、`templateName`、`trackIndex`、`timelineStart`、必要なら `audioPath`、`audioDuration` を Resolve へ送る。
-- Resolve 側は `Resolve()` ではなく埋め込みの `resolve` グローバルを使う。
-- `Default Template` が無い時は `.drb` から Media Pool へ自動投入する。
-- Media Pool へ入れる asset は root にそろえ、template の import/export は `Default Template` 1個だけを対象にする。
-- `Default Template` を Resolve で調整したら、その folder を user 用 `.drb` に同期して次の project でも同じ見た目を使う。
-- `EXPORT FOR DAVINCI` で置く `Text+` は、日本語対応の既定フォントへ自動でそろえる。
+- `Gemini` と `Local Pipeline` は同じ UI で切り替える。
+- 最終成果物は `SRT` に絞る。
+- 中間 JSON はデバッグ用だけにする。
+- 失敗時は、どの段階で止まったかをログに残す。
+- タイムライン表示を直す前に、まず `SubtitleItem.startTime / endTime` が正しいかを見る。
+- 手動調整しやすい形で `SubtitleItem[]` を作る。

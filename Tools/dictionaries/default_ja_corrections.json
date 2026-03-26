@@ -1,0 +1,27 @@
+{
+  "version": "1.0.0",
+  "language": "ja",
+  "description": "Default Japanese post-correction dictionary for local pipeline.",
+  "rules": [
+    {
+      "type": "exact",
+      "from": "あいしてる",
+      "to": "愛してる"
+    },
+    {
+      "type": "exact",
+      "from": "きみを",
+      "to": "君を"
+    },
+    {
+      "type": "exact",
+      "from": "ありがとう ございます",
+      "to": "ありがとうございます"
+    },
+    {
+      "type": "regex",
+      "from": "\\s+",
+      "to": " "
+    }
+  ]
+}

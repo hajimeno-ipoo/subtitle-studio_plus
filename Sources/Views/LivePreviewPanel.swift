@@ -13,6 +13,16 @@ struct LivePreviewPanel: View {
 
                 Spacer()
 
+                Picker("Engine", selection: engineBinding) {
+                    Text("Gemini").tag(SRTGenerationEngine.gemini)
+                    Text("Local Pipeline").tag(SRTGenerationEngine.localPipeline)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 250)
+                .disabled(viewModel.isBusy)
+                .help("SRT generation engine")
+                .accessibilityLabel("SRT generation engine")
+
                 Button {
                     Task { await viewModel.analyzeAudio() }
                 }
@@ -29,7 +39,8 @@ struct LivePreviewPanel: View {
                     }
                 }
                 .buttonStyle(StudioPrimaryButton(color: .brandYellow))
-                .disabled(viewModel.audioAsset == nil || viewModel.status == .analyzing)
+                .disabled(viewModel.audioAsset == nil || viewModel.isBusy)
+                .accessibilityLabel(viewModel.status == .analyzing ? "Generating subtitles" : "Auto generate subtitles")
             }
             .padding(16)
             .background(Color.brandPink.opacity(0.28))
@@ -55,6 +66,16 @@ struct LivePreviewPanel: View {
         }
         .frame(maxWidth: .infinity, minHeight: 420)
         .studioPanelChrome()
+        .task {
+            await viewModel.settings.loadIfNeeded()
+        }
+    }
+
+    private var engineBinding: Binding<SRTGenerationEngine> {
+        Binding(
+            get: { viewModel.settings.selectedSRTGenerationEngine },
+            set: { viewModel.settings.selectedSRTGenerationEngine = $0 }
+        )
     }
 }
 

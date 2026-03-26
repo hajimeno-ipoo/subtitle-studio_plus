@@ -1,68 +1,25 @@
 flowchart LR
     selector["SRT Engine Selector"]
     gemini["Gemini SRT Engine"]
-    shared["Shared Subtitle Model / Output Integration"]
+    local["Local Pipeline"]
+
     selector --> gemini
-    gemini --> shared
+    selector --> local
 
-    swift["Subtitle Studio Plus (Swift Controller)"] --> selector
-    selector --> local_entry
+    subgraph localFlow["Local Pipeline (`whisper.cpp + aeneas`)"]
+        normalize["Audio Normalize\nmono / 16kHz wav"]
+        whisper["whisper.cpp + Kotoba-Whisper"]
+        draft["Subtitle Block Builder\n8-12 sec / max 2 lines"]
+        aeneas["aeneas Alignment"]
+        fallback["Whisper Timing Fallback"]
+        correct["Dictionary / Known Lyrics Correction"]
+        srt["Final SRT"]
 
-    subgraph local["Local Pipeline"]
-      direction LR
-
-      subgraph base["Base Transcription"]
-        direction TB
-        local_entry["Audio Chunks"]
-        kotoba_v2["Kotoba-Whisper v2.x"]
-        kotoba_bi["Kotoba-Whisper Bilingual"]
-        local_entry --> kotoba_v2
-        local_entry --> kotoba_bi
-      end
-
-      subgraph refine["Refinement"]
-        direction TB
-        qwen_asr["Qwen3-ASR"]
-        suspicious["Suspicious Segments"]
-        kotoba_v2 --> qwen_asr
-        kotoba_bi --> qwen_asr
-        qwen_asr --> suspicious
-      end
-
-      subgraph align["Alignment"]
-        direction TB
-        forced["Qwen3-Forced Aligner"]
-        timed["Timed Alignment"]
-        qwen_asr --> forced
-        forced --> timed
-      end
-
-      subgraph final["Final Processing"]
-        direction TB
-        dict["Dictionary & Lyrics Correction"]
-        out["LRC / SRT Output"]
-        timed --> dict
-        timed --> out
-        dict --> out
-      end
+        normalize --> whisper --> draft --> aeneas --> correct --> srt
+        draft --> fallback --> correct
     end
 
-    out --> shared
-    shared --> final_output["Final Subtitle Outputs"]
+    local --> normalize
 
-    classDef white fill:#ffffff,stroke:#666,stroke-width:1px,color:#222;
-    classDef blue fill:#dcecff,stroke:#7ea1d8,stroke-width:1px,color:#222;
-    classDef yellow fill:#fff1c9,stroke:#f1c86b,stroke-width:1px,color:#222;
-    classDef green fill:#e3f3db,stroke:#8dbe78,stroke-width:1px,color:#222;
-    classDef orange fill:#ffe2c7,stroke:#ef9d56,stroke-width:1px,color:#222;
-
-    class swift,selector,gemini,shared,final_output white;
-    class local_entry,kotoba_v2,kotoba_bi blue;
-    class qwen_asr,suspicious yellow;
-    class forced,timed green;
-    class dict,out orange;
-    style base fill:#eaf3ff,stroke:#b9d0f0,stroke-dasharray: 4 4
-    style refine fill:#fff8df,stroke:#f1d28c,stroke-dasharray: 4 4
-    style align fill:#eef8e8,stroke:#b9daa8,stroke-dasharray: 4 4
-    style final fill:#fff0e2,stroke:#f2bf8c,stroke-dasharray: 4 4
-    style local fill:#fafafa,stroke:#cfcfcf,stroke-width:1px
+    gemini --> finalModel["SubtitleItem[]"]
+    srt --> finalModel

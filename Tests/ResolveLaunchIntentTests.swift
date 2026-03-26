@@ -191,7 +191,6 @@ struct ResolveLaunchIntentTests {
             {
               "sessionID": "resolve-006",
               "mode": "launch",
-              "bridgePort": 56002,
               "projectName": "Project Alpha",
               "timelineName": "Timeline One"
             }
@@ -202,7 +201,7 @@ struct ResolveLaunchIntentTests {
         await viewModel.handleResolveLaunch(
             ResolveLaunchIntent(
                 sessionURL: sessionURL,
-                serverURL: URL(string: "http://127.0.0.1:56002/")
+                serverURL: nil
             )
         )
 

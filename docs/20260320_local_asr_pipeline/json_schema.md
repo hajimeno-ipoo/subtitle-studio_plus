@@ -1,170 +1,99 @@
 # JSON スキーマ定義
 
-## 1. 方針
-- 本番では JSON を段階ごとに保存する。
-- 文字コードは UTF-8。
-- 時刻は秒単位の `number`。
-- パスは JSON に保存しない。必要な path は manifest 側で持つ。
-
-## 2. chunks/index.json
+## 1. chunks/index.json
 ```json
 {
-  "runId": "run-20260320-120000-ab12cd34",
-  "sourceDuration": 215.42,
-  "chunkLengthSeconds": 8.0,
-  "overlapSeconds": 1.0,
+  "runId": "run-20260321-000001-abcd1234",
+  "sourceFileName": "song.wav",
   "chunks": [
     {
       "chunkId": "chunk-00001",
-      "start": 0.0,
-      "end": 8.0
+      "startTime": 0.0,
+      "endTime": 8.0,
+      "fileName": "chunk-00001.wav"
     }
   ]
 }
 ```
 
-## 3. base_json/chunk-xxxxx.json
+## 2. base_json/chunk-xxxxx.json
 ```json
 {
   "chunkId": "chunk-00001",
   "engineType": "localPipeline",
-  "baseModel": "kotobaWhisperV2",
+  "modelName": "whisper.cpp",
+  "segments": [
+    {
+      "segmentId": "chunk-00001-seg-0001",
+      "start": 0.0,
+      "end": 1.6,
+      "text": "愛してる",
+      "confidence": 0.92
+    }
+  ]
+}
+```
+
+## 3. draft_json/draft_segments.json
+```json
+{
+  "runId": "run-20260321-000001-abcd1234",
+  "sourceFileName": "song.wav",
   "language": "ja",
   "segments": [
     {
-      "segmentId": "chunk-00001-seg-0001",
-      "start": 0.35,
-      "end": 2.42,
-      "text": "あいしてる",
-      "confidence": 0.74,
-      "suspicious": true,
-      "suspiciousReasons": [
-        "hiragana_bias",
-        "low_confidence"
-      ]
+      "segmentId": "seg-0001",
+      "startTime": 0.0,
+      "endTime": 8.4,
+      "text": "愛してる\n君のこと",
+      "sourceChunkIds": ["chunk-00001"]
     }
   ]
 }
 ```
 
-## 4. qwen_json/chunk-xxxxx.json
+## 4. aligned_json/segment_alignment.json
 ```json
 {
-  "chunkId": "chunk-00001",
+  "runId": "run-20260321-000001-abcd1234",
   "engineType": "localPipeline",
-  "modelName": "Qwen/Qwen3-ASR",
+  "modelName": "aeneas",
   "segments": [
     {
-      "segmentId": "chunk-00001-seg-0001",
-      "start": 0.35,
-      "end": 2.42,
-      "text": "愛してる",
-      "confidence": 0.91
+      "segmentId": "seg-0001",
+      "start": 0.1,
+      "end": 8.2,
+      "text": "愛してる\n君のこと"
     }
   ]
 }
 ```
 
-## 5. aligned_json/pre_alignment.json
-```json
-{
-  "runId": "run-20260320-120000-ab12cd34",
-  "segments": [
-    {
-      "chunkId": "chunk-00001",
-      "segmentId": "chunk-00001-seg-0001",
-      "baseTranscript": "あいしてる",
-      "refinedTranscript": "愛してる",
-      "finalTranscript": "愛してる",
-      "modelUsed": "Qwen/Qwen3-ASR",
-      "suspicious": true
-    }
-  ]
-}
-```
+## 5. final/final.json
+中間確認用に残す場合の形。
+最終成果物ではない。
 
-## 6. aligned_json/phrase_alignment.json
 ```json
 {
-  "runId": "run-20260320-120000-ab12cd34",
-  "modelName": "Qwen/Qwen3-ForcedAligner",
-  "phrases": [
-    {
-      "phraseId": "phrase-0001",
-      "text": "愛してる",
-      "start": 10.42,
-      "end": 12.63,
-      "words": [
-        {
-          "word": "愛してる",
-          "start": 10.42,
-          "end": 12.63
-        }
-      ]
-    }
-  ]
-}
-```
-
-## 7. final/final.json
-```json
-{
-  "runId": "run-20260320-120000-ab12cd34",
+  "runId": "run-20260321-000001-abcd1234",
   "engineType": "localPipeline",
-  "sourceFileName": "song01.wav",
-  "baseModel": "kotobaWhisperV2",
-  "refinementModel": "Qwen/Qwen3-ASR",
-  "alignmentModel": "Qwen/Qwen3-ForcedAligner",
-  "segments": [
+  "modelName": "aeneas",
+  "subtitles": [
     {
-      "id": "A2B3C4D5-E6F7-48A1-9B2C-1234567890AB",
-      "chunkId": "chunk-00001",
-      "phraseId": "phrase-0001",
-      "startTime": 10.42,
-      "endTime": 12.63,
-      "baseTranscript": "あいしてる",
-      "refinedTranscript": "愛してる",
-      "finalTranscript": "愛してる",
-      "suspicious": true,
-      "corrections": [
-        {
-          "type": "dictionary",
-          "before": "あいしてる",
-          "after": "愛してる"
-        }
-      ]
+      "start": 0.1,
+      "end": 8.2,
+      "text": "愛してる\n君のこと"
     }
   ]
 }
 ```
 
-## 8. logs/run.jsonl
+## 6. logs/run.jsonl
 ```json
-{"timestamp":"2026-03-20T12:00:00+09:00","runId":"run-20260320-120000-ab12cd34","stage":"preparing","level":"INFO","message":"run directory created","engineType":"localPipeline"}
-{"timestamp":"2026-03-20T12:00:08+09:00","runId":"run-20260320-120000-ab12cd34","stage":"baseTranscribing","level":"INFO","message":"chunk completed","engineType":"localPipeline","chunkId":"chunk-00001"}
-```
-
-## 9. manifest.json
-```json
-{
-  "runId": "run-20260320-120000-ab12cd34",
-  "engineType": "localPipeline",
-  "sourceFileName": "song01.wav",
-  "sourceDuration": 215.42,
-  "settingsSnapshot": {
-    "baseModel": "kotobaWhisperV2",
-    "language": "ja",
-    "chunkLengthSeconds": 8.0,
-    "overlapSeconds": 1.0
-  },
-  "stages": {
-    "normalized": true,
-    "chunked": true,
-    "baseTranscribed": true,
-    "refined": false,
-    "aligned": false,
-    "corrected": false,
-    "outputsWritten": false
-  }
-}
+{"timestamp":"2026-03-21T00:00:01+09:00","level":"INFO","stage":"normalized","message":"normalized audio written"}
+{"timestamp":"2026-03-21T00:00:02+09:00","level":"INFO","stage":"chunked","message":"chunk plan written"}
+{"timestamp":"2026-03-21T00:00:10+09:00","level":"INFO","stage":"baseTranscribed","message":"base transcription completed"}
+{"timestamp":"2026-03-21T00:00:20+09:00","level":"INFO","stage":"aligned","message":"aeneas alignment completed"}
+{"timestamp":"2026-03-21T00:00:22+09:00","level":"INFO","stage":"corrected","message":"correction completed"}
+{"timestamp":"2026-03-21T00:00:23+09:00","level":"INFO","stage":"outputsWritten","message":"final srt written"}
 ```
