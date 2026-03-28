@@ -186,7 +186,7 @@ struct SettingsStoreTests {
             Data(
                 """
                 {
-                  "baseModel": "kotobaWhisperV2",
+                  "baseModel": "kotobaWhisperV22",
                   "language": "ja",
                   "initialPrompt": "legacy prompt",
                   "chunkLengthSeconds": 8,
@@ -242,7 +242,7 @@ struct SettingsStoreTests {
         #expect(SRTGenerationEngine.gemini.rawValue == "gemini")
         #expect(SRTGenerationEngine.localPipeline.rawValue == "localPipeline")
         #expect(LocalPipelineSettings.productionDefault.baseModel == .kotobaWhisperV2)
-        #expect(LocalBaseModel.kotobaWhisperV22.rawValue == "kotobaWhisperV22")
+        #expect(LocalBaseModel.allCases == [.kotobaWhisperV2, .kotobaWhisperBilingual])
         #expect(LocalPipelineSettings.productionDefault.initialPrompt.isEmpty)
         #expect(LocalPipelinePhase.preparing.rawValue == "preparing")
         #expect(LocalPipelineProgress(

@@ -22,10 +22,13 @@
   - `.srt` や字幕データを Resolve 側へ渡します。
 
 ## Local Pipeline の考え方
-- まず `whisper.cpp C API` で歌詞の下書きを作ります。
-- 次に、下書きを短い字幕ブロックにまとめます。
-- その小さいブロックごとに `aeneas` で時間を合わせます。
-- `aeneas` が失敗した所だけ、`whisper.cpp` が持っている時間に戻します。
+- まず `whisper.cpp C API` を **2通り** で使います。
+- 1つ目は「自然な歌詞本文」を作る役です。
+- 2つ目は「どこで歌っているかの時間」を取る役です。
+- 参照歌詞がない時は、本文用と時間用の両方を使います。
+- `TXT` 参照の時は、本文は参照歌詞を使い、時間だけ `whisper.cpp` から取ります。
+- `SRT` 参照の時は、元の `SRT` の時間を主に使います。
+- 最後に `aeneas` は時間の微調整だけをします。
 - 最後に `final.srt` を作ります。
 
 ## もう使わないもの
@@ -81,40 +84,42 @@
   - 修正: `aeneasPythonPath` と `aeneasScriptPath` を確認します。
 - `aeneas` が入っているのに時間が合わない
   - 症状: ローカル字幕の時間が粗く、クリップ位置と長さが波形に合いません。
-  - 修正: `aeneas` の存在確認だけでなく、NumPy 互換パッチと `macOS TTS` で実行できているか確認します。
-- `aeneas` が 1 件も timing を返さない
-  - 症状: 以前は Whisper timing に黙って戻っていました。今はエラーで止まります。
-  - 修正: `logs/aeneas.stderr.log` を見て、`exit=1` だけでなく、その直後に出る `aeneas stdout` / `aeneas stderr` / `command` を確認します。
+  - 修正: `aeneas` の存在確認だけでなく、`whisper.cpp` の timing guide が取れているかも確認します。
+- `TXT` 参照なのに左端へ固まる
+  - 症状: たくさんの字幕が数秒の範囲へ密集します。
+  - 修正: `run.jsonl` に `coarse sequential timing fallback used` が出ていないか確認します。出ている時は、`timing guide` が弱くて仮 timing に落ちています。
 - 字幕が全部 0 秒に重なる
   - 症状: タイムラインの左端に固まります。
-  - 修正: `aeneas` の timing が無効な時に Whisper timing fallback が効いているか確認します。
+  - 修正: `aeneas` の補正結果を採用せず、draft timing に戻せているか確認します。
 - 字幕の長さが全部短すぎる
   - 症状: どのクリップもほぼ同じ短さです。
   - 修正: `end <= start` の block が fallback されているか確認します。
 - 文字起こしが崩れる
   - 症状: 歌詞らしくない文になります。
-  - 修正: `initialPrompt`、辞書、既知歌詞を見直します。
+  - 修正: `initialPrompt`、辞書、補助歌詞入力を見直します。
 - ローカル字幕の数が少なすぎる
   - 症状: Gemini よりかなり少ない数のクリップになります。
-  - 修正: 字幕 block をまとめすぎていないか確認します。今は `6〜8秒 / 1行` を目安にしています。
+  - 修正: 字幕 block をまとめすぎていないか確認します。今は `2〜6秒 / 1〜2行` を目安にしています。
 
 ## 落とし穴
 - `Gemini` 用の prompt を勝手に要約すると、精度が崩れやすいです。
 - ただし、`Gemini` 用の長い命令文をそのまま `whisper.cpp` に渡すのも逆効果です。
 - そのため、`whisper.cpp` には **歌詞向けの短い専用 prompt** を使います。
-- `LOCAL SRT` で選べるモデルは `Kotoba-Whisper v2.0 / v2.2 / Bilingual` です。
+- `LOCAL SRT` で選べるモデルは `Kotoba-Whisper v2.0 / Bilingual` です。
 - 長い音声を一気に時間合わせするとズレやすいです。
 - そのため、`aeneas` は短い block ごとに実行します。
-- `aeneas` が全部うまくいく前提で作ると、また 0 秒固定に戻ります。
-- 一部 block の失敗だけ Whisper timing に戻す前提が必要です。
-- 逆に、`aeneas` が全部失敗している時は続行せず止めた方が原因を追いやすいです。
+- `aeneas` に位置探しを全部やらせると、違う歌詞の所へ吸われやすいです。
+- 先に `whisper.cpp` の timing guide を作っておかないと、後ろをいくら直しても崩れます。
+- `aeneas` は「最後の微調整だけ」にして、変な補正は採用しない方が安全です。
 - 字幕が 0 件なのに成功扱いにすると、空の `SRT` ができてしまいます。
 - そのため、字幕 0 件はエラーとして止めます。
 
 ## ベストプラクティス
 - `Gemini` と `Local Pipeline` は同じ UI で切り替える。
+- 補助歌詞は常設欄にせず、必要な時だけ小さなボタンから開く。
 - 最終成果物は `SRT` に絞る。
 - 中間 JSON はデバッグ用だけにする。
 - 失敗時は、どの段階で止まったかをログに残す。
+- `TXT` 参照では、本文と timing を同じ Whisper に任せず、役割を分ける。
 - タイムライン表示を直す前に、まず `SubtitleItem.startTime / endTime` が正しいかを見る。
 - 手動調整しやすい形で `SubtitleItem[]` を作る。

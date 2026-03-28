@@ -174,6 +174,12 @@ final class SettingsStore {
     private func normalizeLocalPipelineSettings(_ settings: LocalPipelineSettings) -> LocalPipelineSettings {
         var normalized = settings
 
+        if normalized.baseModel == .kotobaWhisperBilingual {
+            // keep bilingual as-is
+        } else {
+            normalized.baseModel = .kotobaWhisperV2
+        }
+
         if normalized.aeneasPythonPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             normalized.aeneasPythonPath = LocalPipelineSettings.productionDefault.aeneasPythonPath
         }
@@ -182,9 +188,6 @@ final class SettingsStore {
         }
         if normalized.correctionDictionaryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             normalized.correctionDictionaryPath = LocalPipelineSettings.productionDefault.correctionDictionaryPath
-        }
-        if normalized.knownLyricsPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            normalized.knownLyricsPath = LocalPipelineSettings.productionDefault.knownLyricsPath
         }
         if normalized.outputDirectoryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             normalized.outputDirectoryPath = LocalPipelineSettings.productionDefault.outputDirectoryPath

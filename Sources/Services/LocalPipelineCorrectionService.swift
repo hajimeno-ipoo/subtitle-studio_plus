@@ -14,20 +14,14 @@ struct LocalCorrectionDictionary: Codable, Equatable, Sendable {
 }
 
 struct LocalPipelineCorrectionService: Sendable {
-    private let runtimePathResolver: AppRuntimePathResolver
-
-    init(runtimePathResolver: AppRuntimePathResolver = AppRuntimePathResolver()) {
-        self.runtimePathResolver = runtimePathResolver
-    }
-
     func correct(
         runId: String,
         draftSegments: [LocalPipelineDraftSegment],
         alignedSegments: [LocalPipelineAlignedSegment],
-        settings: LocalPipelineSettings
+        settings: LocalPipelineSettings,
+        allowDictionaryCorrections: Bool = true
     ) throws -> [LocalPipelineCorrectedSegment] {
         let dictionaryRules = try loadDictionaryRules(from: settings.correctionDictionaryPath)
-        let knownLyrics = try loadKnownLyrics(from: settings.knownLyricsPath)
         let alignedByID = Dictionary(uniqueKeysWithValues: alignedSegments.map { ($0.segmentId, $0) })
 
         return draftSegments.map { segment in
@@ -36,7 +30,7 @@ struct LocalPipelineCorrectionService: Sendable {
             let corrected = applyRules(
                 to: sourceText,
                 dictionaryRules: dictionaryRules,
-                knownLyrics: knownLyrics
+                allowDictionaryCorrections: allowDictionaryCorrections
             )
             let records = makeRecords(before: sourceText, after: corrected)
 
@@ -94,23 +88,15 @@ struct LocalPipelineCorrectionService: Sendable {
         }
     }
 
-    private func loadKnownLyrics(from rawPath: String) throws -> [String] {
-        guard let url = resolveExistingFile(rawPath) else { return [] }
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            throw LocalPipelineError.correctionFailed("Missing known lyrics file: \(url.path)")
-        }
-        let contents = try String(contentsOf: url, encoding: .utf8)
-        return contents
-            .components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-    }
-
     private func applyRules(
         to text: String,
         dictionaryRules: [LocalCorrectionDictionary.Rule],
-        knownLyrics: [String]
+        allowDictionaryCorrections: Bool
     ) -> String {
+        guard allowDictionaryCorrections else {
+            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
         var current = text
 
         for rule in dictionaryRules {
@@ -127,10 +113,6 @@ struct LocalPipelineCorrectionService: Sendable {
             }
         }
 
-        if let matched = knownLyrics.first(where: { normalize($0) == normalize(current) }) {
-            current = matched
-        }
-
         return current.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -142,15 +124,7 @@ struct LocalPipelineCorrectionService: Sendable {
     private func resolveExistingFile(_ rawPath: String) -> URL? {
         let trimmed = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        let candidates = runtimePathResolver.candidateURLs(forResourcePath: trimmed)
+        let candidates = AppRuntimePathResolver().candidateURLs(forResourcePath: trimmed)
         return candidates.first(where: { FileManager.default.fileExists(atPath: $0.path) })
-    }
-
-    private func normalize(_ value: String) -> String {
-        value
-            .replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: "\t", with: "")
-            .replacingOccurrences(of: "\n", with: "")
-            .lowercased()
     }
 }

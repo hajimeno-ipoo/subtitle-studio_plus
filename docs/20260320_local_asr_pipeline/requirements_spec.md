@@ -194,13 +194,11 @@ UI で以下を選択できること。
 - `overlapSeconds`
 - `beamSize`
 - `temperature`
-- `whisperCLIPath`
 - `whisperModelPath`
 - `whisperCoreMLModelPath`
 - `aeneasPythonPath`
 - `aeneasScriptPath`
 - `correctionDictionaryPath`
-- `knownLyricsPath`
 - `outputDirectoryPath`
 
 以下は削除対象とする。
@@ -210,6 +208,8 @@ UI で以下を選択できること。
 - `Qwen3-ASR` モデル設定
 - `Qwen3-ForcedAligner` モデル設定
 - `suspiciousThreshold`
+- `whisperCLIPath`
+- `knownLyricsPath`
 
 ## 9. 非機能要件
 - Apple Silicon で動くこと

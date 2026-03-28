@@ -15,6 +15,11 @@ protocol LocalWhisperTranscribing: Sendable {
     var runtimeDiagnostics: [String] { get }
 }
 
+enum LocalWhisperDecodingPurpose: Sendable {
+    case lyricsText
+    case timingGuide
+}
+
 struct LocalWhisperDecodingSettings: Sendable {
     var baseModel: LocalBaseModel
     var language: String
@@ -23,6 +28,7 @@ struct LocalWhisperDecodingSettings: Sendable {
     var beamSize: Int
     var noSpeechThreshold: Double
     var logprobThreshold: Double
+    var purpose: LocalWhisperDecodingPurpose
 }
 
 struct WhisperSPMTranscriberBuilder: LocalWhisperTranscriberBuilding {
@@ -33,18 +39,16 @@ struct WhisperSPMTranscriberBuilder: LocalWhisperTranscriberBuilding {
 
 final class WhisperSPMTranscriber: LocalWhisperTranscribing, @unchecked Sendable {
     private static let timestampScale = 100.0
-    private static let tokenSegmentTargetCharacters = 6
-    private static let tokenSegmentMaxCharacters = 8
-    private static let tokenSegmentHardMaxDuration: TimeInterval = 3.2
-    private static let tokenSegmentStrongGap: TimeInterval = 0.28
-    private static let tokenSegmentSoftGap: TimeInterval = 0.16
-    private static let maxSegmentLength = 18
+    private static let maxSegmentLength = 28
+    private static let timingGuideMaxSegmentDuration: TimeInterval = 6.0
+    private static let timingGuideMergeGap: TimeInterval = 0.16
 
-    private struct WhisperTokenPiece {
-        var start: TimeInterval
-        var end: TimeInterval
+    private struct RawSegment {
+        var index: Int
         var text: String
         var confidence: Double
+        var start: TimeInterval
+        var end: TimeInterval
     }
 
     private let context: OpaquePointer
@@ -75,6 +79,7 @@ final class WhisperSPMTranscriber: LocalWhisperTranscribing, @unchecked Sendable
             "model_path=\(modelURL.path)",
             "coreml_expected_path=\(legacyCoreMLURL.path)",
             detectedCoreMLURL.map { "coreml_detected_path=\($0.path)" } ?? "coreml_detected_path=none",
+            "transcription_mode=lyrics_text_first",
             "use_gpu=\(contextParams.use_gpu)",
             "flash_attn=\(contextParams.flash_attn)"
         ]
@@ -103,13 +108,11 @@ final class WhisperSPMTranscriber: LocalWhisperTranscribing, @unchecked Sendable
         params.n_threads = Int32(recommendedThreadCount())
         params.translate = false
         params.no_context = true
-        params.no_timestamps = false
         params.single_segment = false
         params.print_special = false
         params.print_progress = false
         params.print_realtime = false
         params.print_timestamps = false
-        params.token_timestamps = true
         params.split_on_word = true
         params.max_len = Int32(Self.maxSegmentLength)
         params.max_tokens = 0
@@ -123,6 +126,15 @@ final class WhisperSPMTranscriber: LocalWhisperTranscribing, @unchecked Sendable
             params.beam_search.beam_size = Int32(settings.beamSize)
         } else {
             params.greedy.best_of = 1
+        }
+
+        switch settings.purpose {
+        case .lyricsText:
+            params.no_timestamps = true
+            params.token_timestamps = false
+        case .timingGuide:
+            params.no_timestamps = false
+            params.token_timestamps = true
         }
 
         let normalizedLanguage = normalizedLanguage(settings.language)
@@ -153,7 +165,7 @@ final class WhisperSPMTranscriber: LocalWhisperTranscribing, @unchecked Sendable
             engineType: SRTGenerationEngine.localPipeline.rawValue,
             baseModel: settings.baseModel.rawValue,
             language: settings.language,
-            segments: collectSegments(plan: plan)
+            segments: collectSegments(plan: plan, purpose: settings.purpose)
         )
     }
 
@@ -161,44 +173,194 @@ final class WhisperSPMTranscriber: LocalWhisperTranscribing, @unchecked Sendable
         runtimeDiagnosticsStorage
     }
 
-    private func collectSegments(plan: LocalPipelineChunkPlan) -> [LocalPipelineBaseSegment] {
+    private func collectSegments(
+        plan: LocalPipelineChunkPlan,
+        purpose: LocalWhisperDecodingPurpose
+    ) -> [LocalPipelineBaseSegment] {
         let segmentCount = Int(whisper_full_n_segments(context))
-        var segments: [LocalPipelineBaseSegment] = []
-        segments.reserveCapacity(segmentCount)
+        guard segmentCount > 0 else { return [] }
+
+        var rawSegments: [RawSegment] = []
+        rawSegments.reserveCapacity(segmentCount)
 
         for segmentIndex in 0..<segmentCount {
             let text = segmentText(at: segmentIndex)
             guard !text.isEmpty else { continue }
 
-            let confidence = segmentConfidence(at: segmentIndex)
-            if let tokenSegments = makeTokenSegments(plan: plan, segmentIndex: segmentIndex, fallbackConfidence: confidence),
-               !tokenSegments.isEmpty {
-                segments.append(contentsOf: tokenSegments)
-                continue
-            }
-
-            let start = plan.start + timestampToSeconds(whisper_full_get_segment_t0(context, Int32(segmentIndex)))
-            let end = plan.start + max(
-                timestampToSeconds(whisper_full_get_segment_t1(context, Int32(segmentIndex))),
-                timestampToSeconds(whisper_full_get_segment_t0(context, Int32(segmentIndex))) + 0.08
-            )
-            segments.append(
-                LocalPipelineBaseSegment(
-                    segmentId: "\(plan.chunkId)-seg-\(String(format: "%04d", segmentIndex + 1))",
-                    start: start,
-                    end: end,
+            let start = timestampToSeconds(whisper_full_get_segment_t0(context, Int32(segmentIndex)))
+            let end = timestampToSeconds(whisper_full_get_segment_t1(context, Int32(segmentIndex)))
+            rawSegments.append(
+                RawSegment(
+                    index: segmentIndex,
                     text: text,
-                    confidence: confidence
+                    confidence: segmentConfidence(at: segmentIndex),
+                    start: start,
+                    end: end
                 )
             )
+        }
+
+        guard !rawSegments.isEmpty else { return [] }
+
+        if purpose == .timingGuide {
+            if let tokenSegments = collectTokenTimingSegments(plan: plan), !tokenSegments.isEmpty {
+                return tokenSegments
+            }
+
+            guard rawSegments.contains(where: { $0.end > $0.start + 0.08 }) else {
+                return []
+            }
+
+            let segmentTimed = rawSegments.map { raw in
+                LocalPipelineBaseSegment(
+                    segmentId: "\(plan.chunkId)-seg-\(String(format: "%04d", raw.index + 1))",
+                    start: plan.start + raw.start,
+                    end: plan.start + raw.end,
+                    text: raw.text,
+                    confidence: raw.confidence
+                )
+            }
+            return mergeTimingGuideSegments(segmentTimed)
+        }
+
+        let segments: [LocalPipelineBaseSegment]
+        if rawSegments.contains(where: { $0.end > $0.start + 0.08 }) {
+            segments = rawSegments.map { raw in
+                LocalPipelineBaseSegment(
+                    segmentId: "\(plan.chunkId)-seg-\(String(format: "%04d", raw.index + 1))",
+                    start: plan.start + raw.start,
+                    end: plan.start + raw.end,
+                    text: raw.text,
+                    confidence: raw.confidence
+                )
+            }
+        } else {
+            segments = synthesizeSegmentTimings(rawSegments, plan: plan)
         }
 
         return mergeTouchingShortSegments(mergeRawBaseSegments(segments))
     }
 
+    private func collectTokenTimingSegments(plan: LocalPipelineChunkPlan) -> [LocalPipelineBaseSegment]? {
+        let segmentCount = Int(whisper_full_n_segments(context))
+        var pieces: [LocalPipelineBaseSegment] = []
+
+        for segmentIndex in 0..<segmentCount {
+            let tokenCount = Int(whisper_full_n_tokens(context, Int32(segmentIndex)))
+            guard tokenCount > 0 else { continue }
+
+            for tokenIndex in 0..<tokenCount {
+                let text = tokenText(at: segmentIndex, tokenIndex: tokenIndex)
+                guard !text.isEmpty else { continue }
+
+                let tokenData = whisper_full_get_token_data(context, Int32(segmentIndex), Int32(tokenIndex))
+                let start = timestampToSeconds(tokenData.t0)
+                let end = timestampToSeconds(tokenData.t1)
+                guard end > start + 0.02 else { continue }
+
+                pieces.append(
+                    LocalPipelineBaseSegment(
+                        segmentId: "\(plan.chunkId)-tok-\(String(format: "%04d", segmentIndex + 1))-\(String(format: "%04d", tokenIndex + 1))",
+                        start: plan.start + start,
+                        end: plan.start + end,
+                        text: text,
+                        confidence: tokenData.p.isFinite ? Double(tokenData.p) : 0.6
+                    )
+                )
+            }
+        }
+
+        guard !pieces.isEmpty else { return nil }
+        return mergeTimingGuideSegments(pieces)
+    }
+
+    private func mergeTimingGuideSegments(_ segments: [LocalPipelineBaseSegment]) -> [LocalPipelineBaseSegment] {
+        guard !segments.isEmpty else { return [] }
+
+        var merged: [LocalPipelineBaseSegment] = []
+        for segment in segments.sorted(by: { lhs, rhs in
+            if lhs.start == rhs.start {
+                return lhs.end < rhs.end
+            }
+            return lhs.start < rhs.start
+        }) {
+            guard let last = merged.last else {
+                merged.append(segment)
+                continue
+            }
+
+            let gap = segment.start - last.end
+            let mergedDuration = segment.end - last.start
+            let shouldMerge =
+                gap <= Self.timingGuideMergeGap
+                && mergedDuration <= Self.timingGuideMaxSegmentDuration
+                && (normalizedText(last.text).count < 10 || normalizedText(segment.text).count < 8)
+
+            if shouldMerge {
+                merged[merged.count - 1] = LocalPipelineBaseSegment(
+                    segmentId: last.segmentId,
+                    start: last.start,
+                    end: segment.end,
+                    text: joinGuideTexts(last.text, segment.text),
+                    confidence: max(last.confidence, segment.confidence)
+                )
+            } else {
+                merged.append(segment)
+            }
+        }
+
+        return merged.filter { !$0.text.isEmpty && $0.end > $0.start + 0.02 }
+    }
+
+    private func synthesizeSegmentTimings(
+        _ rawSegments: [RawSegment],
+        plan: LocalPipelineChunkPlan
+    ) -> [LocalPipelineBaseSegment] {
+        guard !rawSegments.isEmpty else { return [] }
+        let duration = max(plan.end - plan.start, 0.1)
+        let totalWeight = max(rawSegments.reduce(0) { $0 + max(normalizedText($1.text).count, 1) }, 1)
+        var consumedWeight = 0
+        var segments: [LocalPipelineBaseSegment] = []
+        segments.reserveCapacity(rawSegments.count)
+
+        for (offset, raw) in rawSegments.enumerated() {
+            let weight = max(normalizedText(raw.text).count, 1)
+            let startRatio = Double(consumedWeight) / Double(totalWeight)
+            consumedWeight += weight
+            let endRatio = Double(consumedWeight) / Double(totalWeight)
+
+            let start = plan.start + (duration * startRatio)
+            let end = offset == rawSegments.count - 1
+                ? plan.end
+                : max(plan.start + (duration * endRatio), start + 0.12)
+
+            segments.append(
+                LocalPipelineBaseSegment(
+                    segmentId: "\(plan.chunkId)-seg-\(String(format: "%04d", raw.index + 1))",
+                    start: start,
+                    end: min(plan.end, end),
+                    text: raw.text,
+                    confidence: raw.confidence
+                )
+            )
+        }
+
+        return segments
+    }
+
     private func segmentText(at index: Int) -> String {
         guard let pointer = whisper_full_get_segment_text(context, Int32(index)) else { return "" }
-        return String(cString: pointer).trimmingCharacters(in: .whitespacesAndNewlines)
+        return String(cString: pointer)
+            .replacingOccurrences(of: "�", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func tokenText(at index: Int, tokenIndex: Int) -> String {
+        guard let pointer = whisper_full_get_token_text(context, Int32(index), Int32(tokenIndex)) else { return "" }
+        return String(cString: pointer)
+            .replacingOccurrences(of: "�", with: "")
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func segmentConfidence(at index: Int) -> Double {
@@ -217,137 +379,6 @@ final class WhisperSPMTranscriber: LocalWhisperTranscribing, @unchecked Sendable
 
         guard counted > 0 else { return 0.6 }
         return total / Double(counted)
-    }
-
-    private func makeTokenSegments(
-        plan: LocalPipelineChunkPlan,
-        segmentIndex: Int,
-        fallbackConfidence: Double
-    ) -> [LocalPipelineBaseSegment]? {
-        let pieces = extractTokenPieces(plan: plan, segmentIndex: segmentIndex, fallbackConfidence: fallbackConfidence)
-        guard pieces.count >= 2 else { return nil }
-
-        var groups: [[WhisperTokenPiece]] = []
-        var current: [WhisperTokenPiece] = []
-
-        func flushCurrent() {
-            guard !current.isEmpty else { return }
-            groups.append(current)
-            current.removeAll()
-        }
-
-        for piece in pieces {
-            guard !piece.text.isEmpty else { continue }
-            if current.isEmpty {
-                current.append(piece)
-                continue
-            }
-
-            let currentText = current.map(\.text).joined()
-            let currentLength = normalizedText(currentText).count
-            let nextLength = currentLength + normalizedText(piece.text).count
-            let gap = max(0, piece.start - (current.last?.end ?? piece.start))
-            let durationWithNext = piece.end - (current.first?.start ?? piece.start)
-
-            let shouldBreak =
-                (gap >= Self.tokenSegmentStrongGap && currentLength >= 2)
-                || (gap >= Self.tokenSegmentSoftGap && currentLength >= Self.tokenSegmentTargetCharacters)
-                || nextLength > Self.tokenSegmentMaxCharacters
-                || durationWithNext > Self.tokenSegmentHardMaxDuration
-                || endsSentence(currentText)
-
-            if shouldBreak {
-                flushCurrent()
-            }
-            current.append(piece)
-        }
-
-        flushCurrent()
-
-        let collapsed = collapseTinyTokenGroups(groups)
-        let segments = collapsed.enumerated().compactMap { offset, group -> LocalPipelineBaseSegment? in
-            guard let first = group.first, let last = group.last else { return nil }
-            let text = group.map(\.text).joined().trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !text.isEmpty else { return nil }
-
-            let segmentIDBase = (segmentIndex * 100) + offset + 1
-            return LocalPipelineBaseSegment(
-                segmentId: "\(plan.chunkId)-seg-\(String(format: "%04d", segmentIDBase))",
-                start: first.start,
-                end: max(last.end, first.start + 0.08),
-                text: text,
-                confidence: group.map(\.confidence).max() ?? fallbackConfidence
-            )
-        }
-
-        guard segments.count > 1 else { return nil }
-        return segments
-    }
-
-    private func extractTokenPieces(
-        plan: LocalPipelineChunkPlan,
-        segmentIndex: Int,
-        fallbackConfidence: Double
-    ) -> [WhisperTokenPiece] {
-        let tokenCount = Int(whisper_full_n_tokens(context, Int32(segmentIndex)))
-        guard tokenCount > 0 else { return [] }
-
-        var pieces: [WhisperTokenPiece] = []
-        pieces.reserveCapacity(tokenCount)
-
-        for tokenIndex in 0..<tokenCount {
-            guard let textPointer = whisper_full_get_token_text(context, Int32(segmentIndex), Int32(tokenIndex)) else {
-                continue
-            }
-            let text = String(cString: textPointer)
-            let normalized = normalizedText(text)
-            guard !normalized.isEmpty else { continue }
-            if text.hasPrefix("[_"), text.hasSuffix("]") {
-                continue
-            }
-
-            let tokenData = whisper_full_get_token_data(context, Int32(segmentIndex), Int32(tokenIndex))
-            let start = plan.start + timestampToSeconds(tokenData.t0)
-            let end = plan.start + max(timestampToSeconds(tokenData.t1), timestampToSeconds(tokenData.t0) + 0.05)
-
-            pieces.append(
-                WhisperTokenPiece(
-                    start: start,
-                    end: end,
-                    text: text,
-                    confidence: tokenData.p.isFinite ? Double(tokenData.p) : fallbackConfidence
-                )
-            )
-        }
-
-        return pieces
-    }
-
-    private func collapseTinyTokenGroups(_ groups: [[WhisperTokenPiece]]) -> [[WhisperTokenPiece]] {
-        guard !groups.isEmpty else { return [] }
-        var collapsed: [[WhisperTokenPiece]] = []
-
-        for group in groups {
-            let groupText = group.map(\.text).joined()
-            let groupLength = normalizedText(groupText).count
-            if groupLength <= 1, !collapsed.isEmpty {
-                collapsed[collapsed.count - 1].append(contentsOf: group)
-            } else {
-                collapsed.append(group)
-            }
-        }
-
-        if collapsed.count >= 2 {
-            for index in stride(from: collapsed.count - 1, through: 1, by: -1) {
-                let text = collapsed[index].map(\.text).joined()
-                if normalizedText(text).count <= 1 {
-                    collapsed[index - 1].append(contentsOf: collapsed[index])
-                    collapsed.remove(at: index)
-                }
-            }
-        }
-
-        return collapsed
     }
 
     private func mergeRawBaseSegments(_ rawSegments: [LocalPipelineBaseSegment]) -> [LocalPipelineBaseSegment] {
@@ -450,6 +481,12 @@ final class WhisperSPMTranscriber: LocalWhisperTranscribing, @unchecked Sendable
             .replacingOccurrences(of: " ", with: "")
             .replacingOccurrences(of: "\n", with: "")
             .lowercased()
+    }
+
+    private func joinGuideTexts(_ lhs: String, _ rhs: String) -> String {
+        (lhs + rhs)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func normalizedLanguage(_ rawValue: String) -> String? {

@@ -56,8 +56,6 @@ struct AppRuntimePathResolver: @unchecked Sendable {
         switch baseModel {
         case .kotobaWhisperV2:
             fileName = "ggml-kotoba-whisper-v2.0.bin"
-        case .kotobaWhisperV22:
-            fileName = "ggml-kotoba-whisper-v2.2.bin"
         case .kotobaWhisperBilingual:
             fileName = "ggml-kotoba-whisper-bilingual-v1.0.bin"
         }

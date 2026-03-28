@@ -28,7 +28,6 @@ struct SettingsLocalSRTTabView: View {
                     ) {
                         Picker("", selection: baseModelBinding) {
                             Text("Kotoba-Whisper v2.0").tag(LocalBaseModel.kotobaWhisperV2)
-                            Text("Kotoba-Whisper v2.2").tag(LocalBaseModel.kotobaWhisperV22)
                             Text("Kotoba-Whisper Bilingual").tag(LocalBaseModel.kotobaWhisperBilingual)
                         }
                         .labelsHidden()
@@ -160,7 +159,7 @@ struct SettingsLocalSRTTabView: View {
                     )
                     pathField(
                         title: "Whisper CoreML モデル",
-                        description: "例: /Models/kotoba-whisper-v2.mlmodelc",
+                        description: "例: /Models/ggml-kotoba-whisper-v2.0-encoder.mlmodelc",
                         keyPath: \.whisperCoreMLModelPath
                     )
                     pathField(
@@ -177,11 +176,6 @@ struct SettingsLocalSRTTabView: View {
                         title: "補正辞書パス",
                         description: "例: ./Tools/dictionaries/default_ja_corrections.json",
                         keyPath: \.correctionDictionaryPath
-                    )
-                    pathField(
-                        title: "既知歌詞パス",
-                        description: "例: ./Tools/dictionaries/sample_known_lyrics.txt",
-                        keyPath: \.knownLyricsPath
                     )
                     pathField(
                         title: "出力ディレクトリ",

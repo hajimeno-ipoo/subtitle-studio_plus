@@ -43,6 +43,9 @@ final class ExternalProcessRunner: ExternalProcessRunning, @unchecked Sendable {
         request.environment.forEach { key, value in
             environment[key] = value
         }
+        for key in environment.keys where key.hasPrefix("DYLD_") || key.hasPrefix("__XPC_DYLD_") {
+            environment.removeValue(forKey: key)
+        }
         process.environment = environment
 
         let stdoutPipe = Pipe()

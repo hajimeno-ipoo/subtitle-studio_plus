@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SubtitleListPanel: View {
     @Environment(AppViewModel.self) private var viewModel
@@ -20,6 +21,18 @@ struct SubtitleListPanel: View {
                 Spacer()
 
                 HStack(spacing: 8) {
+                    Button {
+                        viewModel.openLyricsReferenceSheet()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: viewModel.hasLyricsReference ? "text.badge.checkmark" : "text.badge.plus")
+                                .font(.system(size: 12, weight: .bold))
+                            Text(viewModel.hasLyricsReference ? "LYRICS READY" : "IMPORT LYRICS")
+                        }
+                    }
+                    .buttonStyle(StudioSecondaryButton())
+                    .fixedSize(horizontal: true, vertical: false)
+
                     Button(viewModel.isLyricsEditMode ? "DONE" : "EDIT LYRICS") {
                         viewModel.toggleLyricsEditMode()
                     }
@@ -73,12 +86,17 @@ struct SubtitleListPanel: View {
                 ScrollView {
                     LazyVStack(spacing: 8) { // 字幕間の余白を調整
                         if viewModel.subtitles.isEmpty {
-                            VStack(spacing: 6) {
+                            VStack(spacing: 8) {
                                 Text("NO SUBTITLES")
                                     .font(.system(size: 24, weight: .black, design: .rounded))
                                 Text("Click AUTO GENERATE to start.")
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
                                     .foregroundStyle(.secondary)
+                                if let summary = viewModel.lyricsReferenceSummary {
+                                    Text("Lyrics ready: \(summary)")
+                                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                                        .foregroundStyle(Color.brandViolet)
+                                }
                             }
                             .frame(maxWidth: .infinity, minHeight: 220)
                         } else {
@@ -122,6 +140,89 @@ struct SubtitleListPanel: View {
             }
         }
         .studioPanelChrome()
+    }
+}
+
+struct LyricsReferenceSheet: View {
+    @Environment(AppViewModel.self) private var viewModel
+
+    var body: some View {
+        @Bindable var bindableViewModel = viewModel
+
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("REFERENCE LYRICS")
+                    .font(.system(size: 22, weight: .black, design: .rounded))
+                Text("必要な時だけ歌詞を貼り付けるか、TXT / SRT を読み込みます。通常は空のままで構いません。")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(.secondary)
+                if let summary = viewModel.lyricsReferenceSummary {
+                    Text("現在の参照元: \(summary)")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.brandViolet)
+                }
+            }
+
+            TextEditor(
+                text: Binding(
+                    get: { bindableViewModel.lyricsReferenceText },
+                    set: { viewModel.updateLyricsReferenceEditorText($0) }
+                )
+            )
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .padding(8)
+                .frame(minHeight: 260)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(.black, lineWidth: 2))
+
+            HStack(spacing: 8) {
+                Button("LOAD TXT / SRT") {
+                    viewModel.requestLyricsReferenceImport()
+                }
+                .buttonStyle(StudioSecondaryButton())
+
+                Button("CLEAR") {
+                    viewModel.clearLyricsReference()
+                }
+                .buttonStyle(StudioSecondaryButton())
+                .disabled(!viewModel.hasLyricsReference)
+
+                Spacer()
+
+                Button("DONE") {
+                    viewModel.closeLyricsReferenceSheet()
+                }
+                .buttonStyle(StudioPrimaryButton(color: .brandViolet, textColor: .white))
+            }
+        }
+        .padding(20)
+        .frame(minWidth: 560, minHeight: 420)
+        .background(Color.backgroundYellow)
+        .fileImporter(
+            isPresented: bind(\.isLyricsReferenceImporterPresented),
+            allowedContentTypes: supportedLyricsTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            if case let .success(urls) = result, let url = urls.first {
+                Task { await viewModel.handleImportedLyricsURL(url) }
+            }
+        }
+    }
+
+    private var supportedLyricsTypes: [UTType] {
+        var types: [UTType] = [.plainText]
+        if let srt = UTType(filenameExtension: "srt") {
+            types.append(srt)
+        }
+        return types
+    }
+
+    private func bind<Value>(_ keyPath: ReferenceWritableKeyPath<AppViewModel, Value>) -> Binding<Value> {
+        Binding(
+            get: { viewModel[keyPath: keyPath] },
+            set: { viewModel[keyPath: keyPath] = $0 }
+        )
     }
 }
 

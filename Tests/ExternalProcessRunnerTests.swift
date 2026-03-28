@@ -40,7 +40,7 @@ struct ExternalProcessRunnerTests {
             executablePath: "/bin/sh",
             arguments: [
                 "-c",
-                "printf foo; printf bar >&2; exit 7"
+                "printf foo; sleep 0.05; printf bar >&2; exit 7"
             ],
             workingDirectory: nil,
             environment: [:],
@@ -61,7 +61,7 @@ struct ExternalProcessRunnerTests {
             executablePath: "/bin/sh",
             arguments: [
                 "-c",
-                "printf foo; printf bar >&2; sleep 2"
+                "printf foo; sleep 0.05; printf bar >&2; sleep 2"
             ],
             workingDirectory: nil,
             environment: [:],

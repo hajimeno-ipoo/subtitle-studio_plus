@@ -37,6 +37,9 @@ struct LocalPipelineDraftSegment: Codable, Equatable, Sendable {
     var endTime: TimeInterval
     var text: String
     var sourceSegmentIDs: [String]
+    var referenceSourceKind: LyricsReferenceSourceKind? = nil
+    var alignmentSearchStart: TimeInterval? = nil
+    var alignmentSearchEnd: TimeInterval? = nil
 }
 
 struct LocalPipelineDraftOutput: Codable, Equatable, Sendable {

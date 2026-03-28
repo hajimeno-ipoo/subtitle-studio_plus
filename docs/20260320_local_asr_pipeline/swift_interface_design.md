@@ -22,23 +22,23 @@ struct LocalPipelineSettings: Codable, Equatable, Sendable {
     var temperature: Double
     var noSpeechThreshold: Double
     var logprobThreshold: Double
-    var whisperCLIPath: String
     var whisperModelPath: String
     var whisperCoreMLModelPath: String
     var aeneasPythonPath: String
     var aeneasScriptPath: String
     var correctionDictionaryPath: String
-    var knownLyricsPath: String
     var outputDirectoryPath: String
 }
 ```
 
 削除する項目:
+- `whisperCLIPath`
 - `qwenTranscribeScriptPath`
 - `qwenAlignScriptPath`
 - `qwenModelName`
 - `forcedAlignerModelName`
 - `suspiciousThreshold`
+- `knownLyricsPath`
 
 ## 3. LocalPipelinePhase
 内部段階は次に整理する。

@@ -6,6 +6,7 @@ actor MockLocalPipelineAnalyzing: LocalPipelineAnalyzing {
     private var callCount = 0
     private var lastFileURL: URL?
     private var lastSettings: LocalPipelineSettings?
+    private var lastLyricsReference: LocalLyricsReferenceInput?
     let result: LocalPipelineResult
 
     init(result: LocalPipelineResult) {
@@ -15,16 +16,18 @@ actor MockLocalPipelineAnalyzing: LocalPipelineAnalyzing {
     func analyze(
         fileURL: URL,
         settings: LocalPipelineSettings,
+        lyricsReference: LocalLyricsReferenceInput?,
         progress: @escaping @Sendable (LocalPipelineProgress) async -> Void
     ) async throws -> LocalPipelineResult {
         callCount += 1
         lastFileURL = fileURL
         lastSettings = settings
+        lastLyricsReference = lyricsReference
         return result
     }
 
-    func snapshot() -> (callCount: Int, lastFileURL: URL?, lastSettings: LocalPipelineSettings?) {
-        (callCount, lastFileURL, lastSettings)
+    func snapshot() -> (callCount: Int, lastFileURL: URL?, lastSettings: LocalPipelineSettings?, lastLyricsReference: LocalLyricsReferenceInput?) {
+        (callCount, lastFileURL, lastSettings, lastLyricsReference)
     }
 }
 
@@ -75,15 +78,21 @@ actor MockExternalProcessRunner: ExternalProcessRunning {
               "segments": [
                 {
                   "start": 0.0,
-                  "end": 1.6,
+                  "end": 0.9,
                   "text": "愛してる",
                   "confidence": 0.92
                 },
                 {
-                  "start": 1.7,
-                  "end": 3.4,
+                  "start": 1.1,
+                  "end": 1.9,
                   "text": "君のこと",
                   "confidence": 0.88
+                },
+                {
+                  "start": 3.2,
+                  "end": 3.9,
+                  "text": "離さない",
+                  "confidence": 0.86
                 }
               ]
             }
@@ -198,6 +207,37 @@ private final class MockWhisperTranscriber: @unchecked Sendable, LocalWhisperTra
 
         switch mode {
         case .success:
+            if settings.purpose == .timingGuide {
+                return LocalPipelineBaseChunkOutput(
+                    chunkId: plan.chunkId,
+                    engineType: SRTGenerationEngine.localPipeline.rawValue,
+                    baseModel: settings.baseModel.rawValue,
+                    language: settings.language,
+                    segments: [
+                        LocalPipelineBaseSegment(
+                            segmentId: "\(plan.chunkId)-guide-0001",
+                            start: plan.start + 0.1,
+                            end: plan.start + 0.8,
+                            text: "愛してるよ",
+                            confidence: 0.92
+                        ),
+                        LocalPipelineBaseSegment(
+                            segmentId: "\(plan.chunkId)-guide-0002",
+                            start: plan.start + 1.05,
+                            end: plan.start + 1.85,
+                            text: "君のことを",
+                            confidence: 0.88
+                        ),
+                        LocalPipelineBaseSegment(
+                            segmentId: "\(plan.chunkId)-guide-0003",
+                            start: plan.start + 3.1,
+                            end: plan.start + 3.85,
+                            text: "離さないよ",
+                            confidence: 0.86
+                        )
+                    ]
+                )
+            }
             return LocalPipelineBaseChunkOutput(
                 chunkId: plan.chunkId,
                 engineType: SRTGenerationEngine.localPipeline.rawValue,
@@ -207,16 +247,23 @@ private final class MockWhisperTranscriber: @unchecked Sendable, LocalWhisperTra
                     LocalPipelineBaseSegment(
                         segmentId: "\(plan.chunkId)-seg-0001",
                         start: plan.start + 0.0,
-                        end: plan.start + 1.6,
+                        end: plan.start + 0.9,
                         text: "愛してる",
                         confidence: 0.92
                     ),
                     LocalPipelineBaseSegment(
                         segmentId: "\(plan.chunkId)-seg-0002",
-                        start: plan.start + 1.7,
-                        end: plan.start + 3.4,
+                        start: plan.start + 1.1,
+                        end: plan.start + 1.9,
                         text: "君のこと",
                         confidence: 0.88
+                    ),
+                    LocalPipelineBaseSegment(
+                        segmentId: "\(plan.chunkId)-seg-0003",
+                        start: plan.start + 3.2,
+                        end: plan.start + 3.9,
+                        text: "離さない",
+                        confidence: 0.86
                     )
                 ]
             )
@@ -388,10 +435,67 @@ struct LocalPipelineServiceTests {
         #expect(snapshot.callCount == 1)
         #expect(snapshot.lastFileURL == viewModel.audioAsset?.url)
         #expect(snapshot.lastSettings == viewModel.settings.localPipelineSettings)
+        #expect(snapshot.lastLyricsReference == nil)
         #expect(viewModel.status == .completed)
         #expect(viewModel.subtitles == result.subtitles)
         #expect(viewModel.lastLocalPipelineRunDirectoryURL == result.runDirectoryURL)
         #expect(viewModel.lastLocalPipelineResult?.finalSRTURL == result.finalSRTURL)
+    }
+
+    @MainActor
+    @Test
+    func appViewModelStripsCueNumbersAndTimestampsFromSRTLyricsReference() {
+        let viewModel = AppViewModel()
+        viewModel.applyLyricsReferenceText(
+            """
+            1
+            00:00:08,520 --> 00:00:11,010
+            Don't forget you
+
+            2
+            00:00:12,258 --> 00:00:16,328
+            残暑お見舞い申し上げます
+            """
+        )
+
+        #expect(
+            viewModel.lyricsReferenceText
+                == """
+                Don't forget you
+                残暑お見舞い申し上げます
+                """
+        )
+        #expect(viewModel.lyricsReferenceInput?.sourceKind == .srt)
+        #expect(viewModel.lyricsReferenceInput?.entries.count == 2)
+        #expect(viewModel.lyricsReferenceInput?.entries.first?.sourceStart == 8.52)
+        #expect(viewModel.lyricsReferenceInput?.entries.first?.sourceEnd == 11.01)
+    }
+
+    @MainActor
+    @Test
+    func appViewModelKeepsSRTReferenceTimingAfterEditing() {
+        let viewModel = AppViewModel()
+        viewModel.applyLyricsReferenceText(
+            """
+            1
+            00:00:08,520 --> 00:00:11,010
+            Don't forget you
+            """
+        )
+
+        viewModel.updateLyricsReferenceEditorText(
+            """
+            Don't forget you
+            残暑お見舞い申し上げます
+            """
+        )
+
+        #expect(viewModel.lyricsReferenceInput?.sourceKind == .srt)
+        #expect(viewModel.lyricsReferenceInput?.entries.count == 2)
+        #expect(viewModel.lyricsReferenceInput?.entries.first?.sourceStart == 8.52)
+        #expect(viewModel.lyricsReferenceInput?.entries.first?.sourceEnd == 11.01)
+        #expect(viewModel.lyricsReferenceInput?.entries.last?.sourceStart != nil)
+        #expect(viewModel.lyricsReferenceInput?.entries.last?.sourceEnd != nil)
     }
 
     @Test
@@ -454,9 +558,6 @@ struct LocalPipelineServiceTests {
             """.utf8
         ).write(to: dictionaryURL)
 
-        let knownLyricsURL = sandboxURL.appendingPathComponent("known_lyrics.txt")
-        try Data("愛してる\n君のこと\n".utf8).write(to: knownLyricsURL)
-
         var settings = LocalPipelineSettings.productionDefault
         settings.language = "ja"
         settings.initialPrompt = "曲名 夕焼け"
@@ -465,7 +566,6 @@ struct LocalPipelineServiceTests {
         settings.whisperModelPath = whisperModelURL.path
         settings.whisperCoreMLModelPath = coreMLURL.path
         settings.correctionDictionaryPath = dictionaryURL.path
-        settings.knownLyricsPath = knownLyricsURL.path
         settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
 
         let runner = MockExternalProcessRunner()
@@ -478,6 +578,7 @@ struct LocalPipelineServiceTests {
         let result = try await service.analyze(
             fileURL: audioURL,
             settings: settings,
+            lyricsReference: nil,
             progress: { _ in }
         )
 
@@ -485,11 +586,16 @@ struct LocalPipelineServiceTests {
         #expect(requests.count == 1)
 
         let whisperCalls = transcriber.snapshot()
+        #expect(whisperCalls.count == 2)
+        #expect(whisperCalls.map(\.settings.purpose) == [.lyricsText, .timingGuide])
+
         let prompt = try #require(whisperCalls.first?.settings.initialPrompt)
         let expectedBasePrompt = """
         日本語の歌詞です。
-        自然な区切りの日本語の歌詞として認識してください。
-        歌詞らしい語順と自然な表記を優先してください。
+        字幕風ではなく、自然な歌詞として認識してください。
+        意味の通る語のまとまりを優先し、不自然な語の分割を避けてください。
+        聞こえない部分を創作せず、曖昧な箇所はそのまま控えめに出してください。
+        文字化けした記号や不正な文字は出力しないでください。
         """.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         #expect(normalizedPrompt.hasPrefix(expectedBasePrompt))
@@ -508,6 +614,492 @@ struct LocalPipelineServiceTests {
         #expect(runLog.contains("\"stage\":\"baseTranscribing\""))
         #expect(runLog.contains("\"stage\":\"aligning\""))
         #expect(runLog.contains("\"stage\":\"writingOutputs\""))
+    }
+
+    @Test
+    func localPipelineUsesReferenceLyricsWhenProvided() async throws {
+        let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandboxURL) }
+
+        let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        try writeTestWAV(to: audioURL)
+
+        let pythonURL = sandboxURL.appendingPathComponent("python3")
+        try writeExecutablePlaceholder(to: pythonURL)
+
+        let whisperModelURL = sandboxURL.appendingPathComponent("ggml-base.bin")
+        try Data("model".utf8).write(to: whisperModelURL)
+
+        let aeneasScriptURL = sandboxURL.appendingPathComponent("align_subtitles.py")
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: aeneasScriptURL)
+
+        let dictionaryURL = sandboxURL.appendingPathComponent("dictionary.json")
+        try Data(
+            """
+            {
+              "version": "1",
+              "language": "ja",
+              "description": "test",
+              "rules": [{ "type": "exact", "from": "愛してるよ", "to": "愛してるよ" }]
+            }
+            """.utf8
+        ).write(to: dictionaryURL)
+
+        var settings = LocalPipelineSettings.productionDefault
+        settings.aeneasPythonPath = pythonURL.path
+        settings.aeneasScriptPath = aeneasScriptURL.path
+        settings.whisperModelPath = whisperModelURL.path
+        settings.correctionDictionaryPath = dictionaryURL.path
+        settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
+
+        let service = LocalPipelineService(
+            processRunner: MockExternalProcessRunner(),
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber())
+        )
+
+        let result = try await service.analyze(
+            fileURL: audioURL,
+            settings: settings,
+            lyricsReference: LocalLyricsReferenceInput(
+                text: "愛してるよ\n君のことを\n離さないよ",
+                sourceName: "lyrics.txt"
+            ),
+            progress: { _ in }
+        )
+
+        let combined = result.subtitles.map(\.text).joined(separator: "\n")
+        #expect(result.subtitles.count == 3)
+        #expect(result.subtitles.map(\.text) == ["愛してるよ", "君のことを", "離さないよ"])
+        #expect(combined == "愛してるよ\n君のことを\n離さないよ")
+        #expect(result.subtitles.allSatisfy { $0.endTime > $0.startTime })
+        #expect(result.subtitles[0].startTime < result.subtitles[1].startTime)
+        #expect(result.subtitles[1].startTime < result.subtitles[2].startTime)
+    }
+
+    @Test
+    func localPipelineAllowsMinorTXTReferenceMismatches() async throws {
+        let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandboxURL) }
+
+        let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        try writeTestWAV(to: audioURL)
+
+        let pythonURL = sandboxURL.appendingPathComponent("python3")
+        try writeExecutablePlaceholder(to: pythonURL)
+
+        let whisperModelURL = sandboxURL.appendingPathComponent("ggml-base.bin")
+        try Data("model".utf8).write(to: whisperModelURL)
+
+        let aeneasScriptURL = sandboxURL.appendingPathComponent("align_subtitles.py")
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: aeneasScriptURL)
+
+        let dictionaryURL = sandboxURL.appendingPathComponent("dictionary.json")
+        try Data(
+            """
+            {
+              "version": "1",
+              "language": "ja",
+              "description": "test",
+              "rules": []
+            }
+            """.utf8
+        ).write(to: dictionaryURL)
+
+        var settings = LocalPipelineSettings.productionDefault
+        settings.aeneasPythonPath = pythonURL.path
+        settings.aeneasScriptPath = aeneasScriptURL.path
+        settings.whisperModelPath = whisperModelURL.path
+        settings.correctionDictionaryPath = dictionaryURL.path
+        settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
+
+        let service = LocalPipelineService(
+            processRunner: MockExternalProcessRunner(),
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber())
+        )
+
+        let result = try await service.analyze(
+            fileURL: audioURL,
+            settings: settings,
+            lyricsReference: LocalLyricsReferenceInput(
+                text: "愛してるよ\n君のことを\n離さないよ\n夏の終わり",
+                sourceName: "lyrics.txt"
+            ),
+            progress: { _ in }
+        )
+
+        #expect(result.subtitles.count == 4)
+        #expect(result.subtitles.map(\.text) == ["愛してるよ", "君のことを", "離さないよ", "夏の終わり"])
+    }
+
+    @Test
+    func localPipelineKeepsTXTReferenceTextEvenWhenAlignmentIsWeak() async throws {
+        let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandboxURL) }
+
+        let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        try writeTestWAV(to: audioURL)
+
+        let pythonURL = sandboxURL.appendingPathComponent("python3")
+        try writeExecutablePlaceholder(to: pythonURL)
+
+        let whisperModelURL = sandboxURL.appendingPathComponent("ggml-base.bin")
+        try Data("model".utf8).write(to: whisperModelURL)
+
+        let aeneasScriptURL = sandboxURL.appendingPathComponent("align_subtitles.py")
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: aeneasScriptURL)
+
+        let dictionaryURL = sandboxURL.appendingPathComponent("dictionary.json")
+        try Data(
+            """
+            {
+              "version": "1",
+              "language": "ja",
+              "description": "test",
+              "rules": []
+            }
+            """.utf8
+        ).write(to: dictionaryURL)
+
+        var settings = LocalPipelineSettings.productionDefault
+        settings.aeneasPythonPath = pythonURL.path
+        settings.aeneasScriptPath = aeneasScriptURL.path
+        settings.whisperModelPath = whisperModelURL.path
+        settings.correctionDictionaryPath = dictionaryURL.path
+        settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
+
+        let service = LocalPipelineService(
+            processRunner: MockExternalProcessRunner(),
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber())
+        )
+
+        let referenceText = """
+        スマホの画面スクロールして
+        未練だけがくっきり残って
+        夏が終わるのを見送ってる
+        残暑お見舞い申し上げます
+        ベランダで冷えたビール
+        愛してるよ
+        君のことを
+        離さないよ
+        """
+        let result = try await service.analyze(
+            fileURL: audioURL,
+            settings: settings,
+            lyricsReference: LocalLyricsReferenceInput(
+                text: referenceText,
+                sourceName: "lyrics.txt"
+            ),
+            progress: { _ in }
+        )
+
+        #expect(result.subtitles.map(\.text) == referenceText.components(separatedBy: .newlines).filter { !$0.isEmpty })
+        #expect(result.subtitles.allSatisfy { $0.endTime > $0.startTime })
+        #expect(zip(result.subtitles, result.subtitles.dropFirst()).allSatisfy { $0.startTime <= $1.startTime && $0.endTime <= $1.startTime })
+    }
+
+    @Test
+    func localPipelineDoesNotUseWhisperForTXTReferenceTiming() async throws {
+        let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandboxURL) }
+
+        let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        try writeTestWAV(to: audioURL)
+
+        let pythonURL = sandboxURL.appendingPathComponent("python3")
+        try writeExecutablePlaceholder(to: pythonURL)
+
+        let whisperModelURL = sandboxURL.appendingPathComponent("ggml-base.bin")
+        try Data("model".utf8).write(to: whisperModelURL)
+
+        let aeneasScriptURL = sandboxURL.appendingPathComponent("align_subtitles.py")
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: aeneasScriptURL)
+
+        let dictionaryURL = sandboxURL.appendingPathComponent("dictionary.json")
+        try Data(
+            """
+            {
+              "version": "1",
+              "language": "ja",
+              "description": "test",
+              "rules": []
+            }
+            """.utf8
+        ).write(to: dictionaryURL)
+
+        var settings = LocalPipelineSettings.productionDefault
+        settings.aeneasPythonPath = pythonURL.path
+        settings.aeneasScriptPath = aeneasScriptURL.path
+        settings.whisperModelPath = whisperModelURL.path
+        settings.correctionDictionaryPath = dictionaryURL.path
+        settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
+
+        let transcriber = MockWhisperTranscriber()
+        let service = LocalPipelineService(
+            processRunner: MockExternalProcessRunner(alignmentMode: .emptyResult),
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: transcriber)
+        )
+
+        let result = try await service.analyze(
+            fileURL: audioURL,
+            settings: settings,
+            lyricsReference: LocalLyricsReferenceInput(
+                text: "一行目\n二行目\n三行目",
+                sourceName: "lyrics.txt"
+            ),
+            progress: { _ in }
+        )
+
+        #expect(result.subtitles.count == 3)
+        #expect(await transcriber.snapshot().isEmpty)
+    }
+
+    @Test
+    func localPipelineDistributesTXTReferenceAcrossMultipleSpeechRegions() async throws {
+        let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandboxURL) }
+
+        let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        try writePatternedSpeechWAV(
+            to: audioURL,
+            durationSeconds: 12.0,
+            speechRegions: [(1.0, 2.5), (5.0, 7.0), (9.0, 10.5)]
+        )
+
+        let pythonURL = sandboxURL.appendingPathComponent("python3")
+        try writeExecutablePlaceholder(to: pythonURL)
+
+        let whisperModelURL = sandboxURL.appendingPathComponent("ggml-base.bin")
+        try Data("model".utf8).write(to: whisperModelURL)
+
+        let aeneasScriptURL = sandboxURL.appendingPathComponent("align_subtitles.py")
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: aeneasScriptURL)
+
+        let dictionaryURL = sandboxURL.appendingPathComponent("dictionary.json")
+        try Data(
+            """
+            {
+              "version": "1",
+              "language": "ja",
+              "description": "test",
+              "rules": []
+            }
+            """.utf8
+        ).write(to: dictionaryURL)
+
+        var settings = LocalPipelineSettings.productionDefault
+        settings.aeneasPythonPath = pythonURL.path
+        settings.aeneasScriptPath = aeneasScriptURL.path
+        settings.whisperModelPath = whisperModelURL.path
+        settings.correctionDictionaryPath = dictionaryURL.path
+        settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
+
+        let service = LocalPipelineService(
+            processRunner: MockExternalProcessRunner(alignmentMode: .emptyResult),
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber())
+        )
+
+        let result = try await service.analyze(
+            fileURL: audioURL,
+            settings: settings,
+            lyricsReference: LocalLyricsReferenceInput(
+                text: "一行目\n二行目\n三行目\n四行目\n五行目\n六行目",
+                sourceName: "lyrics.txt"
+            ),
+            progress: { _ in }
+        )
+
+        #expect(result.subtitles.count == 6)
+        #expect(result.subtitles[0].startTime >= 0.9 && result.subtitles[0].startTime <= 1.3)
+        #expect(result.subtitles[2].startTime >= 4.9 && result.subtitles[2].startTime <= 5.4)
+        #expect(result.subtitles.last?.startTime ?? 0 >= 8.9)
+        #expect(result.subtitles.last?.endTime ?? 0 <= 10.6)
+        #expect(result.subtitles.contains { $0.startTime >= 5.0 && $0.startTime <= 7.0 })
+        #expect(result.subtitles.contains { $0.startTime >= 9.0 && $0.startTime <= 10.5 })
+        #expect(zip(result.subtitles, result.subtitles.dropFirst()).allSatisfy { $0.startTime <= $1.startTime && $0.endTime <= $1.startTime })
+    }
+
+    @Test
+    func localPipelineCompletesTXTReferenceEvenWithoutGuideOrSpeech() async throws {
+        let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandboxURL) }
+
+        let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        try writeSilentWAV(to: audioURL)
+
+        let pythonURL = sandboxURL.appendingPathComponent("python3")
+        try writeExecutablePlaceholder(to: pythonURL)
+
+        let whisperModelURL = sandboxURL.appendingPathComponent("ggml-base.bin")
+        try Data("model".utf8).write(to: whisperModelURL)
+
+        let aeneasScriptURL = sandboxURL.appendingPathComponent("align_subtitles.py")
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: aeneasScriptURL)
+
+        let dictionaryURL = sandboxURL.appendingPathComponent("dictionary.json")
+        try Data(
+            """
+            {
+              "version": "1",
+              "language": "ja",
+              "description": "test",
+              "rules": []
+            }
+            """.utf8
+        ).write(to: dictionaryURL)
+
+        var settings = LocalPipelineSettings.productionDefault
+        settings.aeneasPythonPath = pythonURL.path
+        settings.aeneasScriptPath = aeneasScriptURL.path
+        settings.whisperModelPath = whisperModelURL.path
+        settings.correctionDictionaryPath = dictionaryURL.path
+        settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
+
+        let service = LocalPipelineService(
+            processRunner: MockExternalProcessRunner(),
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber(mode: .empty))
+        )
+
+        let result = try await service.analyze(
+            fileURL: audioURL,
+            settings: settings,
+            lyricsReference: LocalLyricsReferenceInput(
+                text: "一行目\n二行目\n三行目",
+                sourceName: "lyrics.txt"
+            ),
+            progress: { _ in }
+        )
+
+        #expect(result.subtitles.map(\.text) == ["一行目", "二行目", "三行目"])
+        #expect(result.subtitles.allSatisfy { $0.endTime > $0.startTime })
+        #expect(zip(result.subtitles, result.subtitles.dropFirst()).allSatisfy { $0.startTime <= $1.startTime && $0.endTime <= $1.startTime })
+    }
+
+    @Test
+    func localPipelineKeepsReferenceSRTTimingWhenAeneasReturnsNothing() async throws {
+        let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandboxURL) }
+
+        let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        try writeTestWAV(to: audioURL)
+
+        let pythonURL = sandboxURL.appendingPathComponent("python3")
+        try writeExecutablePlaceholder(to: pythonURL)
+
+        let whisperModelURL = sandboxURL.appendingPathComponent("ggml-base.bin")
+        try Data("model".utf8).write(to: whisperModelURL)
+
+        let aeneasScriptURL = sandboxURL.appendingPathComponent("align_subtitles.py")
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: aeneasScriptURL)
+
+        let dictionaryURL = sandboxURL.appendingPathComponent("dictionary.json")
+        try Data(
+            """
+            {
+              "version": "1",
+              "language": "ja",
+              "description": "test",
+              "rules": []
+            }
+            """.utf8
+        ).write(to: dictionaryURL)
+
+        var settings = LocalPipelineSettings.productionDefault
+        settings.aeneasPythonPath = pythonURL.path
+        settings.aeneasScriptPath = aeneasScriptURL.path
+        settings.whisperModelPath = whisperModelURL.path
+        settings.correctionDictionaryPath = dictionaryURL.path
+        settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
+
+        let service = LocalPipelineService(
+            processRunner: MockExternalProcessRunner(alignmentMode: .emptyResult),
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber())
+        )
+
+        let referenceEntries = [
+            ReferenceLyricEntry(text: "愛してるよ", sourceStart: 0.2, sourceEnd: 1.0, sourceIndex: 0),
+            ReferenceLyricEntry(text: "君のことを", sourceStart: 1.2, sourceEnd: 2.0, sourceIndex: 1),
+            ReferenceLyricEntry(text: "離さないよ", sourceStart: 3.0, sourceEnd: 3.8, sourceIndex: 2),
+        ]
+        let result = try await service.analyze(
+            fileURL: audioURL,
+            settings: settings,
+            lyricsReference: LocalLyricsReferenceInput(
+                text: referenceEntries.map(\.text).joined(separator: "\n"),
+                sourceName: "lyrics.srt",
+                sourceKind: .srt,
+                entries: referenceEntries
+            ),
+            progress: { _ in }
+        )
+
+        #expect(result.subtitles.count == 3)
+        #expect(result.subtitles.map(\.text) == referenceEntries.map(\.text))
+        #expect(abs(result.subtitles[0].startTime - 0.2) < 0.8)
+        #expect(abs(result.subtitles[1].startTime - 1.2) < 0.8)
+        #expect(abs(result.subtitles[2].startTime - 3.0) < 0.8)
+    }
+
+    @Test
+    func localPipelineKeepsReferenceLyricsEvenWhenContentLooksDifferent() async throws {
+        let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandboxURL) }
+
+        let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        try writeTestWAV(to: audioURL)
+
+        let pythonURL = sandboxURL.appendingPathComponent("python3")
+        try writeExecutablePlaceholder(to: pythonURL)
+
+        let whisperModelURL = sandboxURL.appendingPathComponent("ggml-base.bin")
+        try Data("model".utf8).write(to: whisperModelURL)
+
+        let aeneasScriptURL = sandboxURL.appendingPathComponent("align_subtitles.py")
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: aeneasScriptURL)
+
+        let dictionaryURL = sandboxURL.appendingPathComponent("dictionary.json")
+        try Data(
+            """
+            {
+              "version": "1",
+              "language": "ja",
+              "description": "test",
+              "rules": []
+            }
+            """.utf8
+        ).write(to: dictionaryURL)
+
+        var settings = LocalPipelineSettings.productionDefault
+        settings.aeneasPythonPath = pythonURL.path
+        settings.aeneasScriptPath = aeneasScriptURL.path
+        settings.whisperModelPath = whisperModelURL.path
+        settings.correctionDictionaryPath = dictionaryURL.path
+        settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
+
+        let service = LocalPipelineService(
+            processRunner: MockExternalProcessRunner(),
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber())
+        )
+
+        let result = try await service.analyze(
+            fileURL: audioURL,
+            settings: settings,
+            lyricsReference: LocalLyricsReferenceInput(
+                text: "まったく違う曲の歌詞です\nこの音声とは合いません",
+                sourceName: "other.txt"
+            ),
+            progress: { _ in }
+        )
+
+        #expect(result.subtitles.map(\.text) == ["まったく違う曲の歌詞です", "この音声とは合いません"])
+        #expect(result.subtitles.allSatisfy { $0.endTime > $0.startTime })
     }
 
     @Test
@@ -556,6 +1148,7 @@ struct LocalPipelineServiceTests {
         let result = try await service.analyze(
             fileURL: audioURL,
             settings: settings,
+            lyricsReference: nil,
             progress: { _ in }
         )
 
@@ -568,7 +1161,7 @@ struct LocalPipelineServiceTests {
     }
 
     @Test
-    func localPipelineFailsWhenAeneasProducesNoAlignedBlocks() async throws {
+    func localPipelineFallsBackWhenAeneasProducesNoAlignedBlocks() async throws {
         let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: sandboxURL) }
@@ -610,13 +1203,15 @@ struct LocalPipelineServiceTests {
             whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber())
         )
 
-        await #expect(throws: LocalPipelineError.alignmentFailed("aeneas did not align any subtitle blocks.")) {
-            try await service.analyze(
-                fileURL: audioURL,
-                settings: settings,
-                progress: { _ in }
-            )
-        }
+        let result = try await service.analyze(
+            fileURL: audioURL,
+            settings: settings,
+            lyricsReference: nil,
+            progress: { _ in }
+        )
+
+        #expect(!result.subtitles.isEmpty)
+        #expect(result.subtitles.allSatisfy { $0.endTime > $0.startTime })
     }
 
     @Test
@@ -666,6 +1261,7 @@ struct LocalPipelineServiceTests {
             try await service.analyze(
                 fileURL: audioURL,
                 settings: settings,
+                lyricsReference: nil,
                 progress: { _ in }
             )
         }
@@ -687,6 +1283,81 @@ private func writeTestWAV(to url: URL) throws {
         let value = Int16((sin(angle) * 12_000).rounded()).littleEndian
         var mutable = value
         withUnsafeBytes(of: &mutable) { pcm.append(contentsOf: $0) }
+    }
+
+    let dataChunkSize = pcm.count
+    let riffChunkSize = 36 + dataChunkSize
+
+    var wav = Data()
+    wav.append(Data("RIFF".utf8))
+    wav.append(littleEndianBytes(UInt32(riffChunkSize)))
+    wav.append(Data("WAVE".utf8))
+    wav.append(Data("fmt ".utf8))
+    wav.append(littleEndianBytes(UInt32(16)))
+    wav.append(littleEndianBytes(UInt16(1)))
+    wav.append(littleEndianBytes(UInt16(1)))
+    wav.append(littleEndianBytes(UInt32(sampleRate)))
+    wav.append(littleEndianBytes(UInt32(sampleRate * 2)))
+    wav.append(littleEndianBytes(UInt16(2)))
+    wav.append(littleEndianBytes(UInt16(16)))
+    wav.append(Data("data".utf8))
+    wav.append(littleEndianBytes(UInt32(dataChunkSize)))
+    wav.append(pcm)
+
+    try wav.write(to: url, options: [.atomic])
+}
+
+private func writeSilentWAV(to url: URL) throws {
+    let sampleRate = 16_000
+    let durationSeconds = 4.0
+    let frameCount = Int(Double(sampleRate) * durationSeconds)
+    let pcm = Data(repeating: 0, count: frameCount * 2)
+
+    let dataChunkSize = pcm.count
+    let riffChunkSize = 36 + dataChunkSize
+
+    var wav = Data()
+    wav.append(Data("RIFF".utf8))
+    wav.append(littleEndianBytes(UInt32(riffChunkSize)))
+    wav.append(Data("WAVE".utf8))
+    wav.append(Data("fmt ".utf8))
+    wav.append(littleEndianBytes(UInt32(16)))
+    wav.append(littleEndianBytes(UInt16(1)))
+    wav.append(littleEndianBytes(UInt16(1)))
+    wav.append(littleEndianBytes(UInt32(sampleRate)))
+    wav.append(littleEndianBytes(UInt32(sampleRate * 2)))
+    wav.append(littleEndianBytes(UInt16(2)))
+    wav.append(littleEndianBytes(UInt16(16)))
+    wav.append(Data("data".utf8))
+    wav.append(littleEndianBytes(UInt32(dataChunkSize)))
+    wav.append(pcm)
+
+    try wav.write(to: url, options: [.atomic])
+}
+
+private func writePatternedSpeechWAV(
+    to url: URL,
+    durationSeconds: Double,
+    speechRegions: [(Double, Double)]
+) throws {
+    let sampleRate = 16_000
+    let frameCount = Int(Double(sampleRate) * durationSeconds)
+    var pcm = Data(capacity: frameCount * 2)
+
+    for index in 0..<frameCount {
+        let time = Double(index) / Double(sampleRate)
+        let isSpeech = speechRegions.contains { start, end in
+            time >= start && time < end
+        }
+        let sample: Int16
+        if isSpeech {
+            let angle = time * 2 * Double.pi * 440
+            sample = Int16((sin(angle) * 12_000).rounded())
+        } else {
+            sample = 0
+        }
+        var little = sample.littleEndian
+        withUnsafeBytes(of: &little) { pcm.append(contentsOf: $0) }
     }
 
     let dataChunkSize = pcm.count

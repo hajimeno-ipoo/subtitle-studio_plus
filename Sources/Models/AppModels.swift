@@ -67,8 +67,28 @@ enum SRTGenerationEngine: String, Codable, CaseIterable, Sendable {
 
 enum LocalBaseModel: String, Codable, CaseIterable, Sendable {
     case kotobaWhisperV2
-    case kotobaWhisperV22
     case kotobaWhisperBilingual
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        switch rawValue {
+        case Self.kotobaWhisperV2.rawValue, "kotobaWhisperV22":
+            self = .kotobaWhisperV2
+        case Self.kotobaWhisperBilingual.rawValue:
+            self = .kotobaWhisperBilingual
+        default:
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unknown LocalBaseModel raw value: \(rawValue)"
+            )
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 struct LocalPipelineSettings: Codable, Equatable, Sendable {
@@ -86,7 +106,6 @@ struct LocalPipelineSettings: Codable, Equatable, Sendable {
     var aeneasPythonPath: String
     var aeneasScriptPath: String
     var correctionDictionaryPath: String
-    var knownLyricsPath: String
     var outputDirectoryPath: String
 
     static let productionDefault = LocalPipelineSettings(
@@ -104,9 +123,82 @@ struct LocalPipelineSettings: Codable, Equatable, Sendable {
         aeneasPythonPath: "python3",
         aeneasScriptPath: "Tools/aeneas/align_subtitles.py",
         correctionDictionaryPath: "Tools/dictionaries/default_ja_corrections.json",
-        knownLyricsPath: "Tools/dictionaries/sample_known_lyrics.txt",
         outputDirectoryPath: "Work"
     )
+}
+
+enum LyricsReferenceSourceKind: String, Codable, Equatable, Sendable {
+    case plainText
+    case srt
+}
+
+struct ReferenceLyricEntry: Codable, Equatable, Sendable {
+    var text: String
+    var sourceStart: TimeInterval?
+    var sourceEnd: TimeInterval?
+    var sourceIndex: Int
+}
+
+struct LocalLyricsReferenceInput: Equatable, Sendable {
+    var text: String
+    var sourceName: String?
+    var sourceKind: LyricsReferenceSourceKind
+    var entries: [ReferenceLyricEntry]
+
+    init(
+        text: String,
+        sourceName: String? = nil,
+        sourceKind: LyricsReferenceSourceKind = .plainText,
+        entries: [ReferenceLyricEntry]? = nil
+    ) {
+        let normalizedText = Self.normalizedTextBody(text)
+        let resolvedEntries = entries ?? Self.makePlainEntries(from: normalizedText)
+        let cleanedEntries = resolvedEntries
+            .map(Self.normalizeEntry(_:))
+            .filter { !$0.text.isEmpty }
+
+        self.text = cleanedEntries.map(\.text).joined(separator: "\n")
+        self.sourceName = sourceName
+        self.sourceKind = sourceKind
+        self.entries = cleanedEntries
+    }
+
+    var normalizedLines: [String] {
+        entries.map(\.text)
+    }
+
+    var isEmpty: Bool {
+        normalizedLines.isEmpty
+    }
+
+    private static func normalizedTextBody(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func makePlainEntries(from text: String) -> [ReferenceLyricEntry] {
+        normalizedTextBody(text)
+            .components(separatedBy: .newlines)
+            .enumerated()
+            .map { index, line in
+                ReferenceLyricEntry(text: line, sourceStart: nil, sourceEnd: nil, sourceIndex: index)
+            }
+    }
+
+    private static func normalizeEntry(_ entry: ReferenceLyricEntry) -> ReferenceLyricEntry {
+        ReferenceLyricEntry(
+            text: entry.text.trimmingCharacters(in: .whitespacesAndNewlines),
+            sourceStart: entry.sourceStart,
+            sourceEnd: entry.sourceEnd,
+            sourceIndex: entry.sourceIndex
+        )
+    }
 }
 
 enum LocalPipelinePhase: String, Codable, Sendable {
@@ -138,6 +230,7 @@ protocol LocalPipelineAnalyzing: Sendable {
     func analyze(
         fileURL: URL,
         settings: LocalPipelineSettings,
+        lyricsReference: LocalLyricsReferenceInput?,
         progress: @escaping @Sendable (LocalPipelineProgress) async -> Void
     ) async throws -> LocalPipelineResult
 }
@@ -254,6 +347,7 @@ enum LocalPipelineError: LocalizedError, Equatable {
     case emptyTranscription(String)
     case alignmentFailed(String)
     case correctionFailed(String)
+    case lyricsReferenceMismatch(String)
     case invalidJSON(String)
     case outputWriteFailed(String)
 
@@ -277,6 +371,8 @@ enum LocalPipelineError: LocalizedError, Equatable {
             "Forced alignment failed: \(message)"
         case .correctionFailed(let message):
             "Correction failed: \(message)"
+        case .lyricsReferenceMismatch(let message):
+            message
         case .invalidJSON(let message):
             "Invalid JSON: \(message)"
         case .outputWriteFailed(let message):

@@ -84,6 +84,10 @@ struct RootView: View {
             openSettings()
             viewModel.isSettingsPresented = false
         }
+        .sheet(isPresented: bind(\.isLyricsReferenceSheetPresented)) {
+            LyricsReferenceSheet()
+                .environment(viewModel)
+        }
         .onAppear {
             AppDelegate.shared?.adjustMainWindowFrame(resolveSessionActive: viewModel.isResolveSessionActive)
         }
@@ -105,8 +109,9 @@ struct RootView: View {
                 VStack(spacing: 24) {
                     HStack(alignment: .top, spacing: 24) {
                         LivePreviewPanel()
+                            .frame(minWidth: 0, maxWidth: .infinity)
                         SubtitleListPanel()
-                            .frame(width: 520)
+                            .frame(width: viewModel.isLyricsEditMode ? 700 : 620)
                     }
                     WaveformTimelineView()
                         .frame(height: 320)
