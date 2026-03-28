@@ -21,11 +21,16 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
     private static let referenceSRTSearchPad: TimeInterval = 0.6
     private static let referenceSRTMaxShift: TimeInterval = 0.8
     private static let referenceSRTAlignmentPadding: TimeInterval = 0.2
+    private static let txtGroupedAlignmentMaxLines = 3
+    private static let txtGroupedAlignmentMaxGap: TimeInterval = 0.85
+    private static let txtGroupedAlignmentMaxSpan: TimeInterval = 14.0
     private static let vadWindowSize: TimeInterval = 0.01
     private static let vadMinGapFill: TimeInterval = 0.18
     private static let vadMinRegionDuration: TimeInterval = 0.12
     private static let vadMergeGap: TimeInterval = 0.2
+    private static let txtReferenceSpeechMergeGap: TimeInterval = 0.7
     private static let txtAlignmentPadding: TimeInterval = 1.2
+    private static let txtAeneasMaxShift: TimeInterval = 0.6
     private static let unmatchedLinePenalty = 3.4
     private static let skippedRegionPenalty = 1.3
     private static let aeneasMaxShift: TimeInterval = 2.5
@@ -62,6 +67,8 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         var text: String
         var audioPath: String
         var clipStartTime: TimeInterval
+        var lineSegmentIDs: [String]? = nil
+        var lineTexts: [String]? = nil
     }
 
     private struct AlignmentInputManifest: Codable {
@@ -398,7 +405,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         let refinedSubtitles = try await refineSubtitlesForWaveform(
             assembly.subtitles,
             fallbackSubtitles: assembly.subtitles,
-            hasReferenceLyrics: lyricsReference != nil,
+            referenceSourceKind: lyricsReference?.sourceKind,
             normalizedAudioURL: normalizedURL,
             normalizedSamples: normalized.samples,
             sampleRate: normalized.sampleRate
@@ -1255,7 +1262,9 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             timings = sequentialReferenceTimingsAcrossSpeechRegions(
                 texts: entries.map(\.text),
                 speechRegions: speechRegions,
-                totalDuration: totalDuration
+                totalDuration: totalDuration,
+                samples: normalizedSamples,
+                sampleRate: sampleRate
             )
         }
 
@@ -1333,14 +1342,17 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         }
 
         return mergeSpeechRegions(
-            speechRegions.filter { $0.end - $0.start >= Self.vadMinRegionDuration }
+            speechRegions.filter { $0.end - $0.start >= Self.vadMinRegionDuration },
+            maxGap: Self.txtReferenceSpeechMergeGap
         )
     }
 
     private func sequentialReferenceTimingsAcrossSpeechRegions(
         texts: [String],
         speechRegions: [SpeechRegion],
-        totalDuration: TimeInterval
+        totalDuration: TimeInterval,
+        samples: [Float],
+        sampleRate: Double
     ) -> [(start: TimeInterval, end: TimeInterval)] {
         guard !texts.isEmpty else { return [] }
         guard !speechRegions.isEmpty else {
@@ -1362,8 +1374,8 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             )
         }
 
-        let weights = texts.map(expectedDuration(for:))
-        let totalWeight = max(weights.reduce(0, +), 0.001)
+        let durations = texts.map(referenceTimingExpectedDuration(for:))
+        let totalWeight = max(durations.reduce(0, +), 0.001)
         var cumulativeSpeech: [TimeInterval] = [0]
         cumulativeSpeech.reserveCapacity(speechRegions.count + 1)
         for region in speechRegions {
@@ -1383,7 +1395,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
 
         var lineIndexesByRegion = Array(repeating: [Int](), count: speechRegions.count)
         var consumedWeight: TimeInterval = 0
-        for (index, weight) in weights.enumerated() {
+        for (index, weight) in durations.enumerated() {
             let midpointWeight = consumedWeight + (weight / 2)
             let midpointOffset = totalSpeechDuration * (midpointWeight / totalWeight)
             let regionIndex = speechRegionIndex(for: midpointOffset)
@@ -1392,16 +1404,16 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         }
 
         var timings = Array(repeating: (start: 0.0, end: 0.0), count: texts.count)
-
         for (regionIndex, lineIndexes) in lineIndexesByRegion.enumerated() {
             guard !lineIndexes.isEmpty else { continue }
             let region = speechRegions[regionIndex]
             let localTexts = lineIndexes.map { texts[$0] }
-            let localTimings = distributedReferenceTimings(
+            let localTimings = refineReferenceTimingsWithinSpeechRegion(
                 texts: localTexts,
-                spanStart: region.start,
-                spanEnd: region.end,
-                totalDuration: totalDuration
+                region: region,
+                totalDuration: totalDuration,
+                samples: samples,
+                sampleRate: sampleRate
             )
             for (localIndex, lineIndex) in lineIndexes.enumerated() {
                 timings[lineIndex] = localTimings[localIndex]
@@ -1413,6 +1425,165 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             let safeEnd = nextStart.map { min(timing.end, $0) } ?? timing.end
             return (timing.start, max(timing.start + Self.minimumStandaloneSubtitleDuration, safeEnd))
         }
+    }
+
+    private func refineReferenceTimingsWithinSpeechRegion(
+        texts: [String],
+        region: SpeechRegion,
+        totalDuration: TimeInterval,
+        samples: [Float],
+        sampleRate: Double
+    ) -> [(start: TimeInterval, end: TimeInterval)] {
+        let durations = texts.map(referenceTimingExpectedDuration(for:))
+        guard texts.count > 1 else {
+            return distributedReferenceTimings(
+                durations: durations,
+                spanStart: region.start,
+                spanEnd: region.end,
+                totalDuration: totalDuration
+            )
+        }
+
+        let baseTimings = distributedReferenceTimingsAcrossEnergy(
+            durations: durations,
+            region: region,
+            totalDuration: totalDuration,
+            samples: samples,
+            sampleRate: sampleRate
+        ) ?? distributedReferenceTimings(
+            durations: durations,
+            spanStart: region.start,
+            spanEnd: region.end,
+            totalDuration: totalDuration
+        )
+
+        var boundaries: [TimeInterval] = [region.start]
+        for index in 0..<(texts.count - 1) {
+            let target = baseTimings[index].end
+            boundaries.append(
+                findQuietBoundaryNear(
+                    target: target,
+                    minTime: boundaries.last ?? region.start,
+                    maxTime: region.end,
+                    samples: samples,
+                    sampleRate: sampleRate
+                ) ?? target
+            )
+        }
+        boundaries.append(region.end)
+
+        var timings: [(start: TimeInterval, end: TimeInterval)] = []
+        timings.reserveCapacity(texts.count)
+        for index in 0..<texts.count {
+            let start = boundaries[index]
+            let end = max(boundaries[index + 1], start + Self.minimumStandaloneSubtitleDuration)
+            timings.append((start, end))
+        }
+        return timings
+    }
+
+    private func distributedReferenceTimingsAcrossEnergy(
+        durations: [TimeInterval],
+        region: SpeechRegion,
+        totalDuration: TimeInterval,
+        samples: [Float],
+        sampleRate: Double
+    ) -> [(start: TimeInterval, end: TimeInterval)]? {
+        guard durations.count > 1 else { return nil }
+
+        let windowSize = max(1, Int(sampleRate * 0.02))
+        let stepSize = max(1, Int(sampleRate * 0.01))
+        let startIndex = max(0, Int(region.start * sampleRate))
+        let endIndex = min(samples.count, Int(region.end * sampleRate))
+        guard endIndex > startIndex + windowSize else { return nil }
+
+        var points: [(time: TimeInterval, energy: Double)] = []
+        points.reserveCapacity(max(1, (endIndex - startIndex) / stepSize))
+
+        var index = startIndex
+        while index + windowSize <= endIndex {
+            let window = samples[index..<(index + windowSize)]
+            let rms = sqrt(window.reduce(Float.zero) { $0 + ($1 * $1) } / Float(window.count))
+            let time = Double(index + windowSize / 2) / sampleRate
+            points.append((time: time, energy: Double(max(rms, 0.00005))))
+            index += stepSize
+        }
+
+        let totalEnergy = points.reduce(0.0) { $0 + $1.energy }
+        guard totalEnergy > 0.0001 else { return nil }
+
+        let totalWeight = max(durations.reduce(0, +), 0.001)
+        var cumulativeWeight = 0.0
+        var boundaries: [TimeInterval] = [region.start]
+
+        for weight in durations.dropLast() {
+            cumulativeWeight += weight
+            let targetEnergy = totalEnergy * (cumulativeWeight / totalWeight)
+            var runningEnergy = 0.0
+            var bestTime = points.last?.time ?? region.end
+            for point in points {
+                runningEnergy += point.energy
+                if runningEnergy >= targetEnergy {
+                    bestTime = point.time
+                    break
+                }
+            }
+            boundaries.append(clamp(bestTime, min: region.start, max: region.end))
+        }
+        boundaries.append(region.end)
+
+        var timings: [(start: TimeInterval, end: TimeInterval)] = []
+        timings.reserveCapacity(durations.count)
+        for idx in durations.indices {
+            let start = idx == 0 ? region.start : max(boundaries[idx], timings.last?.end ?? region.start)
+            let proposedEnd = idx == durations.count - 1 ? region.end : boundaries[idx + 1]
+            let end = max(start + Self.minimumStandaloneSubtitleDuration, proposedEnd)
+            timings.append((start, min(region.end, end)))
+        }
+
+        guard timings.allSatisfy({ $0.end > $0.start }) else { return nil }
+        return timings
+    }
+
+    private func findQuietBoundaryNear(
+        target: TimeInterval,
+        minTime: TimeInterval,
+        maxTime: TimeInterval,
+        samples: [Float],
+        sampleRate: Double,
+        searchRadius: TimeInterval = 0.25,
+        distanceWeight: Float = 0.05
+    ) -> TimeInterval? {
+        let windowDuration: TimeInterval = 0.02
+        let minimumSpacing: TimeInterval = Self.minimumStandaloneSubtitleDuration
+
+        let lowerBound = max(minTime + minimumSpacing, target - searchRadius)
+        let upperBound = min(maxTime - minimumSpacing, target + searchRadius)
+        guard upperBound > lowerBound else { return nil }
+
+        let windowSize = max(1, Int(sampleRate * windowDuration))
+        let stepSize = max(1, Int(sampleRate * 0.01))
+        let startIndex = max(0, Int(lowerBound * sampleRate))
+        let endIndex = min(samples.count - 1, Int(upperBound * sampleRate))
+        guard endIndex > startIndex + windowSize else { return nil }
+
+        var bestTime: TimeInterval?
+        var bestScore = Float.greatestFiniteMagnitude
+
+        var index = startIndex
+        while index + windowSize < endIndex {
+            let window = samples[index..<(index + windowSize)]
+            let rms = sqrt(window.reduce(Float.zero) { $0 + ($1 * $1) } / Float(window.count))
+            let time = Double(index + windowSize / 2) / sampleRate
+            let score = rms + Float(abs(time - target)) * distanceWeight
+            if score < bestScore {
+                bestScore = score
+                bestTime = time
+            }
+            index += stepSize
+        }
+
+        return bestTime
     }
 
     private func gentlyCorrectSRTReferenceTiming(
@@ -1777,6 +1948,11 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                       abs(aligned.end - draft.endTime) <= maxShift else {
                     continue
                 }
+            } else if draft.referenceSourceKind == .plainText {
+                guard abs(aligned.start - draft.startTime) <= Self.txtAeneasMaxShift,
+                      abs(aligned.end - draft.endTime) <= Self.txtAeneasMaxShift else {
+                    continue
+                }
             } else {
                 let searchStart = draft.alignmentSearchStart ?? max(0, draft.startTime - Self.aeneasMaxShift)
                 let searchEnd = draft.alignmentSearchEnd ?? (draft.endTime + Self.aeneasMaxShift)
@@ -1822,7 +1998,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         }
 
         return distributedReferenceTimings(
-            texts: entries.map(\.text),
+            durations: entries.map { referenceTimingExpectedDuration(for: $0.text) },
             spanStart: spanStart,
             spanEnd: spanEnd,
             totalDuration: totalDuration
@@ -1835,10 +2011,24 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         spanEnd: TimeInterval,
         totalDuration: TimeInterval
     ) -> [(start: TimeInterval, end: TimeInterval)] {
-        guard !texts.isEmpty else { return [] }
+        distributedReferenceTimings(
+            durations: texts.map(expectedDuration(for:)),
+            spanStart: spanStart,
+            spanEnd: spanEnd,
+            totalDuration: totalDuration
+        )
+    }
+
+    private func distributedReferenceTimings(
+        durations: [TimeInterval],
+        spanStart: TimeInterval,
+        spanEnd: TimeInterval,
+        totalDuration: TimeInterval
+    ) -> [(start: TimeInterval, end: TimeInterval)] {
+        guard !durations.isEmpty else { return [] }
 
         let minimumDuration = Self.minimumStandaloneSubtitleDuration
-        let minimumTotalDuration = Double(texts.count) * minimumDuration
+        let minimumTotalDuration = Double(durations.count) * minimumDuration
         var start = max(0, spanStart)
         var end = min(totalDuration, max(spanEnd, start + minimumTotalDuration))
 
@@ -1851,18 +2041,17 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             end = max(totalDuration, minimumTotalDuration)
         }
 
-        let weights = texts.map(expectedDuration(for:))
-        let totalWeight = max(weights.reduce(0, +), 0.001)
+        let totalWeight = max(durations.reduce(0, +), 0.001)
         var cursor = start
         var timings: [(start: TimeInterval, end: TimeInterval)] = []
-        timings.reserveCapacity(texts.count)
+        timings.reserveCapacity(durations.count)
 
-        for (index, weight) in weights.enumerated() {
-            let remainingMinimum = Double(texts.count - index - 1) * minimumDuration
+        for (index, weight) in durations.enumerated() {
+            let remainingMinimum = Double(durations.count - index - 1) * minimumDuration
             let remainingWindow = max(minimumDuration, end - cursor - remainingMinimum)
             let proposedDuration = max(minimumDuration, (end - start) * (weight / totalWeight))
             let duration = min(proposedDuration, remainingWindow)
-            let segmentEnd = index == texts.count - 1 ? end : min(end, cursor + duration)
+            let segmentEnd = index == durations.count - 1 ? end : min(end, cursor + duration)
             timings.append((cursor, max(cursor + minimumDuration, segmentEnd)))
             cursor = max(cursor + minimumDuration, segmentEnd)
         }
@@ -1942,6 +2131,10 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         clamp(Double(max(normalizedText(text).count, 1)) * 0.22, min: 0.8, max: 6.0)
     }
 
+    private func referenceTimingExpectedDuration(for text: String) -> TimeInterval {
+        expectedDuration(for: text)
+    }
+
     private func calculateAdaptiveThreshold(_ rmsValues: [Float]) -> Float {
         guard !rmsValues.isEmpty else { return Self.localWaveformAlignmentConfig.minVolumeAbsolute }
         let sorted = rmsValues.sorted()
@@ -1983,6 +2176,13 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
     }
 
     private func mergeSpeechRegions(_ regions: [SpeechRegion]) -> [SpeechRegion] {
+        mergeSpeechRegions(regions, maxGap: Self.vadMergeGap)
+    }
+
+    private func mergeSpeechRegions(
+        _ regions: [SpeechRegion],
+        maxGap: TimeInterval
+    ) -> [SpeechRegion] {
         guard !regions.isEmpty else { return [] }
         var merged: [SpeechRegion] = []
         for region in regions.sorted(by: { $0.start < $1.start }) {
@@ -1990,7 +2190,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 merged.append(region)
                 continue
             }
-            if region.start - last.end <= Self.vadMergeGap {
+            if region.start - last.end <= maxGap {
                 merged[merged.count - 1] = SpeechRegion(start: last.start, end: max(last.end, region.end))
             } else {
                 merged.append(region)
@@ -2072,26 +2272,12 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
     ) async throws -> [LocalPipelineAlignedSegment] {
         guard !draftSegments.isEmpty else { return [] }
 
-        let inputSegments = try draftSegments.map { segment in
-            let clipStart = max(0, segment.alignmentSearchStart ?? (segment.startTime - Self.alignmentPadding))
-            let clipEnd = max(clipStart + 0.2, segment.alignmentSearchEnd ?? (segment.endTime + Self.alignmentPadding))
-            let clipURL = layout.alignmentInputDirectoryURL.appendingPathComponent("\(segment.segmentId).wav")
-            let clipSamples = extractSamples(
-                from: normalizedSamples,
-                sampleRate: sampleRate,
-                start: clipStart,
-                end: clipEnd
-            )
-            try writePCM16WAV(samples: clipSamples, sampleRate: sampleRate, to: clipURL)
-            return AlignmentInputSegment(
-                segmentId: segment.segmentId,
-                startTime: segment.startTime,
-                endTime: segment.endTime,
-                text: segment.text,
-                audioPath: clipURL.path,
-                clipStartTime: clipStart
-            )
-        }
+        let inputSegments = try buildAlignmentInputSegments(
+            from: draftSegments,
+            normalizedSamples: normalizedSamples,
+            sampleRate: sampleRate,
+            layout: layout
+        )
 
         let inputManifest = AlignmentInputManifest(
             runId: runId,
@@ -2267,6 +2453,71 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         }
 
         return filteredSegments
+    }
+
+    private func buildAlignmentInputSegments(
+        from draftSegments: [LocalPipelineDraftSegment],
+        normalizedSamples: [Float],
+        sampleRate: Double,
+        layout: RunDirectoryLayout
+    ) throws -> [AlignmentInputSegment] {
+        let groups = makeAlignmentGroups(from: draftSegments)
+        return try groups.map { group in
+            let first = group[0]
+            let last = group[group.count - 1]
+            let clipStart = max(0, group.compactMap(\.alignmentSearchStart).min() ?? (first.startTime - Self.alignmentPadding))
+            let clipEnd = max(clipStart + 0.2, group.compactMap(\.alignmentSearchEnd).max() ?? (last.endTime + Self.alignmentPadding))
+            let clipURL = layout.alignmentInputDirectoryURL.appendingPathComponent("\(first.segmentId).wav")
+            let clipSamples = extractSamples(
+                from: normalizedSamples,
+                sampleRate: sampleRate,
+                start: clipStart,
+                end: clipEnd
+            )
+            try writePCM16WAV(samples: clipSamples, sampleRate: sampleRate, to: clipURL)
+            return AlignmentInputSegment(
+                segmentId: first.segmentId,
+                startTime: first.startTime,
+                endTime: last.endTime,
+                text: group.map(\.text).joined(separator: "\n"),
+                audioPath: clipURL.path,
+                clipStartTime: clipStart,
+                lineSegmentIDs: group.count > 1 ? group.map(\.segmentId) : nil,
+                lineTexts: group.count > 1 ? group.map(\.text) : nil
+            )
+        }
+    }
+
+    private func makeAlignmentGroups(from draftSegments: [LocalPipelineDraftSegment]) -> [[LocalPipelineDraftSegment]] {
+        guard !draftSegments.isEmpty else { return [] }
+
+        var groups: [[LocalPipelineDraftSegment]] = []
+        var current: [LocalPipelineDraftSegment] = []
+
+        func shouldBreak(current: [LocalPipelineDraftSegment], next: LocalPipelineDraftSegment) -> Bool {
+            guard let last = current.last else { return false }
+            guard next.referenceSourceKind == .plainText, last.referenceSourceKind == .plainText else { return true }
+            if current.count >= Self.txtGroupedAlignmentMaxLines { return true }
+            if next.startTime - last.endTime > Self.txtGroupedAlignmentMaxGap { return true }
+            if next.endTime - current[0].startTime > Self.txtGroupedAlignmentMaxSpan { return true }
+            return false
+        }
+
+        for segment in draftSegments {
+            if current.isEmpty {
+                current = [segment]
+            } else if shouldBreak(current: current, next: segment) {
+                groups.append(current)
+                current = [segment]
+            } else {
+                current.append(segment)
+            }
+        }
+
+        if !current.isEmpty {
+            groups.append(current)
+        }
+        return groups
     }
 
     private func makeChunkPlans(
@@ -2866,14 +3117,18 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
     private func refineSubtitlesForWaveform(
         _ subtitles: [SubtitleItem],
         fallbackSubtitles: [SubtitleItem],
-        hasReferenceLyrics: Bool,
+        referenceSourceKind: LyricsReferenceSourceKind?,
         normalizedAudioURL: URL,
         normalizedSamples: [Float],
         sampleRate: Double
     ) async throws -> [SubtitleItem] {
         _ = normalizedAudioURL
+        let hasReferenceLyrics = referenceSourceKind != nil
         let fallbackItems = fallbackSubtitles.isEmpty ? subtitles : fallbackSubtitles
         let trimmed = zip(subtitles, fallbackItems).map { subtitle, fallback -> SubtitleItem in
+            if referenceSourceKind == .plainText {
+                return subtitle
+            }
             let adjusted = trimSubtitleToSpeech(subtitle, samples: normalizedSamples, sampleRate: sampleRate)
             if hasReferenceLyrics && isSilentSubtitle(adjusted, samples: normalizedSamples, sampleRate: sampleRate) {
                 return fallback
@@ -2881,15 +3136,53 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             return adjusted
         }
 
+        let boundaryAdjusted = trimmed
+
         if hasReferenceLyrics {
-            return trimmed.filter { !isObviouslyGarbageTranscript($0.text, confidence: 0.75) }
+            return boundaryAdjusted.filter { !isObviouslyGarbageTranscript($0.text, confidence: 0.75) }
         }
 
-        let filtered = trimmed.filter {
+        let filtered = boundaryAdjusted.filter {
             !isObviouslyGarbageTranscript($0.text, confidence: 0.75)
                 && !isSilentSubtitle($0, samples: normalizedSamples, sampleRate: sampleRate)
         }
         return mergeTinySubtitles(filtered, minimumDuration: Self.minimumStandaloneSubtitleDuration)
+    }
+
+    private func rebalanceAdjacentReferenceBoundaries(
+        _ subtitles: [SubtitleItem],
+        samples: [Float],
+        sampleRate: Double
+    ) -> [SubtitleItem] {
+        guard subtitles.count >= 2 else { return subtitles }
+
+        var adjusted = subtitles.sorted { $0.startTime < $1.startTime }
+        for index in 0..<(adjusted.count - 1) {
+            let current = adjusted[index]
+            let next = adjusted[index + 1]
+            let gap = next.startTime - current.endTime
+            guard gap <= 0.2 else { continue }
+
+            let target = (current.endTime + next.startTime) / 2
+            let lower = current.startTime + Self.minimumStandaloneSubtitleDuration
+            let upper = next.endTime - Self.minimumStandaloneSubtitleDuration
+            guard let boundary = findQuietBoundaryNear(
+                target: target,
+                minTime: lower,
+                maxTime: upper,
+                samples: samples,
+                sampleRate: sampleRate,
+                searchRadius: 0.12,
+                distanceWeight: 0.2
+            ) else {
+                continue
+            }
+
+            adjusted[index].endTime = max(adjusted[index].startTime + Self.minimumStandaloneSubtitleDuration, boundary)
+            adjusted[index + 1].startTime = min(boundary, adjusted[index + 1].endTime - Self.minimumStandaloneSubtitleDuration)
+        }
+
+        return adjusted
     }
 
     private func mergeTinySubtitles(

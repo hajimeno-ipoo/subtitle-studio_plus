@@ -36,6 +36,7 @@ actor MockExternalProcessRunner: ExternalProcessRunning {
         case success
         case partialFallback
         case emptyResult
+        case largeShift
     }
 
     enum WhisperMode {
@@ -131,13 +132,12 @@ actor MockExternalProcessRunner: ExternalProcessRunning {
         let alignedSegments: [AlignedSegmentFixture]
         switch alignmentMode {
         case .success:
-            alignedSegments = manifest.segments.map { segment in
-                AlignedSegmentFixture(
-                    segmentId: segment.segmentId,
-                    start: segment.startTime + 0.05,
-                    end: max(segment.endTime, segment.startTime + 1.0),
-                    text: segment.text
-                )
+            alignedSegments = manifest.segments.flatMap { segment in
+                makeAlignedFixtures(for: segment, startOffset: 0.05)
+            }
+        case .largeShift:
+            alignedSegments = manifest.segments.flatMap { segment in
+                makeAlignedFixtures(for: segment, startOffset: 1.2)
             }
         case .partialFallback:
             alignedSegments = manifest.segments.enumerated().compactMap { index, segment in
@@ -169,6 +169,33 @@ actor MockExternalProcessRunner: ExternalProcessRunning {
             throw TestError.missingArgument(flag)
         }
         return arguments[index + 1]
+    }
+
+    private func makeAlignedFixtures(for segment: AlignmentManifestFixture.Segment, startOffset: Double) -> [AlignedSegmentFixture] {
+        if let ids = segment.lineSegmentIDs, let texts = segment.lineTexts, ids.count == texts.count, !ids.isEmpty {
+            let span = max(segment.endTime - segment.startTime, Double(ids.count))
+            let slice = span / Double(ids.count)
+            return zip(ids.indices, zip(ids, texts)).map { idx, pair in
+                let (id, text) = pair
+                let start = segment.startTime + (slice * Double(idx)) + startOffset
+                let end = min(segment.endTime + startOffset, segment.startTime + (slice * Double(idx + 1)) + startOffset)
+                return AlignedSegmentFixture(
+                    segmentId: id,
+                    start: start,
+                    end: max(start + 0.35, end),
+                    text: text
+                )
+            }
+        }
+
+        return [
+            AlignedSegmentFixture(
+                segmentId: segment.segmentId,
+                start: segment.startTime + startOffset,
+                end: max(segment.endTime + startOffset, segment.startTime + startOffset + 1.0),
+                text: segment.text
+            )
+        ]
     }
 }
 
@@ -311,6 +338,8 @@ private struct AlignmentManifestFixture: Decodable {
         var startTime: Double
         var endTime: Double
         var text: String
+        var lineSegmentIDs: [String]?
+        var lineTexts: [String]?
     }
 
     var runId: String
@@ -921,6 +950,132 @@ struct LocalPipelineServiceTests {
         #expect(result.subtitles.contains { $0.startTime >= 5.0 && $0.startTime <= 7.0 })
         #expect(result.subtitles.contains { $0.startTime >= 9.0 && $0.startTime <= 10.5 })
         #expect(zip(result.subtitles, result.subtitles.dropFirst()).allSatisfy { $0.startTime <= $1.startTime && $0.endTime <= $1.startTime })
+    }
+
+    @Test
+    func localPipelineDoesNotOverShiftTXTBoundaryInsideMergedSpeechRegion() async throws {
+        let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandboxURL) }
+
+        let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        try writePatternedSpeechWAV(
+            to: audioURL,
+            durationSeconds: 9.0,
+            speechRegions: [(1.0, 2.45), (2.95, 4.25), (6.4, 7.7)]
+        )
+
+        let pythonURL = sandboxURL.appendingPathComponent("python3")
+        try writeExecutablePlaceholder(to: pythonURL)
+
+        let whisperModelURL = sandboxURL.appendingPathComponent("ggml-base.bin")
+        try Data("model".utf8).write(to: whisperModelURL)
+
+        let aeneasScriptURL = sandboxURL.appendingPathComponent("align_subtitles.py")
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: aeneasScriptURL)
+
+        let dictionaryURL = sandboxURL.appendingPathComponent("dictionary.json")
+        try Data(
+            """
+            {
+              "version": "1",
+              "language": "ja",
+              "description": "test",
+              "rules": []
+            }
+            """.utf8
+        ).write(to: dictionaryURL)
+
+        var settings = LocalPipelineSettings.productionDefault
+        settings.aeneasPythonPath = pythonURL.path
+        settings.aeneasScriptPath = aeneasScriptURL.path
+        settings.whisperModelPath = whisperModelURL.path
+        settings.correctionDictionaryPath = dictionaryURL.path
+        settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
+
+        let service = LocalPipelineService(
+            processRunner: MockExternalProcessRunner(alignmentMode: .emptyResult),
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber())
+        )
+
+        let result = try await service.analyze(
+            fileURL: audioURL,
+            settings: settings,
+            lyricsReference: LocalLyricsReferenceInput(
+                text: "一行目の歌詞\n二行目の歌詞\n三行目の歌詞",
+                sourceName: "lyrics.txt"
+            ),
+            progress: { _ in }
+        )
+
+        #expect(result.subtitles.count == 3)
+        #expect(result.subtitles[0].endTime >= 2.3)
+        #expect(result.subtitles[0].endTime <= 2.9)
+        #expect(result.subtitles[1].startTime >= 2.3)
+        #expect(result.subtitles[1].startTime <= 2.9)
+        #expect(result.subtitles[2].startTime >= 6.2)
+        #expect(zip(result.subtitles, result.subtitles.dropFirst()).allSatisfy { $0.startTime <= $1.startTime && $0.endTime <= $1.startTime })
+    }
+
+    @Test
+    func localPipelineRejectsLargeAeneasShiftForTXTReference() async throws {
+        let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandboxURL) }
+
+        let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        try writePatternedSpeechWAV(
+            to: audioURL,
+            durationSeconds: 8.0,
+            speechRegions: [(1.0, 2.5), (3.0, 4.3), (5.5, 6.8)]
+        )
+
+        let pythonURL = sandboxURL.appendingPathComponent("python3")
+        try writeExecutablePlaceholder(to: pythonURL)
+
+        let whisperModelURL = sandboxURL.appendingPathComponent("ggml-base.bin")
+        try Data("model".utf8).write(to: whisperModelURL)
+
+        let aeneasScriptURL = sandboxURL.appendingPathComponent("align_subtitles.py")
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: aeneasScriptURL)
+
+        let dictionaryURL = sandboxURL.appendingPathComponent("dictionary.json")
+        try Data(
+            """
+            {
+              "version": "1",
+              "language": "ja",
+              "description": "test",
+              "rules": []
+            }
+            """.utf8
+        ).write(to: dictionaryURL)
+
+        var settings = LocalPipelineSettings.productionDefault
+        settings.aeneasPythonPath = pythonURL.path
+        settings.aeneasScriptPath = aeneasScriptURL.path
+        settings.whisperModelPath = whisperModelURL.path
+        settings.correctionDictionaryPath = dictionaryURL.path
+        settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
+
+        let service = LocalPipelineService(
+            processRunner: MockExternalProcessRunner(alignmentMode: .largeShift),
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber())
+        )
+
+        let result = try await service.analyze(
+            fileURL: audioURL,
+            settings: settings,
+            lyricsReference: LocalLyricsReferenceInput(
+                text: "一行目\n二行目\n三行目",
+                sourceName: "lyrics.txt"
+            ),
+            progress: { _ in }
+        )
+
+        #expect(result.subtitles[0].startTime < 2.0)
+        #expect(result.subtitles[1].startTime < 4.5)
+        #expect(result.subtitles[2].startTime < 6.9)
     }
 
     @Test

@@ -79,6 +79,24 @@ def parse_alignment_json(path: Path):
     return start, end
 
 
+def parse_alignment_fragments(path: Path):
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    fragments = payload.get("fragments") or []
+    aligned = []
+    for fragment in fragments:
+        try:
+            start = float(fragment["begin"])
+            end = float(fragment["end"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if end <= start:
+            continue
+        aligned.append((start, end))
+    return aligned or None
+
+
 def align_segment(segment: dict, language: str):
     text = (segment.get("text") or "").strip()
     audio_path = (segment.get("audioPath") or "").strip()
@@ -159,6 +177,24 @@ def align_segment(segment: dict, language: str):
                 print(details_stderr, file=sys.stderr)
             return None
 
+        line_segment_ids = segment.get("lineSegmentIDs") or []
+        line_texts = segment.get("lineTexts") or []
+        if line_segment_ids and line_texts:
+            fragments = parse_alignment_fragments(output_file)
+            if fragments is None or len(fragments) != len(line_segment_ids):
+                return None
+            aligned_segments = []
+            for (start, end), segment_id, line_text in zip(fragments, line_segment_ids, line_texts):
+                aligned_segments.append(
+                    {
+                        "segmentId": segment_id,
+                        "start": clip_start + start,
+                        "end": clip_start + end,
+                        "text": line_text,
+                    }
+                )
+            return aligned_segments
+
         aligned = parse_alignment_json(output_file)
         if aligned is None:
             return None
@@ -193,7 +229,10 @@ def main():
         if available:
             aligned = align_segment(segment, language)
             if aligned is not None:
-                aligned_segments.append(aligned)
+                if isinstance(aligned, list):
+                    aligned_segments.extend(aligned)
+                else:
+                    aligned_segments.append(aligned)
 
     payload = {
         "runId": manifest.get("runId", ""),
