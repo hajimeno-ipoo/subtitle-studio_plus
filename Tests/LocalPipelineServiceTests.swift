@@ -830,7 +830,7 @@ struct LocalPipelineServiceTests {
     }
 
     @Test
-    func localPipelineDoesNotUseWhisperForTXTReferenceTiming() async throws {
+    func localPipelineUsesTXTReferenceWithTimingGuide() async throws {
         let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: sandboxURL) }
@@ -883,7 +883,9 @@ struct LocalPipelineServiceTests {
         )
 
         #expect(result.subtitles.count == 3)
-        #expect(await transcriber.snapshot().isEmpty)
+        // TXT参照時にも timing guide を生成（speech region 検出補助用）
+        let snapshot = await transcriber.snapshot()
+        #expect(!snapshot.isEmpty)
     }
 
     @Test

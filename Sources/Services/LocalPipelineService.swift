@@ -31,6 +31,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
     private static let txtReferenceSpeechMergeGap: TimeInterval = 0.7
     private static let txtAlignmentPadding: TimeInterval = 1.2
     private static let txtAeneasMaxShift: TimeInterval = 0.6
+    private static let referenceDraftMaxOverlap: TimeInterval = 0.12
     private static let unmatchedLinePenalty = 3.4
     private static let skippedRegionPenalty = 1.3
     private static let aeneasMaxShift: TimeInterval = 2.5
@@ -314,8 +315,21 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             textChunkResults = []
             timingChunkResults = []
         } else {
+            // TXT参照時も timing guide を生成（speech region 検出補助用）
             textChunkResults = []
-            timingChunkResults = []
+            timingChunkResults = try await runBaseTranscription(
+                runId: manifest.runId,
+                plans: chunkPlans,
+                normalizedSamples: normalized.samples,
+                sampleRate: normalized.sampleRate,
+                layout: layout,
+                decodingSettings: whisperDecodingSettings(from: settings, purpose: .timingGuide),
+                whisperTranscriber: whisperTranscriber,
+                logger: logger,
+                displayStartPercent: 40,
+                displayPercentSpan: 15,
+                progress: progress
+            )
         }
         try runDirectoryBuilder.markStage(.baseTranscribed, manifest: &manifest, at: layout.manifestURL)
 
@@ -1230,6 +1244,44 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         }
     }
 
+    private func calculateFFmpegNoiseThreshold(
+        samples: [Float],
+        sampleRate: Double
+    ) -> String {
+        guard !samples.isEmpty else { return "-32dB" }
+        let rmsValues = calculateRMSProfile(samples: samples, sampleRate: sampleRate)
+        let avgRMS = rmsValues.isEmpty ? 0.001 : rmsValues.reduce(0, +) / Double(rmsValues.count)
+        let dbLevel = 20.0 * log10(max(avgRMS, 0.00001))
+        let clampedDB = max(dbLevel - 8, -40.0)
+        return String(format: "%.0fdB", clampedDB)
+    }
+
+    private func calculateRMSProfile(
+        samples: [Float],
+        sampleRate: Double
+    ) -> [Double] {
+        let windowSize = max(1, Int(sampleRate * 0.02))
+        var rmsValues: [Double] = []
+        var index = 0
+        while index + windowSize <= samples.count {
+            let window = samples[index..<(index + windowSize)]
+            let rms = sqrt(window.reduce(Float.zero) { $0 + ($1 * $1) } / Float(window.count))
+            rmsValues.append(Double(rms))
+            index += windowSize
+        }
+        return rmsValues
+    }
+
+    private func calculateTxtReferenceSpeechMergeGap(
+        texts: [String],
+        totalDuration: TimeInterval
+    ) -> TimeInterval {
+        guard !texts.isEmpty else { return 0.7 }
+        let avgCharactersPerLine = Double(texts.reduce(0) { $0 + $1.count }) / Double(texts.count)
+        let estimatedTempo = max(0.1, avgCharactersPerLine / 25.0)
+        return min(1.2, 0.5 + (estimatedTempo * 0.3))
+    }
+
     private func buildDraftSegmentsFromReferenceText(
         _ entries: [ReferenceLyricEntry],
         guideSegments: [LocalPipelineBaseSegment],
@@ -1240,7 +1292,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         runId: String
     ) throws -> [LocalPipelineDraftSegment] {
         let speechRegions =
-            detectSpeechRegionsWithFFmpeg(audioURL: normalizedAudioURL, totalDuration: Double(normalizedSamples.count) / sampleRate)
+            detectSpeechRegionsWithFFmpeg(audioURL: normalizedAudioURL, normalizedSamples: normalizedSamples, sampleRate: sampleRate)
             ?? detectSpeechRegions(samples: normalizedSamples, sampleRate: sampleRate)
         let totalDuration = Double(normalizedSamples.count) / sampleRate
         let timings: [(start: TimeInterval, end: TimeInterval)]
@@ -1264,7 +1316,8 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 speechRegions: speechRegions,
                 totalDuration: totalDuration,
                 samples: normalizedSamples,
-                sampleRate: sampleRate
+                sampleRate: sampleRate,
+                guideSegments: guideSegments
             )
         }
 
@@ -1292,14 +1345,19 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
 
     private func detectSpeechRegionsWithFFmpeg(
         audioURL: URL,
-        totalDuration: TimeInterval
+        normalizedSamples: [Float],
+        sampleRate: Double
     ) -> [SpeechRegion]? {
+        let totalDuration = Double(normalizedSamples.count) / sampleRate
+        let noiseThreshold = calculateFFmpegNoiseThreshold(samples: normalizedSamples, sampleRate: sampleRate)
+        let silenceDuration = 0.4
+
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = [
             "ffmpeg",
             "-i", audioURL.path,
-            "-af", "silencedetect=noise=-32dB:d=0.25",
+            "-af", "silencedetect=noise=\(noiseThreshold):d=\(silenceDuration)",
             "-f", "null",
             "-"
         ]
@@ -1341,9 +1399,10 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             speechRegions.append(SpeechRegion(start: cursor, end: totalDuration))
         }
 
+        let mergeGap = calculateTxtReferenceSpeechMergeGap(texts: [], totalDuration: totalDuration)
         return mergeSpeechRegions(
             speechRegions.filter { $0.end - $0.start >= Self.vadMinRegionDuration },
-            maxGap: Self.txtReferenceSpeechMergeGap
+            maxGap: mergeGap
         )
     }
 
@@ -1352,7 +1411,8 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         speechRegions: [SpeechRegion],
         totalDuration: TimeInterval,
         samples: [Float],
-        sampleRate: Double
+        sampleRate: Double,
+        guideSegments: [LocalPipelineBaseSegment] = []
     ) -> [(start: TimeInterval, end: TimeInterval)] {
         guard !texts.isEmpty else { return [] }
         guard !speechRegions.isEmpty else {
@@ -2079,8 +2139,18 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         for segment in segments {
             var adjusted = segment
             let duration = max(Self.minimumStandaloneSubtitleDuration, segment.endTime - segment.startTime)
-            let minimumStart = ordered.last.map(\.endTime) ?? 0
-            adjusted.startTime = max(adjusted.startTime, minimumStart)
+            let minimumStart = ordered.last?.endTime ?? 0
+
+            if adjusted.startTime < minimumStart {
+                let underflow = minimumStart - adjusted.startTime
+                if underflow <= Self.referenceDraftMaxOverlap {
+                    // 小さな重なりは許容して、全体の長さを崩さない
+                    adjusted.startTime = segment.startTime
+                } else {
+                    adjusted.startTime = minimumStart
+                }
+            }
+
             adjusted.endTime = adjusted.startTime + duration
 
             if adjusted.endTime > totalDuration {
