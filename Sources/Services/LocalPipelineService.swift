@@ -236,13 +236,15 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         try runDirectoryBuilder.markStage(.normalized, manifest: &manifest, at: layout.manifestURL)
         try logger.log(
             runId: manifest.runId,
-        // 無音継続時間をやや長めにして「短い途切れ」を無音に含めやすくする
-        let silenceDuration = 0.6
+            stage: "normalize",
             level: .info,
             message: "normalized wav written",
             engineType: .localPipeline,
             stderrPath: layout.whisperStderrURL
         )
+
+        // 無音継続時間をやや長めにして「短い途切れ」を無音に含めやすくする
+        let silenceDuration = 0.6
 
         await reportProgress(
             progress,
@@ -2311,7 +2313,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             guard !energies.isEmpty else { result.append(region); continue }
 
             let maxEnergy = energies.max() ?? 0.0
-            let silenceThreshold = max(Self.localWaveformAlignmentConfig.minVolumeAbsolute, maxEnergy * 0.12)
+            let silenceThreshold = max(Double(Self.localWaveformAlignmentConfig.minVolumeAbsolute), maxEnergy * 0.12)
 
             var silentRuns: [(Int, Int)] = []
             var runStart: Int? = nil
