@@ -236,7 +236,8 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         try runDirectoryBuilder.markStage(.normalized, manifest: &manifest, at: layout.manifestURL)
         try logger.log(
             runId: manifest.runId,
-            stage: LocalPipelinePhase.preparing.rawValue,
+        // 無音継続時間をやや長めにして「短い途切れ」を無音に含めやすくする
+        let silenceDuration = 0.6
             level: .info,
             message: "normalized wav written",
             engineType: .localPipeline,
@@ -1252,7 +1253,8 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         let rmsValues = calculateRMSProfile(samples: samples, sampleRate: sampleRate)
         let avgRMS = rmsValues.isEmpty ? 0.001 : rmsValues.reduce(0, +) / Double(rmsValues.count)
         let dbLevel = 20.0 * log10(max(avgRMS, 0.00001))
-        let clampedDB = max(dbLevel - 8, -40.0)
+        // 無音閾値をやや厳しめにして短い途切れを無音と判断しやすくする
+        let clampedDB = max(dbLevel - 12, -40.0)
         return String(format: "%.0fdB", clampedDB)
     }
 
@@ -1291,9 +1293,19 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         logger: RunLogger,
         runId: String
     ) throws -> [LocalPipelineDraftSegment] {
-        let speechRegions =
+        var speechRegions =
             detectSpeechRegionsWithFFmpeg(audioURL: normalizedAudioURL, normalizedSamples: normalizedSamples, sampleRate: sampleRate)
             ?? detectSpeechRegions(samples: normalizedSamples, sampleRate: sampleRate)
+        // 内部に長い無音がある場合は分割して扱う
+        let before = speechRegions
+        speechRegions = splitSpeechRegionsOnInternalSilence(speechRegions, samples: normalizedSamples, sampleRate: sampleRate)
+        try? logger.log(
+            runId: runId,
+            stage: LocalPipelinePhase.chunking.rawValue,
+            level: .info,
+            message: "speechRegions split: \(before.count) -> \(speechRegions.count)",
+            engineType: .localPipeline
+        )
         let totalDuration = Double(normalizedSamples.count) / sampleRate
         let timings: [(start: TimeInterval, end: TimeInterval)]
         if speechRegions.isEmpty {
@@ -1350,7 +1362,8 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
     ) -> [SpeechRegion]? {
         let totalDuration = Double(normalizedSamples.count) / sampleRate
         let noiseThreshold = calculateFFmpegNoiseThreshold(samples: normalizedSamples, sampleRate: sampleRate)
-        let silenceDuration = 0.4
+        // 無音継続時間をやや長めにして短い途切れを無音に含めやすくする
+        let silenceDuration = 0.6
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
@@ -2267,6 +2280,77 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             }
         }
         return merged
+    }
+
+    private func splitSpeechRegionsOnInternalSilence(
+        _ regions: [SpeechRegion],
+        samples: [Float],
+        sampleRate: Double,
+        minSilenceDuration: TimeInterval = 0.45
+    ) -> [SpeechRegion] {
+        guard !regions.isEmpty else { return [] }
+        var result: [SpeechRegion] = []
+        let windowSize = max(1, Int(sampleRate * 0.02))
+        let stepSize = max(1, Int(sampleRate * 0.01))
+
+        for region in regions {
+            let startIndex = max(0, Int(region.start * sampleRate))
+            let endIndex = min(samples.count, Int(region.end * sampleRate))
+            guard endIndex > startIndex + windowSize else {
+                result.append(region); continue
+            }
+
+            var energies: [Double] = []
+            var idx = startIndex
+            while idx + windowSize <= endIndex {
+                let window = samples[idx..<(idx + windowSize)]
+                let rms = sqrt(window.reduce(Float.zero) { $0 + ($1 * $1) } / Float(window.count))
+                energies.append(Double(max(rms, 1e-8)))
+                idx += stepSize
+            }
+            guard !energies.isEmpty else { result.append(region); continue }
+
+            let maxEnergy = energies.max() ?? 0.0
+            let silenceThreshold = max(Self.localWaveformAlignmentConfig.minVolumeAbsolute, maxEnergy * 0.12)
+
+            var silentRuns: [(Int, Int)] = []
+            var runStart: Int? = nil
+            for i in energies.indices {
+                if energies[i] < silenceThreshold {
+                    runStart = runStart ?? i
+                } else if let s = runStart {
+                    silentRuns.append((s, i - 1))
+                    runStart = nil
+                }
+            }
+            if let s = runStart { silentRuns.append((s, energies.count - 1)) }
+
+            let validCuts = silentRuns.compactMap { (s, e) -> TimeInterval? in
+                let dur = Double(e - s + 1) * Double(stepSize) / sampleRate
+                guard dur >= minSilenceDuration else { return nil }
+                let centerIndex = (s + e) / 2
+                return region.start + Double(centerIndex * stepSize + windowSize / 2) / sampleRate
+            }.sorted()
+
+            if validCuts.isEmpty {
+                result.append(region)
+                continue
+            }
+
+            var segStart = region.start
+            for cut in validCuts {
+                let segEnd = clamp(cut, min: segStart + Self.minimumStandaloneSubtitleDuration, max: region.end)
+                if segEnd - segStart >= Self.vadMinRegionDuration {
+                    result.append(SpeechRegion(start: segStart, end: segEnd))
+                }
+                segStart = segEnd
+            }
+            if region.end - segStart >= Self.vadMinRegionDuration {
+                result.append(SpeechRegion(start: segStart, end: region.end))
+            }
+        }
+
+        return mergeSpeechRegions(result)
     }
 
     private func clamp<T: Comparable>(_ value: T, min minimum: T, max maximum: T) -> T {
