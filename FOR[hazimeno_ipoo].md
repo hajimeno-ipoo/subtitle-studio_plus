@@ -35,6 +35,7 @@
 - `Qwen3-ASR`
 - `Qwen3-ForcedAligner`
 - `Tools/qwen`
+- 旧Web版 (`React / Vite / TypeScript`)
 - 最終成果物としての `TXT / JSON / LRC`
 
 ## フォルダの意味
@@ -54,6 +55,10 @@
   - `aeneas` を呼ぶ Python 補助スクリプトです。
 - `Tools/dictionaries`
   - 辞書補正や既知歌詞の補助ファイルです。
+- `Support`
+  - Resolve 連携やアプリ設定の補助ファイルです。
+- `Tests`
+  - 主要ロジックが壊れていないか確かめる自動テストです。
 - `docs/20260320_local_asr_pipeline`
   - ローカル字幕生成の正式資料です。
 - `Work/run-...`
