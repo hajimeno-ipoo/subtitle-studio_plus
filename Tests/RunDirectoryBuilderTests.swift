@@ -109,6 +109,31 @@ struct RunDirectoryBuilderTests {
     }
 
     @Test
+    func defaultWorkDirectoryUsesApplicationSupportEvenWhenProjectRootExists() throws {
+        let tempDirectory = try makeTempDirectory()
+        let appSupportBase = tempDirectory.appendingPathComponent("AppSupport", isDirectory: true)
+        let projectRoot = tempDirectory.appendingPathComponent("ProjectRoot", isDirectory: true)
+        try FileManager.default.createDirectory(at: projectRoot, withIntermediateDirectories: true)
+
+        let resolver = AppRuntimePathResolver(
+            fileManager: .default,
+            projectRootOverride: projectRoot,
+            appSupportBaseOverride: appSupportBase
+        )
+        let builder = RunDirectoryBuilder(fileManager: .default, runtimePathResolver: resolver)
+        let settings = makeSettings(outputDirectoryPath: "Work")
+
+        let (layout, _) = try builder.build(
+            sourceFileName: "managed.wav",
+            sourceDuration: 3,
+            settings: settings,
+            engineType: .localPipeline
+        )
+
+        #expect(layout.rootURL.path.hasPrefix(appSupportBase.appendingPathComponent("Work", isDirectory: true).path))
+    }
+
+    @Test
     func prunesOldRunDirectories() throws {
         let tempDirectory = try makeTempDirectory()
         let builder = RunDirectoryBuilder(fileManager: .default)

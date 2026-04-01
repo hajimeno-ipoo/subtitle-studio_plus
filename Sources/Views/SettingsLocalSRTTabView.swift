@@ -179,7 +179,7 @@ struct SettingsLocalSRTTabView: View {
                     )
                     pathField(
                         title: "出力ディレクトリ",
-                        description: "例: ./Work",
+                        description: "既定は ~/Library/Application Support/SubtitleStudioPlus/Work です",
                         keyPath: \.outputDirectoryPath
                     )
                 }

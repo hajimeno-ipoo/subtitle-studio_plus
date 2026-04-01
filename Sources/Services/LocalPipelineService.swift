@@ -21,9 +21,9 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
     private static let referenceSRTSearchPad: TimeInterval = 0.6
     private static let referenceSRTMaxShift: TimeInterval = 0.8
     private static let referenceSRTAlignmentPadding: TimeInterval = 0.2
-    private static let txtGroupedAlignmentMaxLines = 3
-    private static let txtGroupedAlignmentMaxGap: TimeInterval = 0.85
-    private static let txtGroupedAlignmentMaxSpan: TimeInterval = 14.0
+    private static let txtGroupedAlignmentMaxLines = 2
+    private static let txtGroupedAlignmentMaxGap: TimeInterval = 0.45
+    private static let txtGroupedAlignmentMaxSpan: TimeInterval = 9.0
     private static let vadWindowSize: TimeInterval = 0.01
     private static let vadMinGapFill: TimeInterval = 0.18
     private static let vadMinRegionDuration: TimeInterval = 0.12
@@ -242,9 +242,6 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             engineType: .localPipeline,
             stderrPath: layout.whisperStderrURL
         )
-
-        // 無音継続時間をやや長めにして「短い途切れ」を無音に含めやすくする
-        let silenceDuration = 0.6
 
         await reportProgress(
             progress,
@@ -2153,7 +2150,6 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
 
         for segment in segments {
             var adjusted = segment
-            let duration = max(Self.minimumStandaloneSubtitleDuration, segment.endTime - segment.startTime)
             let minimumStart = ordered.last?.endTime ?? 0
 
             if adjusted.startTime < minimumStart {
@@ -2166,7 +2162,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 }
             }
 
-            adjusted.endTime = adjusted.startTime + duration
+            adjusted.endTime = max(segment.endTime, adjusted.startTime + Self.minimumStandaloneSubtitleDuration)
 
             if adjusted.endTime > totalDuration {
                 adjusted.endTime = max(adjusted.startTime + Self.minimumStandaloneSubtitleDuration, totalDuration)
@@ -3282,9 +3278,6 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         let hasReferenceLyrics = referenceSourceKind != nil
         let fallbackItems = fallbackSubtitles.isEmpty ? subtitles : fallbackSubtitles
         let trimmed = zip(subtitles, fallbackItems).map { subtitle, fallback -> SubtitleItem in
-            if referenceSourceKind == .plainText {
-                return subtitle
-            }
             let adjusted = trimSubtitleToSpeech(subtitle, samples: normalizedSamples, sampleRate: sampleRate)
             if hasReferenceLyrics && isSilentSubtitle(adjusted, samples: normalizedSamples, sampleRate: sampleRate) {
                 return fallback
@@ -3292,7 +3285,9 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             return adjusted
         }
 
-        let boundaryAdjusted = trimmed
+        let boundaryAdjusted = hasReferenceLyrics
+            ? rebalanceAdjacentReferenceBoundaries(trimmed, samples: normalizedSamples, sampleRate: sampleRate)
+            : trimmed
 
         if hasReferenceLyrics {
             return boundaryAdjusted.filter { !isObviouslyGarbageTranscript($0.text, confidence: 0.75) }
@@ -3317,7 +3312,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             let current = adjusted[index]
             let next = adjusted[index + 1]
             let gap = next.startTime - current.endTime
-            guard gap <= 0.2 else { continue }
+            guard gap <= 0.6 else { continue }
 
             let target = (current.endTime + next.startTime) / 2
             let lower = current.startTime + Self.minimumStandaloneSubtitleDuration

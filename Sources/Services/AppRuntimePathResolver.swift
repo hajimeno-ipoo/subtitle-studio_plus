@@ -71,6 +71,10 @@ struct AppRuntimePathResolver: @unchecked Sendable {
             return URL(fileURLWithPath: expanded, isDirectory: true)
         }
 
+        if isDefaultManagedOutputDirectory(expanded) {
+            return applicationSupportBaseURL().appendingPathComponent("Work", isDirectory: true)
+        }
+
         if let projectRootURL = existingProjectRootURL() {
             return projectRootURL.appendingPathComponent(expanded, isDirectory: true)
         }
@@ -167,6 +171,11 @@ struct AppRuntimePathResolver: @unchecked Sendable {
         let candidate = trimmed.isEmpty ? defaultValue : trimmed
         guard let candidate, !candidate.isEmpty else { return nil }
         return NSString(string: candidate).expandingTildeInPath
+    }
+
+    private func isDefaultManagedOutputDirectory(_ path: String) -> Bool {
+        let standardized = URL(fileURLWithPath: path).standardizedFileURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return standardized == "Work"
     }
 
     private func deduplicated(_ urls: [URL]) -> [URL] {
