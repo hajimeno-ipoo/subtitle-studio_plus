@@ -21,9 +21,12 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
     private static let referenceSRTSearchPad: TimeInterval = 0.6
     private static let referenceSRTMaxShift: TimeInterval = 0.8
     private static let referenceSRTAlignmentPadding: TimeInterval = 0.2
-    private static let txtGroupedAlignmentMaxLines = 1
+    private static let txtGroupedAlignmentMaxLines = 2
     private static let txtGroupedAlignmentMaxGap: TimeInterval = 0.45
     private static let txtGroupedAlignmentMaxSpan: TimeInterval = 9.0
+    private static let txtSuspiciousClipEdgeTolerance: TimeInterval = 0.08
+    private static let txtSuspiciousClipCoverageRatio = 0.94
+    private static let txtSuspiciousClipExcessDuration: TimeInterval = 0.8
     private static let txtReferenceTrimSearchPadding: TimeInterval = 0.35
     private static let txtReferenceBoundaryWindowDuration: TimeInterval = 0.004
     private static let txtReferenceBoundaryStepDuration: TimeInterval = 0.001
@@ -75,6 +78,10 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         var clipStartTime: TimeInterval
         var lineSegmentIDs: [String]? = nil
         var lineTexts: [String]? = nil
+        var lineStartTimes: [TimeInterval]? = nil
+        var lineEndTimes: [TimeInterval]? = nil
+        var lineSearchStartTimes: [TimeInterval]? = nil
+        var lineSearchEndTimes: [TimeInterval]? = nil
     }
 
     private struct AlignmentInputManifest: Codable {
@@ -1347,8 +1354,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 speechRegions: speechRegions,
                 totalDuration: totalDuration,
                 samples: normalizedSamples,
-                sampleRate: sampleRate,
-                guideSegments: guideSegments
+                sampleRate: sampleRate
             )
         }
 
@@ -1443,8 +1449,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         speechRegions: [SpeechRegion],
         totalDuration: TimeInterval,
         samples: [Float],
-        sampleRate: Double,
-        guideSegments: [LocalPipelineBaseSegment] = []
+        sampleRate: Double
     ) -> [(start: TimeInterval, end: TimeInterval)] {
         guard !texts.isEmpty else { return [] }
         guard !speechRegions.isEmpty else {
@@ -1536,7 +1541,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             )
         }
 
-        let baseTimings = distributedReferenceTimingsAcrossEnergy(
+        let coarseTimings = distributedReferenceTimingsAcrossEnergy(
             durations: durations,
             region: region,
             totalDuration: totalDuration,
@@ -1553,7 +1558,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
 
         var boundaries: [TimeInterval] = [region.start]
         for index in 0..<(texts.count - 1) {
-            let target = baseTimings[index].end
+            let target = coarseTimings[index].end
             boundaries.append(
                 findQuietBoundaryNear(
                     target: target,
@@ -2072,6 +2077,17 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                     )
                     continue
                 }
+                if isSuspiciousPlainTextAlignment(aligned, draft: draft) {
+                    rejected.append(
+                        AlignmentRejectionReason(
+                            segmentId: draft.segmentId,
+                            reason: "txt_clip_edge_guard",
+                            startDelta: startDelta,
+                            endDelta: endDelta
+                        )
+                    )
+                    continue
+                }
             } else {
                 let searchStart = draft.alignmentSearchStart ?? max(0, draft.startTime - Self.aeneasMaxShift)
                 let searchEnd = draft.alignmentSearchEnd ?? (draft.endTime + Self.aeneasMaxShift)
@@ -2089,11 +2105,11 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 }
             }
 
-            if let previousEnd = accepted.last?.end, aligned.start < previousEnd, draft.referenceSourceKind != .plainText {
+            if let previousAccepted = accepted.last, aligned.start < previousAccepted.end {
                 rejected.append(
                     AlignmentRejectionReason(
                         segmentId: draft.segmentId,
-                        reason: "overlap_with_previous",
+                        reason: draft.referenceSourceKind == .plainText ? "txt_order_guard" : "overlap_with_previous",
                         startDelta: startDelta,
                         endDelta: endDelta
                     )
@@ -2117,6 +2133,34 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         }
 
         return SanitizedAlignmentResult(accepted: accepted, rejected: rejected)
+    }
+
+    private func isSuspiciousPlainTextAlignment(
+        _ aligned: LocalPipelineAlignedSegment,
+        draft: LocalPipelineDraftSegment
+    ) -> Bool {
+        guard let searchStart = draft.alignmentSearchStart,
+              let searchEnd = draft.alignmentSearchEnd else {
+            return false
+        }
+
+        let searchWindowDuration = searchEnd - searchStart
+        let alignedDuration = aligned.end - aligned.start
+        let draftDuration = draft.endTime - draft.startTime
+        guard searchWindowDuration > 0,
+              alignedDuration > 0 else {
+            return false
+        }
+
+        let consumesSearchWindow =
+            abs(aligned.start - searchStart) <= Self.txtSuspiciousClipEdgeTolerance
+            && abs(aligned.end - searchEnd) <= Self.txtSuspiciousClipEdgeTolerance
+        let coverageRatio = alignedDuration / searchWindowDuration
+        let hasLargeExcessWindow = searchWindowDuration - draftDuration >= Self.txtSuspiciousClipExcessDuration
+
+        return consumesSearchWindow
+            && coverageRatio >= Self.txtSuspiciousClipCoverageRatio
+            && hasLargeExcessWindow
     }
 
     private func coarseSequentialReferenceTimings(
@@ -2722,7 +2766,11 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 audioPath: clipURL.path,
                 clipStartTime: clipStart,
                 lineSegmentIDs: group.count > 1 ? group.map(\.segmentId) : nil,
-                lineTexts: group.count > 1 ? group.map(\.text) : nil
+                lineTexts: group.count > 1 ? group.map(\.text) : nil,
+                lineStartTimes: group.count > 1 ? group.map(\.startTime) : nil,
+                lineEndTimes: group.count > 1 ? group.map(\.endTime) : nil,
+                lineSearchStartTimes: group.count > 1 ? group.map { $0.alignmentSearchStart ?? $0.startTime } : nil,
+                lineSearchEndTimes: group.count > 1 ? group.map { $0.alignmentSearchEnd ?? $0.endTime } : nil
             )
         }
     }

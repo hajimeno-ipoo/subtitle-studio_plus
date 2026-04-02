@@ -37,6 +37,7 @@ actor MockExternalProcessRunner: ExternalProcessRunning {
         case partialFallback
         case emptyResult
         case largeShift
+        case clipEdgesForSingleLine
     }
 
     enum WhisperMode {
@@ -139,6 +140,20 @@ actor MockExternalProcessRunner: ExternalProcessRunning {
             alignedSegments = manifest.segments.flatMap { segment in
                 makeAlignedFixtures(for: segment, startOffset: 1.2)
             }
+        case .clipEdgesForSingleLine:
+            alignedSegments = manifest.segments.flatMap { segment in
+                if let ids = segment.lineSegmentIDs, let texts = segment.lineTexts, ids.count == texts.count, !ids.isEmpty {
+                    return makeAlignedFixtures(for: segment, startOffset: 0.05)
+                }
+                return [
+                    AlignedSegmentFixture(
+                        segmentId: segment.segmentId,
+                        start: segment.startTime - 1.2,
+                        end: segment.endTime + 1.2,
+                        text: segment.text
+                    )
+                ]
+            }
         case .partialFallback:
             alignedSegments = manifest.segments.enumerated().compactMap { index, segment in
                 guard index == 0 else { return nil }
@@ -197,6 +212,7 @@ actor MockExternalProcessRunner: ExternalProcessRunning {
             )
         ]
     }
+
 }
 
 private final class MockWhisperTranscriber: @unchecked Sendable, LocalWhisperTranscribing {
@@ -340,6 +356,10 @@ private struct AlignmentManifestFixture: Decodable {
         var text: String
         var lineSegmentIDs: [String]?
         var lineTexts: [String]?
+        var lineStartTimes: [Double]?
+        var lineEndTimes: [Double]?
+        var lineSearchStartTimes: [Double]?
+        var lineSearchEndTimes: [Double]?
     }
 
     var runId: String
@@ -763,7 +783,7 @@ struct LocalPipelineServiceTests {
     }
 
     @Test
-    func txtReferencePreservesAlignmentInputAndUsesSingleLineBlocks() async throws {
+    func txtReferencePreservesAlignmentInputAndGroupsNearbyLinesForAeneas() async throws {
         let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: sandboxURL) }
@@ -819,8 +839,11 @@ struct LocalPipelineServiceTests {
 
         let manifestData = try Data(contentsOf: alignmentManifestURL)
         let manifest = try JSONDecoder().decode(AlignmentManifestFixture.self, from: manifestData)
-        #expect(manifest.segments.count == 3)
-        #expect(manifest.segments.allSatisfy { ($0.lineSegmentIDs?.isEmpty ?? true) && ($0.lineTexts?.isEmpty ?? true) })
+        #expect(manifest.segments.count == 2)
+        #expect(manifest.segments.first?.lineSegmentIDs?.count == 2)
+        #expect(manifest.segments.first?.lineTexts?.count == 2)
+        #expect(manifest.segments.last?.lineSegmentIDs == nil)
+        #expect(manifest.segments.last?.lineTexts == nil)
     }
 
     @Test
@@ -947,6 +970,9 @@ struct LocalPipelineServiceTests {
         // TXT参照時にも timing guide を生成（speech region 検出補助用）
         let snapshot = await transcriber.snapshot()
         #expect(!snapshot.isEmpty)
+        #expect(result.subtitles[0].startTime < 0.3)
+        #expect(result.subtitles[1].startTime >= 0.8 && result.subtitles[1].startTime <= 1.4)
+        #expect(result.subtitles[2].startTime >= 2.6)
     }
 
     @Test
@@ -1139,6 +1165,67 @@ struct LocalPipelineServiceTests {
         #expect(result.subtitles[0].startTime < 2.0)
         #expect(result.subtitles[1].startTime < 4.5)
         #expect(result.subtitles[2].startTime < 6.9)
+    }
+
+    @Test
+    func localPipelineRejectsTXTAlignmentThatConsumesSingleLineSearchWindow() async throws {
+        let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandboxURL) }
+
+        let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        try writePatternedSpeechWAV(
+            to: audioURL,
+            durationSeconds: 12.0,
+            speechRegions: [(2.0, 8.0)]
+        )
+
+        let pythonURL = sandboxURL.appendingPathComponent("python3")
+        try writeExecutablePlaceholder(to: pythonURL)
+
+        let whisperModelURL = sandboxURL.appendingPathComponent("ggml-base.bin")
+        try Data("model".utf8).write(to: whisperModelURL)
+
+        let aeneasScriptURL = sandboxURL.appendingPathComponent("align_subtitles.py")
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: aeneasScriptURL)
+
+        let dictionaryURL = sandboxURL.appendingPathComponent("dictionary.json")
+        try Data(
+            """
+            {
+              "version": "1",
+              "language": "ja",
+              "description": "test",
+              "rules": []
+            }
+            """.utf8
+        ).write(to: dictionaryURL)
+
+        var settings = LocalPipelineSettings.productionDefault
+        settings.aeneasPythonPath = pythonURL.path
+        settings.aeneasScriptPath = aeneasScriptURL.path
+        settings.whisperModelPath = whisperModelURL.path
+        settings.correctionDictionaryPath = dictionaryURL.path
+        settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
+
+        let service = LocalPipelineService(
+            processRunner: MockExternalProcessRunner(alignmentMode: .clipEdgesForSingleLine),
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber())
+        )
+
+        let result = try await service.analyze(
+            fileURL: audioURL,
+            settings: settings,
+            lyricsReference: LocalLyricsReferenceInput(
+                text: "一行目\n二行目\n三行目",
+                sourceName: "lyrics.txt"
+            ),
+            progress: { _ in }
+        )
+
+        let runLog = try String(contentsOf: result.runDirectoryURL.appendingPathComponent("logs/run.jsonl"), encoding: .utf8)
+        #expect(runLog.contains("txt_clip_edge_guard"))
+        #expect(result.subtitles.map(\.text) == ["一行目", "二行目", "三行目"])
     }
 
     @Test
@@ -1484,6 +1571,7 @@ struct LocalPipelineServiceTests {
             )
         }
     }
+
 }
 
 private func writeExecutablePlaceholder(to url: URL) throws {

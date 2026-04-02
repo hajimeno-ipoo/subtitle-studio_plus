@@ -179,11 +179,43 @@ def align_segment(segment: dict, language: str):
 
         line_segment_ids = segment.get("lineSegmentIDs") or []
         line_texts = segment.get("lineTexts") or []
+        line_start_times = segment.get("lineStartTimes") or []
+        line_end_times = segment.get("lineEndTimes") or []
+        line_search_start_times = segment.get("lineSearchStartTimes") or []
+        line_search_end_times = segment.get("lineSearchEndTimes") or []
         if line_segment_ids and line_texts:
             fragments = parse_alignment_fragments(output_file)
             if fragments is None or len(fragments) != len(line_segment_ids):
                 return None
             aligned_segments = []
+            if len(line_start_times) == len(line_segment_ids) and len(line_end_times) == len(line_segment_ids):
+                boundaries = []
+                for index, (start, end) in enumerate(fragments[:-1]):
+                    next_start, _ = fragments[index + 1]
+                    boundaries.append(clip_start + ((end + next_start) / 2.0))
+
+                for index, (segment_id, line_text) in enumerate(zip(line_segment_ids, line_texts)):
+                    start = float(line_start_times[index]) if index == 0 else boundaries[index - 1]
+                    end = float(line_end_times[index]) if index == len(line_segment_ids) - 1 else boundaries[index]
+
+                    if len(line_search_start_times) == len(line_segment_ids):
+                        start = max(start, float(line_search_start_times[index]))
+                    if len(line_search_end_times) == len(line_segment_ids):
+                        end = min(end, float(line_search_end_times[index]))
+
+                    if end <= start:
+                        start = clip_start + fragments[index][0]
+                        end = clip_start + fragments[index][1]
+                    aligned_segments.append(
+                        {
+                            "segmentId": segment_id,
+                            "start": start,
+                            "end": end,
+                            "text": line_text,
+                        }
+                    )
+                return aligned_segments
+
             for (start, end), segment_id, line_text in zip(fragments, line_segment_ids, line_texts):
                 aligned_segments.append(
                     {
