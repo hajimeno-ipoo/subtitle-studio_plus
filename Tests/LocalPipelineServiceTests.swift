@@ -38,6 +38,7 @@ actor MockExternalProcessRunner: ExternalProcessRunning {
         case emptyResult
         case largeShift
         case clipEdgesForSingleLine
+        case gappedGrouped
     }
 
     enum WhisperMode {
@@ -154,6 +155,10 @@ actor MockExternalProcessRunner: ExternalProcessRunning {
                     )
                 ]
             }
+        case .gappedGrouped:
+            alignedSegments = manifest.segments.flatMap { segment in
+                makeGappedGroupedFixtures(for: segment)
+            }
         case .partialFallback:
             alignedSegments = manifest.segments.enumerated().compactMap { index, segment in
                 guard index == 0 else { return nil }
@@ -211,6 +216,34 @@ actor MockExternalProcessRunner: ExternalProcessRunning {
                 text: segment.text
             )
         ]
+    }
+
+    private func makeGappedGroupedFixtures(for segment: AlignmentManifestFixture.Segment) -> [AlignedSegmentFixture] {
+        if let ids = segment.lineSegmentIDs,
+           let texts = segment.lineTexts,
+           let lineStarts = segment.lineStartTimes,
+           let lineEnds = segment.lineEndTimes,
+           ids.count == 2,
+           texts.count == 2,
+           lineStarts.count == 2,
+           lineEnds.count == 2 {
+            return [
+                AlignedSegmentFixture(
+                    segmentId: ids[0],
+                    start: lineStarts[0],
+                    end: max(lineStarts[0] + 0.35, lineEnds[0] - 0.6),
+                    text: texts[0]
+                ),
+                AlignedSegmentFixture(
+                    segmentId: ids[1],
+                    start: lineStarts[1] + 0.6,
+                    end: lineEnds[1],
+                    text: texts[1]
+                )
+            ]
+        }
+
+        return makeAlignedFixtures(for: segment, startOffset: 0.05)
     }
 
 }
@@ -1226,6 +1259,67 @@ struct LocalPipelineServiceTests {
         let runLog = try String(contentsOf: result.runDirectoryURL.appendingPathComponent("logs/run.jsonl"), encoding: .utf8)
         #expect(runLog.contains("txt_clip_edge_guard"))
         #expect(result.subtitles.map(\.text) == ["一行目", "二行目", "三行目"])
+    }
+
+    @Test
+    func localPipelinePreservesMeaningfulGapBetweenGroupedTXTLines() async throws {
+        let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandboxURL) }
+
+        let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        try writePatternedSpeechWAV(
+            to: audioURL,
+            durationSeconds: 12.0,
+            speechRegions: [(2.0, 8.0)]
+        )
+
+        let pythonURL = sandboxURL.appendingPathComponent("python3")
+        try writeExecutablePlaceholder(to: pythonURL)
+
+        let whisperModelURL = sandboxURL.appendingPathComponent("ggml-base.bin")
+        try Data("model".utf8).write(to: whisperModelURL)
+
+        let aeneasScriptURL = sandboxURL.appendingPathComponent("align_subtitles.py")
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: aeneasScriptURL)
+
+        let dictionaryURL = sandboxURL.appendingPathComponent("dictionary.json")
+        try Data(
+            """
+            {
+              "version": "1",
+              "language": "ja",
+              "description": "test",
+              "rules": []
+            }
+            """.utf8
+        ).write(to: dictionaryURL)
+
+        var settings = LocalPipelineSettings.productionDefault
+        settings.aeneasPythonPath = pythonURL.path
+        settings.aeneasScriptPath = aeneasScriptURL.path
+        settings.whisperModelPath = whisperModelURL.path
+        settings.correctionDictionaryPath = dictionaryURL.path
+        settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
+
+        let service = LocalPipelineService(
+            processRunner: MockExternalProcessRunner(alignmentMode: .gappedGrouped),
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber())
+        )
+
+        let result = try await service.analyze(
+            fileURL: audioURL,
+            settings: settings,
+            lyricsReference: LocalLyricsReferenceInput(
+                text: "一行目\n二行目\n三行目",
+                sourceName: "lyrics.txt"
+            ),
+            progress: { _ in }
+        )
+
+        #expect(result.subtitles.count == 3)
+        let gap = result.subtitles[1].startTime - result.subtitles[0].endTime
+        #expect(gap >= 0.45)
     }
 
     @Test

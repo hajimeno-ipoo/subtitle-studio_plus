@@ -32,6 +32,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
     private static let txtReferenceBoundaryStepDuration: TimeInterval = 0.001
     private static let txtReferenceEnergyWindowDuration: TimeInterval = 0.008
     private static let txtReferenceEnergyStepDuration: TimeInterval = 0.002
+    private static let txtReferenceProtectedGapThreshold: TimeInterval = 0.75
     private static let vadWindowSize: TimeInterval = 0.01
     private static let vadMinGapFill: TimeInterval = 0.18
     private static let vadMinRegionDuration: TimeInterval = 0.12
@@ -3580,6 +3581,10 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 }
                 return adjusted
             }
+            optimized = preserveMeaningfulTXTReferenceGaps(
+                optimized,
+                fallbackSubtitles: fallbackSubtitles
+            )
 
             for index in 0..<(optimized.count - 1) {
                 let current = optimized[index]
@@ -3615,10 +3620,51 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 optimized[index + 1].endTime = max(optimized[index + 1].startTime + Self.minimumStandaloneSubtitleDuration, nextEnd)
             }
 
+            optimized = preserveMeaningfulTXTReferenceGaps(
+                optimized,
+                fallbackSubtitles: fallbackSubtitles
+            )
             optimized = finalizeReferenceTimeline(normalizeReferenceSubtitleOrder(optimized))
         }
 
-        return finalizeReferenceTimeline(normalizeReferenceSubtitleOrder(optimized))
+        let gapProtected = preserveMeaningfulTXTReferenceGaps(
+            optimized,
+            fallbackSubtitles: fallbackSubtitles
+        )
+        return finalizeReferenceTimeline(normalizeReferenceSubtitleOrder(gapProtected))
+    }
+
+    private func preserveMeaningfulTXTReferenceGaps(
+        _ subtitles: [SubtitleItem],
+        fallbackSubtitles: [SubtitleItem]
+    ) -> [SubtitleItem] {
+        guard subtitles.count >= 2,
+              subtitles.count == fallbackSubtitles.count else {
+            return subtitles
+        }
+
+        var adjusted = subtitles
+        for index in 0..<(adjusted.count - 1) {
+            let fallbackCurrent = fallbackSubtitles[index]
+            let fallbackNext = fallbackSubtitles[index + 1]
+            let fallbackGap = fallbackNext.startTime - fallbackCurrent.endTime
+            guard fallbackGap >= Self.txtReferenceProtectedGapThreshold else { continue }
+
+            adjusted[index].endTime = min(adjusted[index].endTime, fallbackCurrent.endTime)
+            adjusted[index + 1].startTime = max(adjusted[index + 1].startTime, fallbackNext.startTime)
+
+            if adjusted[index].endTime <= adjusted[index].startTime {
+                adjusted[index].endTime = fallbackCurrent.endTime
+            }
+            if adjusted[index + 1].endTime <= adjusted[index + 1].startTime {
+                adjusted[index + 1].endTime = max(
+                    adjusted[index + 1].startTime + Self.minimumStandaloneSubtitleDuration,
+                    fallbackNext.endTime
+                )
+            }
+        }
+
+        return adjusted
     }
 
     private func mergeTinySubtitles(

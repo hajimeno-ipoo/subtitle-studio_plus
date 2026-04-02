@@ -189,14 +189,27 @@ def align_segment(segment: dict, language: str):
                 return None
             aligned_segments = []
             if len(line_start_times) == len(line_segment_ids) and len(line_end_times) == len(line_segment_ids):
-                boundaries = []
-                for index, (start, end) in enumerate(fragments[:-1]):
-                    next_start, _ = fragments[index + 1]
-                    boundaries.append(clip_start + ((end + next_start) / 2.0))
+                gap_preserve_threshold = 0.18
+                absolute_fragments = [
+                    (clip_start + start, clip_start + end)
+                    for start, end in fragments
+                ]
 
                 for index, (segment_id, line_text) in enumerate(zip(line_segment_ids, line_texts)):
-                    start = float(line_start_times[index]) if index == 0 else boundaries[index - 1]
-                    end = float(line_end_times[index]) if index == len(line_segment_ids) - 1 else boundaries[index]
+                    raw_start, raw_end = absolute_fragments[index]
+                    if index == 0:
+                        draft_start = float(line_start_times[index])
+                        start = raw_start if raw_start - draft_start >= gap_preserve_threshold else draft_start
+                    else:
+                        previous_end = absolute_fragments[index - 1][1]
+                        start = raw_start if raw_start - previous_end >= gap_preserve_threshold else (previous_end + raw_start) / 2.0
+
+                    if index == len(line_segment_ids) - 1:
+                        draft_end = float(line_end_times[index])
+                        end = raw_end if draft_end - raw_end >= gap_preserve_threshold else draft_end
+                    else:
+                        next_start = absolute_fragments[index + 1][0]
+                        end = raw_end if next_start - raw_end >= gap_preserve_threshold else (raw_end + next_start) / 2.0
 
                     if len(line_search_start_times) == len(line_segment_ids):
                         start = max(start, float(line_search_start_times[index]))
@@ -204,8 +217,12 @@ def align_segment(segment: dict, language: str):
                         end = min(end, float(line_search_end_times[index]))
 
                     if end <= start:
-                        start = clip_start + fragments[index][0]
-                        end = clip_start + fragments[index][1]
+                        start = raw_start
+                        end = raw_end
+                        if len(line_search_start_times) == len(line_segment_ids):
+                            start = max(start, float(line_search_start_times[index]))
+                        if len(line_search_end_times) == len(line_segment_ids):
+                            end = min(end, float(line_search_end_times[index]))
                     aligned_segments.append(
                         {
                             "segmentId": segment_id,
