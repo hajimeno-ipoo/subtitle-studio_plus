@@ -73,6 +73,28 @@ struct SubtitleAlignmentServiceTests {
     }
 
     @Test
+    func widthAdjustmentExpandsShortSubtitleToCoverVocalSpan() async {
+        let service = makeService()
+        let samples = makeSamples(
+            duration: 4.0,
+            activeRanges: [1.0...2.0]
+        )
+        let subtitles = [
+            SubtitleItem(startTime: 0.85, endTime: 1.35, text: "short")
+        ]
+
+        let aligned = await service.align(
+            samples: samples,
+            sampleRate: Self.sampleRate,
+            totalDuration: 4.0,
+            subtitles: subtitles
+        )
+
+        #expect(abs(aligned[0].startTime - 0.85) < 0.08)
+        #expect(abs(aligned[0].endTime - 2.25) < 0.08)
+    }
+
+    @Test
     func parserAcceptsLooseArrowFormat() {
         let srt = """
         1

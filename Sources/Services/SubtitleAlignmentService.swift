@@ -18,6 +18,11 @@ struct SubtitleAlignmentService {
         let strength: Float
     }
 
+    private struct SpeechSpan {
+        let start: TimeInterval
+        let end: TimeInterval
+    }
+
     private struct AlignmentEvidence {
         let subtitle: SubtitleItem
         let totalDuration: TimeInterval
@@ -27,6 +32,7 @@ struct SubtitleAlignmentService {
         let isSpeech: [Bool]
         let risingEdges: [AlignmentEdge]
         let fallingEdges: [AlignmentEdge]
+        let speechSpans: [SpeechSpan]
     }
 
     private let config: AlignmentConfig
@@ -118,7 +124,8 @@ struct SubtitleAlignmentService {
                 rmsProfile: [],
                 isSpeech: [],
                 risingEdges: [],
-                fallingEdges: []
+                fallingEdges: [],
+                speechSpans: []
             )
         }
 
@@ -134,7 +141,8 @@ struct SubtitleAlignmentService {
                 rmsProfile: rmsProfile,
                 isSpeech: Array(repeating: false, count: rmsProfile.count),
                 risingEdges: [],
-                fallingEdges: []
+                fallingEdges: [],
+                speechSpans: []
             )
         }
 
@@ -148,6 +156,7 @@ struct SubtitleAlignmentService {
         var isSpeech = rmsProfile.map { $0 > threshold }
         fillShortGaps(in: &isSpeech)
         let edges = extractEdges(from: isSpeech, rmsProfile: rmsProfile, searchStart: searchStart)
+        let speechSpans = extractSpeechSpans(from: isSpeech, searchStart: searchStart)
 
         return AlignmentEvidence(
             subtitle: subtitle,
@@ -157,7 +166,8 @@ struct SubtitleAlignmentService {
             rmsProfile: rmsProfile,
             isSpeech: isSpeech,
             risingEdges: edges.rising,
-            fallingEdges: edges.falling
+            fallingEdges: edges.falling,
+            speechSpans: speechSpans
         )
     }
 
@@ -213,6 +223,41 @@ struct SubtitleAlignmentService {
         return (rising, falling)
     }
 
+    private func extractSpeechSpans(
+        from isSpeech: [Bool],
+        searchStart: TimeInterval
+    ) -> [SpeechSpan] {
+        guard !isSpeech.isEmpty else { return [] }
+
+        var spans: [SpeechSpan] = []
+        var currentStart: Int?
+
+        for index in isSpeech.indices {
+            if isSpeech[index] {
+                currentStart = currentStart ?? index
+            } else if let startIndex = currentStart {
+                spans.append(
+                    SpeechSpan(
+                        start: searchStart + (Double(startIndex) * config.rmsWindowSize),
+                        end: searchStart + (Double(index) * config.rmsWindowSize)
+                    )
+                )
+                currentStart = nil
+            }
+        }
+
+        if let startIndex = currentStart {
+            spans.append(
+                SpeechSpan(
+                    start: searchStart + (Double(startIndex) * config.rmsWindowSize),
+                    end: searchStart + (Double(isSpeech.count) * config.rmsWindowSize)
+                )
+            )
+        }
+
+        return spans
+    }
+
     private func makeEdge(
         index: Int,
         rising: Bool,
@@ -235,8 +280,9 @@ struct SubtitleAlignmentService {
         let original = normalize(evidence.subtitle, totalDuration: evidence.totalDuration)
         let globallyShifted = normalize(shift(original, by: globalOffset), totalDuration: evidence.totalDuration)
         let refined = refineCandidate(globallyShifted, evidence: evidence)
+        let widthAdjusted = adjustWidth(refined, evidence: evidence)
 
-        let candidates = [original, globallyShifted, refined]
+        let candidates = [original, globallyShifted, refined, widthAdjusted]
         var bestCandidate = original
         var bestScore = score(original, evidence: evidence, previous: previous)
 
@@ -252,6 +298,8 @@ struct SubtitleAlignmentService {
     }
 
     private func estimateGlobalOffset(from evidences: [AlignmentEvidence]) -> TimeInterval {
+        guard evidences.count >= 2 else { return 0 }
+
         var offsets: [TimeInterval] = []
         offsets.reserveCapacity(evidences.count)
 
@@ -266,11 +314,10 @@ struct SubtitleAlignmentService {
 
             switch (startDelta, endDelta) {
             case let (start?, end?):
+                guard abs(start - end) <= max(transitionWindow, config.rmsWindowSize * 3) else {
+                    continue
+                }
                 offsets.append((start + end) / 2)
-            case let (start?, nil):
-                offsets.append(start)
-            case let (nil, end?):
-                offsets.append(end)
             default:
                 continue
             }
@@ -292,6 +339,40 @@ struct SubtitleAlignmentService {
         }
 
         return normalize(refined, totalDuration: evidence.totalDuration)
+    }
+
+    private func adjustWidth(_ candidate: SubtitleItem, evidence: AlignmentEvidence) -> SubtitleItem {
+        guard let combinedSpan = combinedSpeechSpan(around: candidate, evidence: evidence) else {
+            return candidate
+        }
+
+        return normalize(
+            SubtitleItem(
+                id: candidate.id,
+                startTime: combinedSpan.start - config.padStart,
+                endTime: combinedSpan.end + config.padEnd,
+                text: candidate.text
+            ),
+            totalDuration: evidence.totalDuration
+        )
+    }
+
+    private func combinedSpeechSpan(
+        around candidate: SubtitleItem,
+        evidence: AlignmentEvidence
+    ) -> SpeechSpan? {
+        guard !evidence.speechSpans.isEmpty else { return nil }
+
+        let expansionWindow = max(config.searchWindowPad, config.maxSnapDistance)
+        let windowStart = candidate.startTime - expansionWindow
+        let windowEnd = candidate.endTime + expansionWindow
+
+        let nearby = evidence.speechSpans.filter { span in
+            span.end >= windowStart && span.start <= windowEnd
+        }
+
+        guard let first = nearby.first, let last = nearby.last else { return nil }
+        return SpeechSpan(start: first.start, end: last.end)
     }
 
     private func score(
