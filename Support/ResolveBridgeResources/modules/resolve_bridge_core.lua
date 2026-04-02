@@ -258,6 +258,93 @@ local function current_timeline_name()
     return timeline:GetName()
 end
 
+local function preferred_timeline_name(payload)
+    local timeline_name = trim(payload and payload.timelineName)
+    if timeline_name then
+        return timeline_name
+    end
+
+    local project_name = trim(payload and payload.projectName) or current_project_name()
+    if project_name then
+        return project_name .. " Subtitles"
+    end
+
+    return "SubtitleStudioPlus"
+end
+
+local function find_timeline_by_name(project_ref, timeline_name)
+    if not project_ref or not timeline_name then
+        return nil
+    end
+
+    local timeline_count = project_ref:GetTimelineCount() or 0
+    for index = 1, timeline_count do
+        local timeline = project_ref:GetTimelineByIndex(index)
+        if timeline and trim(timeline:GetName()) == timeline_name then
+            return timeline
+        end
+    end
+
+    return nil
+end
+
+local function ensure_current_timeline(payload)
+    if not project or not mediaPool then
+        return nil, "project or media pool unavailable", false
+    end
+
+    local timeline = project:GetCurrentTimeline()
+    if timeline then
+        return timeline, nil, false
+    end
+
+    local recovered_timeline = false
+    local requested_name = preferred_timeline_name(payload)
+    local existing_timeline = find_timeline_by_name(project, requested_name)
+
+    if not existing_timeline then
+        local timeline_count = project:GetTimelineCount() or 0
+        if timeline_count > 0 then
+            existing_timeline = project:GetTimelineByIndex(1)
+        end
+    end
+
+    if existing_timeline then
+        if project.SetCurrentTimeline then
+            project:SetCurrentTimeline(existing_timeline)
+        end
+        refresh_project_state()
+        timeline = project and project:GetCurrentTimeline() or existing_timeline
+        if timeline then
+            return timeline, nil, true
+        end
+    end
+
+    if not mediaPool.CreateEmptyTimeline then
+        return nil, "timeline unavailable", false
+    end
+
+    local created_timeline = mediaPool:CreateEmptyTimeline(requested_name)
+    if not created_timeline then
+        local session_suffix = trim(payload and payload.sessionID) or os.date("%Y%m%d%H%M%S")
+        created_timeline = mediaPool:CreateEmptyTimeline(requested_name .. " " .. session_suffix)
+    end
+    if not created_timeline then
+        return nil, "timeline unavailable", false
+    end
+
+    if project.SetCurrentTimeline then
+        project:SetCurrentTimeline(created_timeline)
+    end
+    refresh_project_state()
+    timeline = project and project:GetCurrentTimeline() or created_timeline
+    if timeline then
+        return timeline, nil, true
+    end
+
+    return nil, "timeline unavailable", false
+end
+
 local function folder_unique_id(folder)
     if not folder or not folder.GetUniqueId then
         return nil
@@ -988,9 +1075,9 @@ local function add_subtitles(payload)
         return false, "project or media pool unavailable"
     end
 
-    local timeline = project:GetCurrentTimeline()
+    local timeline, timeline_error, recovered_timeline = ensure_current_timeline(payload)
     if not timeline then
-        return false, "timeline unavailable"
+        return false, timeline_error or "timeline unavailable"
     end
 
     local segments = payload and payload.segments or nil
@@ -1002,7 +1089,7 @@ local function add_subtitles(payload)
 
     local frame_rate = get_frame_rate(timeline)
     local timeline_start_seconds = tonumber(payload.timelineStart)
-    if timeline_start_seconds == nil then
+    if recovered_timeline or timeline_start_seconds == nil then
         timeline_start_seconds = frames_to_seconds(timeline:GetStartFrame(), frame_rate)
     end
     local timeline_start_frame = seconds_to_frames(timeline_start_seconds, frame_rate)

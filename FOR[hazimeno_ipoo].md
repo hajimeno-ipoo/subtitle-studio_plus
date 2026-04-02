@@ -20,6 +20,7 @@
   - API キーを安全に保存します。
 - `Resolve 連携`
   - `.srt` や字幕データを Resolve 側へ渡します。
+  - current timeline が無い時は、既存 timeline を選ぶか新規 timeline を作ってから、音声と字幕を入れます。
 
 ## Local Pipeline の考え方
 - まず `whisper.cpp C API` を **2通り** で使います。
@@ -88,6 +89,9 @@
 - `aeneas` が見つからない
   - 症状: `Local Pipeline` の時間合わせで止まります。
   - 修正: `aeneasPythonPath` と `aeneasScriptPath` を確認します。
+- `EXPORT FOR DAVINCI` で timeline unavailable
+  - 症状: Resolve 連携は見えているのに、DaVinci へ入らず止まります。
+  - 修正: current timeline が無い時は、既存 timeline の選択か新規 timeline 作成へ回す実装にしてあります。
 - `aeneas` が入っているのに時間が合わない
   - 症状: ローカル字幕の時間が粗く、クリップ位置と長さが波形に合いません。
   - 修正: `aeneas` の存在確認だけでなく、`whisper.cpp` の timing guide が取れているかも確認します。

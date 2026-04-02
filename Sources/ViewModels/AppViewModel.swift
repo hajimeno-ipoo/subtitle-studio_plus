@@ -697,7 +697,8 @@ final class AppViewModel {
     }
 
     private func refreshResolveBridgeStatus(silent: Bool) async {
-        let candidates = resolveBridgeCandidates(includeDefault: !silent)
+        // Keep probing the default bridge even when launch args were missed.
+        let candidates = resolveBridgeCandidates(includeDefault: true)
         guard !candidates.isEmpty else {
             resolveTimelineInfo = nil
             return
