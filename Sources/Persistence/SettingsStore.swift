@@ -7,11 +7,13 @@ final class SettingsStore {
     private enum DefaultsKey {
         static let selectedSRTGenerationEngine = "selectedSRTGenerationEngine"
         static let localPipelineSettings = "localPipelineSettings"
+        static let localSRTPreset = "localSRTPreset"
         static let localPipelineBaseModelWasCustomized = "localPipelineBaseModelWasCustomized"
         static let autoAlignRMSWindowSize = "autoAlignRMSWindowSize"
         static let autoAlignThresholdRatio = "autoAlignThresholdRatio"
         static let autoAlignMinGapFill = "autoAlignMinGapFill"
         static let autoAlignUseAdaptiveThreshold = "autoAlignUseAdaptiveThreshold"
+        static let utoAlignPreset = "utoAlignPreset"
     }
 
     private let loadKeychain: @Sendable () -> String
@@ -26,19 +28,50 @@ final class SettingsStore {
     private var hasLoadedAPIKey = false
     private var hasLoadedNonSecretSettings = false
     private var localPipelineBaseModelWasCustomized = false
+    private var isApplyingLocalSRTPreset = false
+    private var isApplyingUTOAlignPreset = false
 
     var selectedSRTGenerationEngine: SRTGenerationEngine = .gemini {
         didSet { persistNonSecretSettings() }
     }
-    var localPipelineSettings: LocalPipelineSettings = .productionDefault {
+    var localSRTPreset: LocalSRTPreset = .recommended {
         didSet { persistNonSecretSettings() }
+    }
+    var localPipelineSettings: LocalPipelineSettings = .productionDefault {
+        didSet {
+            syncLocalSRTPresetFromCurrentSettings()
+            persistNonSecretSettings()
+        }
     }
 
     // Auto-Align settings
-    var autoAlignRMSWindowSize: Double = 0.005 { didSet { persistNonSecretSettings() } } // 5ms for higher precision
-    var autoAlignThresholdRatio: Float = 0.12 { didSet { persistNonSecretSettings() } }
-    var autoAlignMinGapFill: Double = 0.3 { didSet { persistNonSecretSettings() } }
-    var autoAlignUseAdaptiveThreshold: Bool = true { didSet { persistNonSecretSettings() } } // New: adaptive threshold
+    var utoAlignPreset: UTOAlignPreset = .recommended {
+        didSet { persistNonSecretSettings() }
+    }
+    var autoAlignRMSWindowSize: Double = 0.005 {
+        didSet {
+            syncUTOAlignPresetFromCurrentSettings()
+            persistNonSecretSettings()
+        }
+    } // 5ms for higher precision
+    var autoAlignThresholdRatio: Float = 0.12 {
+        didSet {
+            syncUTOAlignPresetFromCurrentSettings()
+            persistNonSecretSettings()
+        }
+    }
+    var autoAlignMinGapFill: Double = 0.3 {
+        didSet {
+            syncUTOAlignPresetFromCurrentSettings()
+            persistNonSecretSettings()
+        }
+    }
+    var autoAlignUseAdaptiveThreshold: Bool = true {
+        didSet {
+            syncUTOAlignPresetFromCurrentSettings()
+            persistNonSecretSettings()
+        }
+    } // New: adaptive threshold
 
     init(
         loadKeychain: @escaping @Sendable () -> String = { KeychainStore().load() },
@@ -93,6 +126,51 @@ final class SettingsStore {
         localPipelineSettings.baseModel = recommendedLocalBaseModel(for: fileName)
     }
 
+    func applyLocalSRTPreset(_ preset: LocalSRTPreset) {
+        guard preset != .custom else {
+            localSRTPreset = deriveLocalSRTPreset(from: localPipelineSettings)
+            return
+        }
+
+        let tunedValues = localSRTPresetValues(for: preset)
+        isApplyingLocalSRTPreset = true
+
+        var updated = localPipelineSettings
+        updated.chunkLengthSeconds = tunedValues.chunkLengthSeconds
+        updated.overlapSeconds = tunedValues.overlapSeconds
+        updated.temperature = tunedValues.temperature
+        updated.beamSize = tunedValues.beamSize
+        updated.noSpeechThreshold = tunedValues.noSpeechThreshold
+        updated.logprobThreshold = tunedValues.logprobThreshold
+        localPipelineSettings = updated
+        localSRTPreset = preset
+
+        isApplyingLocalSRTPreset = false
+    }
+
+    func applyUTOAlignPreset(_ preset: UTOAlignPreset) {
+        guard preset != .custom else {
+            utoAlignPreset = deriveUTOAlignPreset(
+                rmsWindowSize: autoAlignRMSWindowSize,
+                thresholdRatio: autoAlignThresholdRatio,
+                minGapFill: autoAlignMinGapFill,
+                useAdaptiveThreshold: autoAlignUseAdaptiveThreshold
+            )
+            return
+        }
+
+        let tunedValues = utoAlignPresetValues(for: preset)
+        isApplyingUTOAlignPreset = true
+
+        autoAlignRMSWindowSize = tunedValues.rmsWindowSize
+        autoAlignThresholdRatio = tunedValues.thresholdRatio
+        autoAlignMinGapFill = tunedValues.minGapFill
+        autoAlignUseAdaptiveThreshold = tunedValues.useAdaptiveThreshold
+        utoAlignPreset = preset
+
+        isApplyingUTOAlignPreset = false
+    }
+
     private func loadNonSecretSettings() {
         if let rawEngine = userDefaults.string(forKey: DefaultsKey.selectedSRTGenerationEngine),
            let loadedEngine = SRTGenerationEngine(rawValue: rawEngine) {
@@ -112,6 +190,13 @@ final class SettingsStore {
             localPipelineBaseModelWasCustomized = userDefaults.bool(forKey: DefaultsKey.localPipelineBaseModelWasCustomized)
         } else {
             localPipelineBaseModelWasCustomized = localPipelineSettings.baseModel != LocalPipelineSettings.productionDefault.baseModel
+        }
+
+        if let rawLocalPreset = userDefaults.string(forKey: DefaultsKey.localSRTPreset),
+           let loadedLocalPreset = LocalSRTPreset(rawValue: rawLocalPreset) {
+            localSRTPreset = loadedLocalPreset
+        } else {
+            localSRTPreset = deriveLocalSRTPreset(from: localPipelineSettings)
         }
 
         if userDefaults.object(forKey: DefaultsKey.autoAlignRMSWindowSize) != nil {
@@ -137,6 +222,18 @@ final class SettingsStore {
         } else {
             autoAlignUseAdaptiveThreshold = true
         }
+
+        if let rawUTOAlignPreset = userDefaults.string(forKey: DefaultsKey.utoAlignPreset),
+           let loadedUTOAlignPreset = UTOAlignPreset(rawValue: rawUTOAlignPreset) {
+            utoAlignPreset = loadedUTOAlignPreset
+        } else {
+            utoAlignPreset = deriveUTOAlignPreset(
+                rmsWindowSize: autoAlignRMSWindowSize,
+                thresholdRatio: autoAlignThresholdRatio,
+                minGapFill: autoAlignMinGapFill,
+                useAdaptiveThreshold: autoAlignUseAdaptiveThreshold
+            )
+        }
     }
 
     private func persistNonSecretSettings() {
@@ -145,12 +242,14 @@ final class SettingsStore {
         if let encodedLocalSettings = try? encoder.encode(localPipelineSettings) {
             userDefaults.set(encodedLocalSettings, forKey: DefaultsKey.localPipelineSettings)
         }
+        userDefaults.set(localSRTPreset.rawValue, forKey: DefaultsKey.localSRTPreset)
         userDefaults.set(localPipelineBaseModelWasCustomized, forKey: DefaultsKey.localPipelineBaseModelWasCustomized)
 
         userDefaults.set(autoAlignRMSWindowSize, forKey: DefaultsKey.autoAlignRMSWindowSize)
         userDefaults.set(autoAlignThresholdRatio, forKey: DefaultsKey.autoAlignThresholdRatio)
         userDefaults.set(autoAlignMinGapFill, forKey: DefaultsKey.autoAlignMinGapFill)
         userDefaults.set(autoAlignUseAdaptiveThreshold, forKey: DefaultsKey.autoAlignUseAdaptiveThreshold)
+        userDefaults.set(utoAlignPreset.rawValue, forKey: DefaultsKey.utoAlignPreset)
     }
 
     private func recommendedLocalBaseModel(for fileName: String) -> LocalBaseModel {
@@ -194,5 +293,135 @@ final class SettingsStore {
         }
 
         return normalized
+    }
+
+    private func syncLocalSRTPresetFromCurrentSettings() {
+        guard !isApplyingLocalSRTPreset else { return }
+        let derived = deriveLocalSRTPreset(from: localPipelineSettings)
+        guard localSRTPreset != derived else { return }
+        localSRTPreset = derived
+    }
+
+    private func syncUTOAlignPresetFromCurrentSettings() {
+        guard !isApplyingUTOAlignPreset else { return }
+        let derived = deriveUTOAlignPreset(
+            rmsWindowSize: autoAlignRMSWindowSize,
+            thresholdRatio: autoAlignThresholdRatio,
+            minGapFill: autoAlignMinGapFill,
+            useAdaptiveThreshold: autoAlignUseAdaptiveThreshold
+        )
+        guard utoAlignPreset != derived else { return }
+        utoAlignPreset = derived
+    }
+
+    private func deriveLocalSRTPreset(from settings: LocalPipelineSettings) -> LocalSRTPreset {
+        if matches(settings, preset: .recommended) {
+            return .recommended
+        }
+        if matches(settings, preset: .highAccuracy) {
+            return .highAccuracy
+        }
+        if matches(settings, preset: .fast) {
+            return .fast
+        }
+        return .custom
+    }
+
+    private func deriveUTOAlignPreset(
+        rmsWindowSize: Double,
+        thresholdRatio: Float,
+        minGapFill: Double,
+        useAdaptiveThreshold: Bool
+    ) -> UTOAlignPreset {
+        if matchesUTOAlignPreset(
+            preset: .recommended,
+            rmsWindowSize: rmsWindowSize,
+            thresholdRatio: thresholdRatio,
+            minGapFill: minGapFill,
+            useAdaptiveThreshold: useAdaptiveThreshold
+        ) {
+            return .recommended
+        }
+        if matchesUTOAlignPreset(
+            preset: .sensitive,
+            rmsWindowSize: rmsWindowSize,
+            thresholdRatio: thresholdRatio,
+            minGapFill: minGapFill,
+            useAdaptiveThreshold: useAdaptiveThreshold
+        ) {
+            return .sensitive
+        }
+        if matchesUTOAlignPreset(
+            preset: .strict,
+            rmsWindowSize: rmsWindowSize,
+            thresholdRatio: thresholdRatio,
+            minGapFill: minGapFill,
+            useAdaptiveThreshold: useAdaptiveThreshold
+        ) {
+            return .strict
+        }
+        return .custom
+    }
+
+    private func matches(_ settings: LocalPipelineSettings, preset: LocalSRTPreset) -> Bool {
+        let tunedValues = localSRTPresetValues(for: preset)
+        return settings.chunkLengthSeconds == tunedValues.chunkLengthSeconds
+            && settings.overlapSeconds == tunedValues.overlapSeconds
+            && settings.temperature == tunedValues.temperature
+            && settings.beamSize == tunedValues.beamSize
+            && settings.noSpeechThreshold == tunedValues.noSpeechThreshold
+            && settings.logprobThreshold == tunedValues.logprobThreshold
+    }
+
+    private func matchesUTOAlignPreset(
+        preset: UTOAlignPreset,
+        rmsWindowSize: Double,
+        thresholdRatio: Float,
+        minGapFill: Double,
+        useAdaptiveThreshold: Bool
+    ) -> Bool {
+        let tunedValues = utoAlignPresetValues(for: preset)
+        return rmsWindowSize == tunedValues.rmsWindowSize
+            && thresholdRatio == tunedValues.thresholdRatio
+            && minGapFill == tunedValues.minGapFill
+            && useAdaptiveThreshold == tunedValues.useAdaptiveThreshold
+    }
+
+    private func localSRTPresetValues(
+        for preset: LocalSRTPreset
+    ) -> (
+        chunkLengthSeconds: Double,
+        overlapSeconds: Double,
+        temperature: Double,
+        beamSize: Int,
+        noSpeechThreshold: Double,
+        logprobThreshold: Double
+    ) {
+        switch preset {
+        case .recommended, .custom:
+            return (8.0, 1.0, 0.0, 5, 0.6, -1.0)
+        case .highAccuracy:
+            return (6.0, 1.2, 0.0, 7, 0.5, -1.0)
+        case .fast:
+            return (10.0, 0.8, 0.0, 3, 0.7, -0.8)
+        }
+    }
+
+    private func utoAlignPresetValues(
+        for preset: UTOAlignPreset
+    ) -> (
+        rmsWindowSize: Double,
+        thresholdRatio: Float,
+        minGapFill: Double,
+        useAdaptiveThreshold: Bool
+    ) {
+        switch preset {
+        case .recommended, .custom:
+            return (0.005, 0.12, 0.3, true)
+        case .sensitive:
+            return (0.004, 0.09, 0.35, true)
+        case .strict:
+            return (0.007, 0.16, 0.2, false)
+        }
     }
 }

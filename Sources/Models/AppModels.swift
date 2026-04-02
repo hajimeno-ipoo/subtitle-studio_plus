@@ -91,6 +91,20 @@ enum LocalBaseModel: String, Codable, CaseIterable, Sendable {
     }
 }
 
+enum LocalSRTPreset: String, Codable, CaseIterable, Sendable {
+    case recommended
+    case highAccuracy
+    case fast
+    case custom
+}
+
+enum UTOAlignPreset: String, Codable, CaseIterable, Sendable {
+    case recommended
+    case sensitive
+    case strict
+    case custom
+}
+
 struct LocalPipelineSettings: Codable, Equatable, Sendable {
     var baseModel: LocalBaseModel
     var language: String

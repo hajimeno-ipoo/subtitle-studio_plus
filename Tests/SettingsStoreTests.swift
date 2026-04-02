@@ -116,12 +116,12 @@ struct SettingsStoreTests {
         await first.loadIfNeeded()
         await MainActor.run {
             first.selectedSRTGenerationEngine = .localPipeline
+            first.applyLocalSRTPreset(.highAccuracy)
+            first.applyUTOAlignPreset(.strict)
             first.markLocalPipelineBaseModelCustomized()
             first.localPipelineSettings.baseModel = .kotobaWhisperBilingual
             first.localPipelineSettings.initialPrompt = "hook phrase"
-            first.localPipelineSettings.chunkLengthSeconds = 12.5
             first.localPipelineSettings.aeneasPythonPath = "/opt/homebrew/bin/python3"
-            first.autoAlignUseAdaptiveThreshold = false
         }
 
         let second = await makeStore(
@@ -132,11 +132,91 @@ struct SettingsStoreTests {
         await second.loadIfNeeded()
 
         #expect(await MainActor.run { second.selectedSRTGenerationEngine == .localPipeline })
+        #expect(await MainActor.run { second.localSRTPreset == .highAccuracy })
         #expect(await MainActor.run { second.localPipelineSettings.baseModel == .kotobaWhisperBilingual })
         #expect(await MainActor.run { second.localPipelineSettings.initialPrompt == "hook phrase" })
-        #expect(await MainActor.run { second.localPipelineSettings.chunkLengthSeconds == 12.5 })
+        #expect(await MainActor.run { second.localPipelineSettings.chunkLengthSeconds == 6.0 })
         #expect(await MainActor.run { second.localPipelineSettings.aeneasPythonPath == "/opt/homebrew/bin/python3" })
+        #expect(await MainActor.run { second.utoAlignPreset == .strict })
+        #expect(await MainActor.run { second.autoAlignRMSWindowSize == 0.007 })
+        #expect(await MainActor.run { second.autoAlignThresholdRatio == 0.16 })
+        #expect(await MainActor.run { second.autoAlignMinGapFill == 0.2 })
         #expect(await MainActor.run { second.autoAlignUseAdaptiveThreshold == false })
+    }
+
+    @Test
+    func localSRTPresetChangesOnlyTunedValuesAndKeepsPaths() async {
+        let defaults = makeDefaults()
+        let store = await makeStore(
+            loadKeychain: { "" },
+            saveKeychain: { _ in },
+            userDefaults: defaults
+        )
+
+        await store.loadIfNeeded()
+        await MainActor.run {
+            store.localPipelineSettings.baseModel = .kotobaWhisperBilingual
+            store.localPipelineSettings.language = "en"
+            store.localPipelineSettings.initialPrompt = "artist name"
+            store.localPipelineSettings.whisperModelPath = "/tmp/model.bin"
+            store.localPipelineSettings.aeneasPythonPath = "/opt/homebrew/bin/python3"
+            store.applyLocalSRTPreset(.fast)
+        }
+
+        #expect(await MainActor.run { store.localSRTPreset == .fast })
+        #expect(await MainActor.run { store.localPipelineSettings.baseModel == .kotobaWhisperBilingual })
+        #expect(await MainActor.run { store.localPipelineSettings.language == "en" })
+        #expect(await MainActor.run { store.localPipelineSettings.initialPrompt == "artist name" })
+        #expect(await MainActor.run { store.localPipelineSettings.whisperModelPath == "/tmp/model.bin" })
+        #expect(await MainActor.run { store.localPipelineSettings.aeneasPythonPath == "/opt/homebrew/bin/python3" })
+        #expect(await MainActor.run { store.localPipelineSettings.chunkLengthSeconds == 10.0 })
+        #expect(await MainActor.run { store.localPipelineSettings.overlapSeconds == 0.8 })
+        #expect(await MainActor.run { store.localPipelineSettings.temperature == 0.0 })
+        #expect(await MainActor.run { store.localPipelineSettings.beamSize == 3 })
+        #expect(await MainActor.run { store.localPipelineSettings.noSpeechThreshold == 0.7 })
+        #expect(await MainActor.run { store.localPipelineSettings.logprobThreshold == -0.8 })
+    }
+
+    @Test
+    func utoAlignPresetChangesExpectedValues() async {
+        let defaults = makeDefaults()
+        let store = await makeStore(
+            loadKeychain: { "" },
+            saveKeychain: { _ in },
+            userDefaults: defaults
+        )
+
+        await store.loadIfNeeded()
+        await MainActor.run {
+            store.applyUTOAlignPreset(.sensitive)
+        }
+
+        #expect(await MainActor.run { store.utoAlignPreset == .sensitive })
+        #expect(await MainActor.run { store.autoAlignRMSWindowSize == 0.004 })
+        #expect(await MainActor.run { store.autoAlignThresholdRatio == 0.09 })
+        #expect(await MainActor.run { store.autoAlignMinGapFill == 0.35 })
+        #expect(await MainActor.run { store.autoAlignUseAdaptiveThreshold == true })
+    }
+
+    @Test
+    func manualDetailChangesSwitchPresetsToCustom() async {
+        let defaults = makeDefaults()
+        let store = await makeStore(
+            loadKeychain: { "" },
+            saveKeychain: { _ in },
+            userDefaults: defaults
+        )
+
+        await store.loadIfNeeded()
+        await MainActor.run {
+            store.applyLocalSRTPreset(.recommended)
+            store.localPipelineSettings.beamSize = 9
+            store.applyUTOAlignPreset(.recommended)
+            store.autoAlignThresholdRatio = 0.11
+        }
+
+        #expect(await MainActor.run { store.localSRTPreset == .custom })
+        #expect(await MainActor.run { store.utoAlignPreset == .custom })
     }
 
     @Test
@@ -241,6 +321,8 @@ struct SettingsStoreTests {
     func appModelsDefineLocalPipelinePublicTypes() {
         #expect(SRTGenerationEngine.gemini.rawValue == "gemini")
         #expect(SRTGenerationEngine.localPipeline.rawValue == "localPipeline")
+        #expect(LocalSRTPreset.highAccuracy.rawValue == "highAccuracy")
+        #expect(UTOAlignPreset.sensitive.rawValue == "sensitive")
         #expect(LocalPipelineSettings.productionDefault.baseModel == .kotobaWhisperV2)
         #expect(LocalBaseModel.allCases == [.kotobaWhisperV2, .kotobaWhisperBilingual])
         #expect(LocalPipelineSettings.productionDefault.initialPrompt.isEmpty)
