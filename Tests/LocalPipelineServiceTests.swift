@@ -763,6 +763,67 @@ struct LocalPipelineServiceTests {
     }
 
     @Test
+    func txtReferencePreservesAlignmentInputAndUsesSingleLineBlocks() async throws {
+        let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandboxURL) }
+
+        let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        try writeTestWAV(to: audioURL)
+
+        let pythonURL = sandboxURL.appendingPathComponent("python3")
+        try writeExecutablePlaceholder(to: pythonURL)
+
+        let whisperModelURL = sandboxURL.appendingPathComponent("ggml-base.bin")
+        try Data("model".utf8).write(to: whisperModelURL)
+
+        let aeneasScriptURL = sandboxURL.appendingPathComponent("align_subtitles.py")
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: aeneasScriptURL)
+
+        let dictionaryURL = sandboxURL.appendingPathComponent("dictionary.json")
+        try Data(
+            """
+            {
+              "version": "1",
+              "language": "ja",
+              "description": "test",
+              "rules": []
+            }
+            """.utf8
+        ).write(to: dictionaryURL)
+
+        var settings = LocalPipelineSettings.productionDefault
+        settings.aeneasPythonPath = pythonURL.path
+        settings.aeneasScriptPath = aeneasScriptURL.path
+        settings.whisperModelPath = whisperModelURL.path
+        settings.correctionDictionaryPath = dictionaryURL.path
+        settings.outputDirectoryPath = sandboxURL.appendingPathComponent("Work", isDirectory: true).path
+
+        let service = LocalPipelineService(
+            processRunner: MockExternalProcessRunner(),
+            whisperTranscriberBuilder: MockWhisperTranscriberBuilder(transcriber: MockWhisperTranscriber())
+        )
+
+        let result = try await service.analyze(
+            fileURL: audioURL,
+            settings: settings,
+            lyricsReference: LocalLyricsReferenceInput(
+                text: "一行目\n二行目\n三行目",
+                sourceName: "lyrics.txt"
+            ),
+            progress: { _ in }
+        )
+
+        let alignmentManifestURL = result.runDirectoryURL.appendingPathComponent("alignment_input/segments.json")
+        #expect(FileManager.default.fileExists(atPath: alignmentManifestURL.path))
+
+        let manifestData = try Data(contentsOf: alignmentManifestURL)
+        let manifest = try JSONDecoder().decode(AlignmentManifestFixture.self, from: manifestData)
+        #expect(manifest.segments.count == 3)
+        #expect(manifest.segments.allSatisfy { ($0.lineSegmentIDs?.isEmpty ?? true) && ($0.lineTexts?.isEmpty ?? true) })
+    }
+
+    @Test
     func localPipelineKeepsTXTReferenceTextEvenWhenAlignmentIsWeak() async throws {
         let sandboxURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: sandboxURL, withIntermediateDirectories: true)

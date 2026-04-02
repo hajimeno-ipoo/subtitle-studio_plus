@@ -21,9 +21,14 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
     private static let referenceSRTSearchPad: TimeInterval = 0.6
     private static let referenceSRTMaxShift: TimeInterval = 0.8
     private static let referenceSRTAlignmentPadding: TimeInterval = 0.2
-    private static let txtGroupedAlignmentMaxLines = 2
+    private static let txtGroupedAlignmentMaxLines = 1
     private static let txtGroupedAlignmentMaxGap: TimeInterval = 0.45
     private static let txtGroupedAlignmentMaxSpan: TimeInterval = 9.0
+    private static let txtReferenceTrimSearchPadding: TimeInterval = 0.35
+    private static let txtReferenceBoundaryWindowDuration: TimeInterval = 0.004
+    private static let txtReferenceBoundaryStepDuration: TimeInterval = 0.001
+    private static let txtReferenceEnergyWindowDuration: TimeInterval = 0.008
+    private static let txtReferenceEnergyStepDuration: TimeInterval = 0.002
     private static let vadWindowSize: TimeInterval = 0.01
     private static let vadMinGapFill: TimeInterval = 0.18
     private static let vadMinRegionDuration: TimeInterval = 0.12
@@ -115,6 +120,18 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
     private struct AlignmentState {
         var cost: Double
         var lastMatchedEnd: TimeInterval?
+    }
+
+    private struct AlignmentRejectionReason {
+        var segmentId: String
+        var reason: String
+        var startDelta: TimeInterval
+        var endDelta: TimeInterval
+    }
+
+    private struct SanitizedAlignmentResult {
+        var accepted: [LocalPipelineAlignedSegment]
+        var rejected: [AlignmentRejectionReason]
     }
 
     private actor AlignmentProgressTracker {
@@ -465,7 +482,10 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         )
 
         if !Self.preserveIntermediateArtifacts {
-            try cleanupSuccessfulRunArtifacts(layout: layout)
+            try cleanupSuccessfulRunArtifacts(
+                layout: layout,
+                preserveAlignmentArtifacts: lyricsReference?.sourceKind == .plainText
+            )
         }
 
         return LocalPipelineResult(
@@ -1521,7 +1541,9 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             region: region,
             totalDuration: totalDuration,
             samples: samples,
-            sampleRate: sampleRate
+            sampleRate: sampleRate,
+            windowDuration: Self.txtReferenceEnergyWindowDuration,
+            stepDuration: Self.txtReferenceEnergyStepDuration
         ) ?? distributedReferenceTimings(
             durations: durations,
             spanStart: region.start,
@@ -1538,7 +1560,9 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                     minTime: boundaries.last ?? region.start,
                     maxTime: region.end,
                     samples: samples,
-                    sampleRate: sampleRate
+                    sampleRate: sampleRate,
+                    windowDuration: Self.txtReferenceBoundaryWindowDuration,
+                    stepDuration: Self.txtReferenceBoundaryStepDuration
                 ) ?? target
             )
         }
@@ -1559,12 +1583,14 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         region: SpeechRegion,
         totalDuration: TimeInterval,
         samples: [Float],
-        sampleRate: Double
+        sampleRate: Double,
+        windowDuration: TimeInterval = 0.02,
+        stepDuration: TimeInterval = 0.01
     ) -> [(start: TimeInterval, end: TimeInterval)]? {
         guard durations.count > 1 else { return nil }
 
-        let windowSize = max(1, Int(sampleRate * 0.02))
-        let stepSize = max(1, Int(sampleRate * 0.01))
+        let windowSize = max(1, Int(sampleRate * windowDuration))
+        let stepSize = max(1, Int(sampleRate * stepDuration))
         let startIndex = max(0, Int(region.start * sampleRate))
         let endIndex = min(samples.count, Int(region.end * sampleRate))
         guard endIndex > startIndex + windowSize else { return nil }
@@ -1624,9 +1650,10 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         samples: [Float],
         sampleRate: Double,
         searchRadius: TimeInterval = 0.25,
-        distanceWeight: Float = 0.05
+        distanceWeight: Float = 0.05,
+        windowDuration: TimeInterval = 0.02,
+        stepDuration: TimeInterval = 0.01
     ) -> TimeInterval? {
-        let windowDuration: TimeInterval = 0.02
         let minimumSpacing: TimeInterval = Self.minimumStandaloneSubtitleDuration
 
         let lowerBound = max(minTime + minimumSpacing, target - searchRadius)
@@ -1634,7 +1661,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         guard upperBound > lowerBound else { return nil }
 
         let windowSize = max(1, Int(sampleRate * windowDuration))
-        let stepSize = max(1, Int(sampleRate * 0.01))
+        let stepSize = max(1, Int(sampleRate * stepDuration))
         let startIndex = max(0, Int(lowerBound * sampleRate))
         let endIndex = min(samples.count - 1, Int(upperBound * sampleRate))
         guard endIndex > startIndex + windowSize else { return nil }
@@ -2005,24 +2032,44 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
 
     private func sanitizeAlignedSegments(
         _ segments: [LocalPipelineAlignedSegment],
-        draftSegmentsByID: [String: LocalPipelineDraftSegment],
         orderedDraftSegments: [LocalPipelineDraftSegment]
-    ) -> [LocalPipelineAlignedSegment] {
+    ) -> SanitizedAlignmentResult {
         let alignedByID = Dictionary(uniqueKeysWithValues: segments.map { ($0.segmentId, $0) })
-        var filtered: [LocalPipelineAlignedSegment] = []
+        var accepted: [LocalPipelineAlignedSegment] = []
+        var rejected: [AlignmentRejectionReason] = []
 
         for draft in orderedDraftSegments {
             guard let aligned = alignedByID[draft.segmentId], aligned.end > aligned.start else { continue }
+            let startDelta = aligned.start - draft.startTime
+            let endDelta = aligned.end - draft.endTime
 
             if draft.referenceSourceKind == .srt {
                 let maxShift = Self.referenceSRTMaxShift
                 guard abs(aligned.start - draft.startTime) <= maxShift,
                       abs(aligned.end - draft.endTime) <= maxShift else {
+                    rejected.append(
+                        AlignmentRejectionReason(
+                            segmentId: draft.segmentId,
+                            reason: "srt_shift_guard",
+                            startDelta: startDelta,
+                            endDelta: endDelta
+                        )
+                    )
                     continue
                 }
             } else if draft.referenceSourceKind == .plainText {
-                guard abs(aligned.start - draft.startTime) <= Self.txtAeneasMaxShift,
-                      abs(aligned.end - draft.endTime) <= Self.txtAeneasMaxShift else {
+                let searchStart = draft.alignmentSearchStart ?? max(0, draft.startTime - Self.aeneasMaxShift)
+                let searchEnd = draft.alignmentSearchEnd ?? (draft.endTime + Self.aeneasMaxShift)
+                guard aligned.start >= searchStart,
+                      aligned.end <= searchEnd else {
+                    rejected.append(
+                        AlignmentRejectionReason(
+                            segmentId: draft.segmentId,
+                            reason: "txt_search_window_guard",
+                            startDelta: startDelta,
+                            endDelta: endDelta
+                        )
+                    )
                     continue
                 }
             } else {
@@ -2030,22 +2077,46 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 let searchEnd = draft.alignmentSearchEnd ?? (draft.endTime + Self.aeneasMaxShift)
                 guard aligned.start >= searchStart,
                       aligned.end <= searchEnd else {
+                    rejected.append(
+                        AlignmentRejectionReason(
+                            segmentId: draft.segmentId,
+                            reason: "search_window_guard",
+                            startDelta: startDelta,
+                            endDelta: endDelta
+                        )
+                    )
                     continue
                 }
             }
 
-            if let previousEnd = filtered.last?.end, aligned.start < previousEnd {
+            if let previousEnd = accepted.last?.end, aligned.start < previousEnd, draft.referenceSourceKind != .plainText {
+                rejected.append(
+                    AlignmentRejectionReason(
+                        segmentId: draft.segmentId,
+                        reason: "overlap_with_previous",
+                        startDelta: startDelta,
+                        endDelta: endDelta
+                    )
+                )
                 continue
             }
 
             if aligned.end - aligned.start < Self.minimumStandaloneSubtitleDuration {
+                rejected.append(
+                    AlignmentRejectionReason(
+                        segmentId: draft.segmentId,
+                        reason: "too_short",
+                        startDelta: startDelta,
+                        endDelta: endDelta
+                    )
+                )
                 continue
             }
 
-            filtered.append(aligned)
+            accepted.append(aligned)
         }
 
-        return filtered
+        return SanitizedAlignmentResult(accepted: accepted, rejected: rejected)
     }
 
     private func coarseSequentialReferenceTimings(
@@ -2440,8 +2511,6 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         let manifestURL = layout.alignmentInputDirectoryURL.appendingPathComponent("segments.json")
         let outputJSONURL = layout.alignmentInputDirectoryURL.appendingPathComponent("segment_alignment.json")
         try writeJSON(inputManifest, to: manifestURL)
-        let draftSegmentsByID = Dictionary(uniqueKeysWithValues: draftSegments.map { ($0.segmentId, $0) })
-
         let tracker = AlignmentProgressTracker(totalBlocks: inputSegments.count, progress: progress)
         let request = ExternalProcessRequest(
             executablePath: resolvedPaths.pythonExecutableURL.path,
@@ -2571,13 +2640,28 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             exitCode: result.exitCode,
             stderrPath: layout.aeneasStderrURL
         )
-        let filteredSegments = sanitizeAlignedSegments(
+        let sanitization = sanitizeAlignedSegments(
             output.segments,
-            draftSegmentsByID: draftSegmentsByID,
             orderedDraftSegments: draftSegments
         )
+        let filteredSegments = sanitization.accepted
 
         if filteredSegments.isEmpty, allowsReferenceFallback {
+            if !sanitization.rejected.isEmpty {
+                let details = sanitization.rejected.prefix(8).map { rejection in
+                    "\(rejection.segmentId):\(rejection.reason)(startDelta=\(String(format: "%.3f", rejection.startDelta)), endDelta=\(String(format: "%.3f", rejection.endDelta)))"
+                }.joined(separator: ", ")
+                try logger.log(
+                    runId: runId,
+                    stage: LocalPipelinePhase.aligning.rawValue,
+                    level: .warn,
+                    message: "txt alignment rejected all blocks: \(details)",
+                    engineType: .localPipeline,
+                    command: command,
+                    exitCode: result.exitCode,
+                    stderrPath: layout.aeneasStderrURL
+                )
+            }
             try logger.log(
                 runId: runId,
                 stage: LocalPipelinePhase.aligning.rawValue,
@@ -2592,11 +2676,14 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         }
 
         if filteredSegments.count != output.segments.count {
+            let details = sanitization.rejected.prefix(8).map { rejection in
+                "\(rejection.segmentId):\(rejection.reason)(startDelta=\(String(format: "%.3f", rejection.startDelta)), endDelta=\(String(format: "%.3f", rejection.endDelta)))"
+            }.joined(separator: ", ")
             try logger.log(
                 runId: runId,
                 stage: LocalPipelinePhase.aligning.rawValue,
                 level: .warn,
-                message: "discarded \(output.segments.count - filteredSegments.count) misaligned block(s)",
+                message: "discarded \(output.segments.count - filteredSegments.count) misaligned block(s): \(details)",
                 engineType: .localPipeline,
                 command: command,
                 exitCode: result.exitCode,
@@ -3239,13 +3326,18 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         return stdout
     }
 
-    private func cleanupSuccessfulRunArtifacts(layout: RunDirectoryLayout) throws {
+    private func cleanupSuccessfulRunArtifacts(
+        layout: RunDirectoryLayout,
+        preserveAlignmentArtifacts: Bool = false
+    ) throws {
         let fileManager = FileManager.default
-        let removableDirectories = [
+        var removableDirectories = [
             layout.inputDirectoryURL,
-            layout.chunksDirectoryURL,
-            layout.alignmentInputDirectoryURL
+            layout.chunksDirectoryURL
         ]
+        if !preserveAlignmentArtifacts {
+            removableDirectories.append(layout.alignmentInputDirectoryURL)
+        }
 
         for directoryURL in removableDirectories where fileManager.fileExists(atPath: directoryURL.path) {
             try fileManager.removeItem(at: directoryURL)
@@ -3277,8 +3369,26 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         _ = normalizedAudioURL
         let hasReferenceLyrics = referenceSourceKind != nil
         let fallbackItems = fallbackSubtitles.isEmpty ? subtitles : fallbackSubtitles
+
+        if referenceSourceKind == .plainText {
+            let optimized = optimizeTXTReferenceSubtitles(
+                subtitles,
+                fallbackSubtitles: fallbackItems,
+                samples: normalizedSamples,
+                sampleRate: sampleRate
+            )
+            return optimized.filter { !isObviouslyGarbageTranscript($0.text, confidence: 0.75) }
+        }
+
         let trimmed = zip(subtitles, fallbackItems).map { subtitle, fallback -> SubtitleItem in
-            let adjusted = trimSubtitleToSpeech(subtitle, samples: normalizedSamples, sampleRate: sampleRate)
+            let adjusted = trimSubtitleToSpeech(
+                subtitle,
+                samples: normalizedSamples,
+                sampleRate: sampleRate,
+                searchPadding: 0,
+                maxExpansion: .greatestFiniteMagnitude,
+                windowDuration: 0.01
+            )
             if hasReferenceLyrics && isSilentSubtitle(adjusted, samples: normalizedSamples, sampleRate: sampleRate) {
                 return fallback
             }
@@ -3290,7 +3400,9 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             : trimmed
 
         if hasReferenceLyrics {
-            return boundaryAdjusted.filter { !isObviouslyGarbageTranscript($0.text, confidence: 0.75) }
+            let ordered = normalizeReferenceSubtitleOrder(boundaryAdjusted)
+            let filtered = ordered.filter { !isObviouslyGarbageTranscript($0.text, confidence: 0.75) }
+            return finalizeReferenceTimeline(filtered)
         }
 
         let filtered = boundaryAdjusted.filter {
@@ -3323,8 +3435,10 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 maxTime: upper,
                 samples: samples,
                 sampleRate: sampleRate,
-                searchRadius: 0.12,
-                distanceWeight: 0.2
+                searchRadius: 0.2,
+                distanceWeight: 0.2,
+                windowDuration: Self.txtReferenceBoundaryWindowDuration,
+                stepDuration: Self.txtReferenceBoundaryStepDuration
             ) else {
                 continue
             }
@@ -3334,6 +3448,129 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         }
 
         return adjusted
+    }
+
+    private func normalizeReferenceSubtitleOrder(_ subtitles: [SubtitleItem]) -> [SubtitleItem] {
+        guard subtitles.count >= 2 else { return subtitles }
+
+        var adjusted = subtitles
+        for index in 0..<(adjusted.count - 1) {
+            let current = adjusted[index]
+            let next = adjusted[index + 1]
+            guard current.endTime > next.startTime else { continue }
+
+            let boundary = max(
+                current.startTime + Self.minimumStandaloneSubtitleDuration,
+                min(
+                    next.endTime - Self.minimumStandaloneSubtitleDuration,
+                    (current.endTime + next.startTime) / 2
+                )
+            )
+
+            adjusted[index].endTime = max(adjusted[index].startTime + Self.minimumStandaloneSubtitleDuration, boundary)
+            adjusted[index + 1].startTime = max(boundary, adjusted[index + 1].startTime)
+        }
+
+        return adjusted
+    }
+
+    private func finalizeReferenceTimeline(_ subtitles: [SubtitleItem]) -> [SubtitleItem] {
+        guard !subtitles.isEmpty else { return [] }
+
+        var adjusted = subtitles
+        for index in adjusted.indices {
+            if index > 0, adjusted[index].startTime < adjusted[index - 1].endTime {
+                adjusted[index].startTime = adjusted[index - 1].endTime
+            }
+            if adjusted[index].endTime <= adjusted[index].startTime {
+                adjusted[index].endTime = adjusted[index].startTime + Self.minimumStandaloneSubtitleDuration
+            }
+        }
+
+        for index in 0..<(adjusted.count - 1) {
+            if adjusted[index].endTime > adjusted[index + 1].startTime {
+                let boundary = max(
+                    adjusted[index].startTime + Self.minimumStandaloneSubtitleDuration,
+                    min(
+                        adjusted[index + 1].endTime - Self.minimumStandaloneSubtitleDuration,
+                        (adjusted[index].endTime + adjusted[index + 1].startTime) / 2
+                    )
+                )
+                adjusted[index].endTime = max(adjusted[index].startTime + Self.minimumStandaloneSubtitleDuration, boundary)
+                adjusted[index + 1].startTime = max(boundary, adjusted[index + 1].startTime)
+                if adjusted[index + 1].endTime <= adjusted[index + 1].startTime {
+                    adjusted[index + 1].endTime = adjusted[index + 1].startTime + Self.minimumStandaloneSubtitleDuration
+                }
+            }
+        }
+
+        return adjusted
+    }
+
+    private func optimizeTXTReferenceSubtitles(
+        _ subtitles: [SubtitleItem],
+        fallbackSubtitles: [SubtitleItem],
+        samples: [Float],
+        sampleRate: Double
+    ) -> [SubtitleItem] {
+        guard !subtitles.isEmpty else { return [] }
+
+        var optimized = subtitles
+
+        for _ in 0..<3 {
+            optimized = zip(optimized, fallbackSubtitles).map { subtitle, fallback in
+                let adjusted = trimSubtitleToSpeech(
+                    subtitle,
+                    samples: samples,
+                    sampleRate: sampleRate,
+                    searchPadding: Self.txtReferenceTrimSearchPadding,
+                    maxExpansion: 0.18,
+                    windowDuration: Self.txtReferenceBoundaryWindowDuration
+                )
+                if isSilentSubtitle(adjusted, samples: samples, sampleRate: sampleRate) {
+                    return fallback
+                }
+                return adjusted
+            }
+
+            for index in 0..<(optimized.count - 1) {
+                let current = optimized[index]
+                let next = optimized[index + 1]
+                let overlap = max(0, current.endTime - next.startTime)
+                let gap = max(0, next.startTime - current.endTime)
+                let pairStart = min(current.startTime, next.startTime)
+                let pairEnd = max(current.endTime, next.endTime)
+                let lower = pairStart + Self.minimumStandaloneSubtitleDuration
+                let upper = pairEnd - Self.minimumStandaloneSubtitleDuration
+                guard upper > lower else { continue }
+                guard overlap > 0 || gap <= 0.8 else { continue }
+
+                let target = (current.endTime + next.startTime) / 2
+                let searchRadius = min(0.45, max(0.18, overlap + gap + 0.12))
+                let boundary = findQuietBoundaryNear(
+                    target: target,
+                    minTime: lower,
+                    maxTime: upper,
+                    samples: samples,
+                    sampleRate: sampleRate,
+                    searchRadius: searchRadius,
+                    distanceWeight: 0.15,
+                    windowDuration: Self.txtReferenceBoundaryWindowDuration,
+                    stepDuration: Self.txtReferenceBoundaryStepDuration
+                ) ?? clamp(target, min: lower, max: upper)
+
+                let currentStart = max(pairStart, current.startTime)
+                let nextEnd = min(pairEnd, next.endTime)
+                optimized[index].startTime = currentStart
+                optimized[index].endTime = max(currentStart + Self.minimumStandaloneSubtitleDuration, boundary)
+                optimized[index + 1].startTime = max(boundary, min(next.startTime, nextEnd - Self.minimumStandaloneSubtitleDuration))
+                optimized[index + 1].endTime = max(optimized[index + 1].startTime + Self.minimumStandaloneSubtitleDuration, nextEnd)
+            }
+
+            optimized = finalizeReferenceTimeline(normalizeReferenceSubtitleOrder(optimized))
+        }
+
+        return finalizeReferenceTimeline(normalizeReferenceSubtitleOrder(optimized))
     }
 
     private func mergeTinySubtitles(
@@ -3408,11 +3645,26 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         return peak < 0.02 && rms < 0.004
     }
 
-    private func trimSubtitleToSpeech(_ subtitle: SubtitleItem, samples: [Float], sampleRate: Double) -> SubtitleItem {
-        let segmentSamples = extractSamples(from: samples, sampleRate: sampleRate, start: subtitle.startTime, end: subtitle.endTime)
+    private func trimSubtitleToSpeech(
+        _ subtitle: SubtitleItem,
+        samples: [Float],
+        sampleRate: Double,
+        searchPadding: TimeInterval = 0,
+        maxExpansion: TimeInterval = .greatestFiniteMagnitude,
+        windowDuration: TimeInterval = 0.01
+    ) -> SubtitleItem {
+        let totalDuration = Double(samples.count) / sampleRate
+        let searchStart = max(0, subtitle.startTime - searchPadding)
+        let searchEnd = min(totalDuration, subtitle.endTime + searchPadding)
+        let segmentSamples = extractSamples(
+            from: samples,
+            sampleRate: sampleRate,
+            start: searchStart,
+            end: searchEnd
+        )
         guard !segmentSamples.isEmpty else { return subtitle }
 
-        let windowSize = max(1, Int(sampleRate * 0.01))
+        let windowSize = max(1, Int(sampleRate * windowDuration))
         let leading = firstActiveWindow(in: segmentSamples, windowSize: windowSize)
         let trailing = lastActiveWindow(in: segmentSamples, windowSize: windowSize)
         guard let leading, let trailing, trailing > leading else { return subtitle }
@@ -3420,14 +3672,16 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         var trimmed = subtitle
         let paddedStart = max(0, Double(max(0, leading - windowSize / 2)) / sampleRate)
         let paddedEnd = Double(min(segmentSamples.count, trailing + windowSize / 2)) / sampleRate
-        let newStart = subtitle.startTime + paddedStart
-        let newEnd = subtitle.startTime + paddedEnd
+        let newStart = searchStart + paddedStart
+        let newEnd = searchStart + paddedEnd
 
-        if newStart > subtitle.startTime + 0.04 {
-            trimmed.startTime = min(newStart, subtitle.endTime - 0.12)
+        if abs(newStart - subtitle.startTime) > 0.04 {
+            let boundedStart = max(subtitle.startTime - maxExpansion, newStart)
+            trimmed.startTime = min(max(0, boundedStart), subtitle.endTime - 0.12)
         }
-        if newEnd < subtitle.endTime - 0.04 {
-            trimmed.endTime = max(trimmed.startTime + 0.12, newEnd)
+        if abs(newEnd - subtitle.endTime) > 0.04 {
+            let boundedEnd = min(subtitle.endTime + maxExpansion, newEnd)
+            trimmed.endTime = min(searchEnd, max(trimmed.startTime + 0.12, boundedEnd))
         }
 
         return trimmed
