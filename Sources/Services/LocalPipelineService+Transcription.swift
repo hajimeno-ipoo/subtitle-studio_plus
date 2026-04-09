@@ -86,7 +86,6 @@ extension LocalPipelineService {
     func whisperDecodingSettings(
         from settings: LocalPipelineSettings,
         purpose: LocalWhisperDecodingPurpose,
-        includeTimestamps: Bool = false,
         noSpeechThreshold: Double? = nil
     ) -> LocalWhisperDecodingSettings {
         let initialPrompt: String
@@ -107,7 +106,6 @@ extension LocalPipelineService {
             initialPrompt: initialPrompt,
             temperature: settings.temperature,
             beamSize: beamSize,
-            includeTimestamps: purpose == .timingGuide || includeTimestamps,
             noSpeechThreshold: noSpeechThreshold ?? settings.noSpeechThreshold,
             logprobThreshold: settings.logprobThreshold,
             purpose: purpose
