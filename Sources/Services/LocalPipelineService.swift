@@ -65,8 +65,10 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         )
 
         let normalized = try waveformService.convertedMonoSamples(url: fileURL, targetSampleRate: 16_000)
+        var normalizedSamples = normalized.samples
+        let normalizedSampleRate = normalized.sampleRate
         let normalizedURL = layout.inputDirectoryURL.appendingPathComponent("normalized.wav")
-        try writePCM16WAV(samples: normalized.samples, sampleRate: normalized.sampleRate, to: normalizedURL)
+        try writePCM16WAV(samples: normalizedSamples, sampleRate: normalizedSampleRate, to: normalizedURL)
         try runDirectoryBuilder.markStage(.normalized, manifest: &manifest, at: layout.manifestURL)
         try logger.log(
             runId: manifest.runId,
@@ -87,8 +89,8 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
         )
 
         let chunkPlans = try makeChunkPlans(
-            samples: normalized.samples,
-            sampleRate: normalized.sampleRate,
+            samples: normalizedSamples,
+            sampleRate: normalizedSampleRate,
             chunkLengthSeconds: settings.chunkLengthSeconds,
             overlapSeconds: settings.overlapSeconds
         )
@@ -115,15 +117,15 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             && lyricsReference?.entries.isEmpty == false
             && lyricsReference?.entries.allSatisfy({ $0.sourceStart != nil && $0.sourceEnd != nil }) == true
 
-        let textChunkResults: [(plan: LocalPipelineChunkPlan, output: LocalPipelineBaseChunkOutput)]
-        let timingChunkResults: [(plan: LocalPipelineChunkPlan, output: LocalPipelineBaseChunkOutput)]
+        var mergedTextSegments: [LocalPipelineBaseSegment] = []
+        var timingGuideSegments: [LocalPipelineBaseSegment] = []
 
         if lyricsReference == nil {
-            textChunkResults = try await runBaseTranscription(
+            let textChunkResults = try await runBaseTranscription(
                 runId: manifest.runId,
                 plans: chunkPlans,
-                normalizedSamples: normalized.samples,
-                sampleRate: normalized.sampleRate,
+                normalizedSamples: normalizedSamples,
+                sampleRate: normalizedSampleRate,
                 layout: layout,
                 decodingSettings: whisperDecodingSettings(from: settings, purpose: .lyricsText),
                 whisperTranscriber: whisperTranscriber,
@@ -132,11 +134,13 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 displayPercentSpan: 20,
                 progress: progress
             )
-            timingChunkResults = try await runBaseTranscription(
+            mergedTextSegments = postprocessLyricsSegments(prepareDraftSourceSegments(from: textChunkResults))
+
+            let timingChunkResults = try await runBaseTranscription(
                 runId: manifest.runId,
                 plans: chunkPlans,
-                normalizedSamples: normalized.samples,
-                sampleRate: normalized.sampleRate,
+                normalizedSamples: normalizedSamples,
+                sampleRate: normalizedSampleRate,
                 layout: layout,
                 decodingSettings: whisperDecodingSettings(from: settings, purpose: .timingGuide),
                 whisperTranscriber: whisperTranscriber,
@@ -145,17 +149,18 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 displayPercentSpan: 15,
                 progress: progress
             )
+            timingGuideSegments = prepareTimingGuideSegments(from: timingChunkResults)
         } else if usesReferenceSRTTiming {
-            textChunkResults = []
-            timingChunkResults = []
+            mergedTextSegments = []
+            timingGuideSegments = []
         } else {
             // TXT参照時も timing guide を生成（speech region 検出補助用）
-            textChunkResults = []
-            timingChunkResults = try await runBaseTranscription(
+            mergedTextSegments = []
+            let timingChunkResults = try await runBaseTranscription(
                 runId: manifest.runId,
                 plans: chunkPlans,
-                normalizedSamples: normalized.samples,
-                sampleRate: normalized.sampleRate,
+                normalizedSamples: normalizedSamples,
+                sampleRate: normalizedSampleRate,
                 layout: layout,
                 decodingSettings: whisperDecodingSettings(from: settings, purpose: .timingGuide),
                 whisperTranscriber: whisperTranscriber,
@@ -164,12 +169,9 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 displayPercentSpan: 15,
                 progress: progress
             )
+            timingGuideSegments = prepareTimingGuideSegments(from: timingChunkResults)
         }
         try runDirectoryBuilder.markStage(.baseTranscribed, manifest: &manifest, at: layout.manifestURL)
-
-        let preparedTextSegments = prepareDraftSourceSegments(from: textChunkResults)
-        let mergedTextSegments = postprocessLyricsSegments(preparedTextSegments)
-        let timingGuideSegments = prepareTimingGuideSegments(from: timingChunkResults)
         guard !mergedTextSegments.isEmpty || lyricsReference != nil else {
             try logger.log(
                 runId: manifest.runId,
@@ -182,16 +184,18 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             throw LocalPipelineError.emptyTranscription("ローカル字幕を生成できませんでした。音声から歌詞を読み取れませんでした。")
         }
 
-        let draftSegments = try buildDraftSegments(
+        var draftSegments = try buildDraftSegments(
             textSegments: mergedTextSegments,
             timingGuideSegments: timingGuideSegments,
             lyricsReference: lyricsReference,
             normalizedAudioURL: normalizedURL,
-            normalizedSamples: normalized.samples,
-            sampleRate: normalized.sampleRate,
+            normalizedSamples: normalizedSamples,
+            sampleRate: normalizedSampleRate,
             logger: logger,
             runId: manifest.runId
         )
+        mergedTextSegments.removeAll(keepingCapacity: false)
+        timingGuideSegments.removeAll(keepingCapacity: false)
         guard !draftSegments.isEmpty else {
             try logger.log(
                 runId: manifest.runId,
@@ -211,12 +215,12 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             displayPercent: 60
         )
 
-        let alignedSegments = try await runAlignment(
+        var alignedSegments = try await runAlignment(
             runId: manifest.runId,
             sourceFileName: sourceFileName,
             draftSegments: draftSegments,
-            normalizedSamples: normalized.samples,
-            sampleRate: normalized.sampleRate,
+            normalizedSamples: normalizedSamples,
+            sampleRate: normalizedSampleRate,
             layout: layout,
             settings: settings,
             allowsReferenceFallback: true,
@@ -242,6 +246,8 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             settings: settings,
             allowDictionaryCorrections: lyricsReference == nil
         )
+        draftSegments.removeAll(keepingCapacity: false)
+        alignedSegments.removeAll(keepingCapacity: false)
         try runDirectoryBuilder.markStage(.corrected, manifest: &manifest, at: layout.manifestURL)
 
         let assembly = assembler.assemble(
@@ -255,9 +261,10 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
             fallbackSubtitles: assembly.subtitles,
             referenceSourceKind: lyricsReference?.sourceKind,
             normalizedAudioURL: normalizedURL,
-            normalizedSamples: normalized.samples,
-            sampleRate: normalized.sampleRate
+            normalizedSamples: normalizedSamples,
+            sampleRate: normalizedSampleRate
         )
+        normalizedSamples.removeAll(keepingCapacity: false)
         guard !refinedSubtitles.isEmpty else {
             try logger.log(
                 runId: manifest.runId,

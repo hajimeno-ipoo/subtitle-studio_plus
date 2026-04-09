@@ -16,6 +16,7 @@
 - `Local Pipeline`
   - 新しいローカル字幕生成です。
   - 中身は `whisper.spm + whisper.cpp C API + Kotoba-Whisper + aeneas` です。
+  - 実行中は大きい中間配列を段階ごとに手放して、メモリーを抱え込みすぎないようにしています。
 - `Keychain`
   - API キーを安全に保存します。
 - `Resolve 連携`
