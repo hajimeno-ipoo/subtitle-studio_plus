@@ -26,6 +26,7 @@ extension AppViewModel {
                     resolveBridgeURL = sessionURL
                 }
             }
+            startResolveBridgeMonitoring()
             await refreshResolveBridgeStatus(silent: true)
         } catch {
             present(error)

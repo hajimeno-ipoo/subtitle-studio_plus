@@ -224,6 +224,24 @@ struct ResolveLaunchIntentTests {
     }
 
     @Test
+    func standaloneLaunchDoesNotStartResolveBridgeMonitoring() throws {
+        let appSource = try loadProjectFile("Sources/App/SubtitleStudioPlusApp.swift")
+        try requireContains(appSource, token: "if let intent = AppSession.shared.pendingResolveIntent", file: "Sources/App/SubtitleStudioPlusApp.swift")
+        if appSource.contains("viewModel.startResolveBridgeMonitoring()") {
+            Issue.record("Standalone app launch should not start Resolve bridge monitoring")
+        }
+
+        let resolveSource = try loadProjectFile("Sources/ViewModels/AppViewModel+Resolve.swift")
+        try requireContains(resolveSource, token: "startResolveBridgeMonitoring()", file: "Sources/ViewModels/AppViewModel+Resolve.swift")
+        try requireOrdered(
+            resolveSource,
+            first: "startResolveBridgeMonitoring()",
+            second: "await refreshResolveBridgeStatus(silent: true)",
+            file: "Sources/ViewModels/AppViewModel+Resolve.swift"
+        )
+    }
+
+    @Test
     func reportsInvalidSessionPayload() throws {
         let sessionURL = try makeSessionFile(
             """

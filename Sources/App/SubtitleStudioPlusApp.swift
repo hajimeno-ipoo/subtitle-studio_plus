@@ -17,7 +17,6 @@ struct SubtitleStudioPlusApp: App {
                 .onAppear {
                     AppSession.shared.viewModel = viewModel
                     appDelegate.viewModel = viewModel
-                    viewModel.startResolveBridgeMonitoring()
                     if let intent = AppSession.shared.pendingResolveIntent {
                         AppSession.shared.pendingResolveIntent = nil
                         Task { await viewModel.handleResolveLaunch(intent) }

@@ -21,6 +21,7 @@
 - `Resolve 連携`
   - `.srt` や字幕データを Resolve 側へ渡します。
   - current timeline が無い時は、既存 timeline を選ぶか新規 timeline を作ってから、音声と字幕を入れます。
+  - 通常起動では Resolve bridge を見に行かず、Resolve から渡された起動情報が来た時だけ接続確認を始めます。
 
 ## Local Pipeline の考え方
 - まず `whisper.cpp C API` を **2通り** で使います。
