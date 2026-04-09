@@ -668,8 +668,10 @@ struct LocalPipelineServiceTests {
         #expect(requests.count == 1)
 
         let whisperCalls = transcriber.snapshot()
-        #expect(whisperCalls.count == 2)
-        #expect(whisperCalls.map(\.settings.purpose) == [.lyricsText, .timingGuide])
+        #expect(whisperCalls.count == 1)
+        #expect(whisperCalls.map(\.settings.purpose) == [.lyricsText])
+        #expect(whisperCalls.first?.settings.beamSize == settings.beamSize)
+        #expect(whisperCalls.first?.settings.includeTimestamps == true)
 
         let prompt = try #require(whisperCalls.first?.settings.initialPrompt)
         let expectedBasePrompt = """

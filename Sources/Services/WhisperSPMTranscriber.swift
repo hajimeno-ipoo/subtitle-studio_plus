@@ -26,6 +26,7 @@ struct LocalWhisperDecodingSettings: Sendable {
     var initialPrompt: String
     var temperature: Double
     var beamSize: Int
+    var includeTimestamps: Bool
     var noSpeechThreshold: Double
     var logprobThreshold: Double
     var purpose: LocalWhisperDecodingPurpose
@@ -130,7 +131,7 @@ final class WhisperSPMTranscriber: LocalWhisperTranscribing, @unchecked Sendable
 
         switch settings.purpose {
         case .lyricsText:
-            params.no_timestamps = true
+            params.no_timestamps = !settings.includeTimestamps
             params.token_timestamps = false
         case .timingGuide:
             params.no_timestamps = false

@@ -86,14 +86,28 @@ extension LocalPipelineService {
     func whisperDecodingSettings(
         from settings: LocalPipelineSettings,
         purpose: LocalWhisperDecodingPurpose,
+        includeTimestamps: Bool = false,
         noSpeechThreshold: Double? = nil
     ) -> LocalWhisperDecodingSettings {
-        LocalWhisperDecodingSettings(
+        let initialPrompt: String
+        let beamSize: Int
+
+        switch purpose {
+        case .lyricsText:
+            initialPrompt = buildWhisperPrompt(userPrompt: settings.initialPrompt)
+            beamSize = settings.beamSize
+        case .timingGuide:
+            initialPrompt = ""
+            beamSize = 1
+        }
+
+        return LocalWhisperDecodingSettings(
             baseModel: settings.baseModel,
             language: settings.language,
-            initialPrompt: buildWhisperPrompt(userPrompt: settings.initialPrompt),
+            initialPrompt: initialPrompt,
             temperature: settings.temperature,
-            beamSize: settings.beamSize,
+            beamSize: beamSize,
+            includeTimestamps: purpose == .timingGuide || includeTimestamps,
             noSpeechThreshold: noSpeechThreshold ?? settings.noSpeechThreshold,
             logprobThreshold: settings.logprobThreshold,
             purpose: purpose

@@ -127,7 +127,11 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 normalizedSamples: normalizedSamples,
                 sampleRate: normalizedSampleRate,
                 layout: layout,
-                decodingSettings: whisperDecodingSettings(from: settings, purpose: .lyricsText),
+                decodingSettings: whisperDecodingSettings(
+                    from: settings,
+                    purpose: .lyricsText,
+                    includeTimestamps: true
+                ),
                 whisperTranscriber: whisperTranscriber,
                 logger: logger,
                 displayStartPercent: 20,
@@ -135,21 +139,23 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 progress: progress
             )
             mergedTextSegments = postprocessLyricsSegments(prepareDraftSourceSegments(from: textChunkResults))
-
-            let timingChunkResults = try await runBaseTranscription(
-                runId: manifest.runId,
-                plans: chunkPlans,
-                normalizedSamples: normalizedSamples,
-                sampleRate: normalizedSampleRate,
-                layout: layout,
-                decodingSettings: whisperDecodingSettings(from: settings, purpose: .timingGuide),
-                whisperTranscriber: whisperTranscriber,
-                logger: logger,
-                displayStartPercent: 40,
-                displayPercentSpan: 15,
-                progress: progress
-            )
-            timingGuideSegments = prepareTimingGuideSegments(from: timingChunkResults)
+            timingGuideSegments = prepareTimingGuideSegments(from: textChunkResults)
+            if timingGuideSegments.isEmpty {
+                let timingChunkResults = try await runBaseTranscription(
+                    runId: manifest.runId,
+                    plans: chunkPlans,
+                    normalizedSamples: normalizedSamples,
+                    sampleRate: normalizedSampleRate,
+                    layout: layout,
+                    decodingSettings: whisperDecodingSettings(from: settings, purpose: .timingGuide),
+                    whisperTranscriber: whisperTranscriber,
+                    logger: logger,
+                    displayStartPercent: 40,
+                    displayPercentSpan: 15,
+                    progress: progress
+                )
+                timingGuideSegments = prepareTimingGuideSegments(from: timingChunkResults)
+            }
         } else if usesReferenceSRTTiming {
             mergedTextSegments = []
             timingGuideSegments = []
