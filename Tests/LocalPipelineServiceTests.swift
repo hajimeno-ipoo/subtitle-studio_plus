@@ -484,6 +484,31 @@ struct LocalPipelineServiceTests {
         #expect(indices == indices.sorted())
     }
 
+    @Test
+    func draftBlocksSplitAcrossDetectedSpeechRegionsWithoutLyricsReference() {
+        let service = LocalPipelineService()
+        let textSegments = [
+            LocalPipelineBaseSegment(segmentId: "chunk-00001-seg-0001", start: 0.0, end: 0.9, text: "愛してる", confidence: 0.9),
+            LocalPipelineBaseSegment(segmentId: "chunk-00001-seg-0002", start: 1.0, end: 1.9, text: "君のこと", confidence: 0.88),
+            LocalPipelineBaseSegment(segmentId: "chunk-00001-seg-0003", start: 3.1, end: 3.9, text: "離さない", confidence: 0.86)
+        ]
+        let speechRegions = [
+            SpeechRegion(start: 0.0, end: 2.0),
+            SpeechRegion(start: 3.0, end: 4.0)
+        ]
+
+        let draftSegments = service.buildDraftSegmentsFromTranscription(
+            textSegments,
+            timingGuideSegments: textSegments,
+            speechRegions: speechRegions,
+            totalDuration: 4.0
+        )
+
+        #expect(draftSegments.count == 2)
+        #expect(draftSegments[0].text == "愛してる\n君のこと")
+        #expect(draftSegments[1].text == "離さない")
+    }
+
     @MainActor
     @Test
     func appViewModelKeepsGeminiPathAndAddsLocalPipelineBranch() async throws {

@@ -60,9 +60,15 @@ extension LocalPipelineService {
                 runId: runId
             )
         }
+        let speechRegions = detectDraftSpeechRegions(
+            normalizedAudioURL: normalizedAudioURL,
+            normalizedSamples: normalizedSamples,
+            sampleRate: sampleRate
+        )
         return buildDraftSegmentsFromTranscription(
             textSegments,
             timingGuideSegments: timingGuideSegments,
+            speechRegions: speechRegions,
             totalDuration: Double(normalizedSamples.count) / sampleRate
         )
     }
@@ -70,6 +76,7 @@ extension LocalPipelineService {
     func buildDraftSegmentsFromTranscription(
         _ segments: [LocalPipelineBaseSegment],
         timingGuideSegments: [LocalPipelineBaseSegment],
+        speechRegions: [SpeechRegion],
         totalDuration: TimeInterval
     ) -> [LocalPipelineDraftSegment] {
         var blocks: [LocalPipelineDraftSegment] = []
@@ -99,7 +106,7 @@ extension LocalPipelineService {
         for segment in segments {
             if current.isEmpty {
                 current.append(segment)
-            } else if shouldStartNewDraftBlock(current: current, next: segment) {
+            } else if shouldStartNewDraftBlock(current: current, next: segment, speechRegions: speechRegions) {
                 flushCurrent()
                 current.append(segment)
             } else {
@@ -119,7 +126,7 @@ extension LocalPipelineService {
             return blocks
         }
 
-        let guideRegions = makeGuideRegions(from: timingGuideSegments, speechRegions: [])
+        let guideRegions = makeGuideRegions(from: timingGuideSegments, speechRegions: speechRegions)
         guard !guideRegions.isEmpty else {
             return blocks
         }
@@ -150,6 +157,26 @@ extension LocalPipelineService {
         }
 
         return enforceReferenceDraftOrder(retimed, totalDuration: totalDuration)
+    }
+
+    func detectDraftSpeechRegions(
+        normalizedAudioURL: URL,
+        normalizedSamples: [Float],
+        sampleRate: Double
+    ) -> [SpeechRegion] {
+        var speechRegions =
+            detectSpeechRegionsWithFFmpeg(
+                audioURL: normalizedAudioURL,
+                normalizedSamples: normalizedSamples,
+                sampleRate: sampleRate
+            )
+            ?? detectSpeechRegions(samples: normalizedSamples, sampleRate: sampleRate)
+        speechRegions = splitSpeechRegionsOnInternalSilence(
+            speechRegions,
+            samples: normalizedSamples,
+            sampleRate: sampleRate
+        )
+        return speechRegions
     }
 
     func buildDraftSegmentsFromReferenceLyrics(
@@ -1326,7 +1353,8 @@ extension LocalPipelineService {
 
     func shouldStartNewDraftBlock(
         current: [LocalPipelineBaseSegment],
-        next: LocalPipelineBaseSegment
+        next: LocalPipelineBaseSegment,
+        speechRegions: [SpeechRegion]
     ) -> Bool {
         guard let first = current.first, let last = current.last else { return false }
         let durationWithNext = next.end - first.start
@@ -1340,10 +1368,29 @@ extension LocalPipelineService {
         if gap > 1.2 {
             return true
         }
+        if crossesSpeechRegionBoundary(last: last, next: next, speechRegions: speechRegions) {
+            return true
+        }
         if endsSentence(last.text) && normalizedText(next.text).count >= 4 {
             return true
         }
         return false
+    }
+
+    func crossesSpeechRegionBoundary(
+        last: LocalPipelineBaseSegment,
+        next: LocalPipelineBaseSegment,
+        speechRegions: [SpeechRegion]
+    ) -> Bool {
+        guard !speechRegions.isEmpty else { return false }
+        let previousRegionIndex = speechRegions.firstIndex { region in
+            region.end >= last.end - 0.12 && region.start <= last.start + 0.12
+        }
+        let nextRegionIndex = speechRegions.firstIndex { region in
+            region.end >= next.end - 0.12 && region.start <= next.start + 0.12
+        }
+        guard let previousRegionIndex, let nextRegionIndex else { return false }
+        return previousRegionIndex != nextRegionIndex
     }
 
     func refineSubtitlesForWaveform(
