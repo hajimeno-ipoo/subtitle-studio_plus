@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 enum ExternalProcessRunnerError: LocalizedError, Equatable {
     case missingExecutable(String)
@@ -92,7 +93,11 @@ final class ExternalProcessRunner: ExternalProcessRunning, @unchecked Sendable {
             if process.isRunning {
                 process.terminate()
             }
-            waitForTerminationSignal(terminationSemaphore, timeout: 5)
+            let didTerminate = waitForTerminationSignal(terminationSemaphore, timeout: 1)
+            if !didTerminate, process.isRunning {
+                forceKill(process)
+                _ = waitForTerminationSignal(terminationSemaphore, timeout: 1)
+            }
             let stdoutTail = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
             let stderrTail = stderrPipe.fileHandleForReading.readDataToEndOfFile()
             if !stdoutTail.isEmpty {
@@ -149,12 +154,17 @@ final class ExternalProcessRunner: ExternalProcessRunning, @unchecked Sendable {
         return false
     }
 
-    private func waitForTerminationSignal(_ semaphore: DispatchSemaphore, timeout: TimeInterval) {
+    private func waitForTerminationSignal(_ semaphore: DispatchSemaphore, timeout: TimeInterval) -> Bool {
         guard timeout > 0 else {
             semaphore.wait()
-            return
+            return true
         }
-        _ = semaphore.wait(timeout: .now() + timeout)
+        return semaphore.wait(timeout: .now() + timeout) == .success
+    }
+
+    private func forceKill(_ process: Process) {
+        guard process.processIdentifier > 0 else { return }
+        kill(process.processIdentifier, SIGKILL)
     }
 
     private func renderCommandLine(executablePath: String, arguments: [String]) -> String {

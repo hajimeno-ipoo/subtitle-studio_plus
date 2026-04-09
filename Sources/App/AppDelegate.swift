@@ -23,7 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         Task { @MainActor in
             _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
-            adjustMainWindowFrame(resolveSessionActive: false)
+            adjustMainWindowFrame(resolveSessionActive: false, recenter: true)
         }
     }
 
@@ -42,11 +42,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor
-    func adjustMainWindowFrame(resolveSessionActive: Bool) {
+    func adjustMainWindowFrame(resolveSessionActive: Bool, recenter: Bool = false) {
         guard let window = NSApp.windows.first else { return }
 
         window.title = "SubtitleStudioPlus"
-        window.minSize = minimumWindowSize
+        window.minSize = currentMinimumWindowSize(resolveSessionActive: resolveSessionActive)
+
+        guard recenter else { return }
 
         let preferredHeight = preferredWindowSize.height + (resolveSessionActive ? resolveSessionExtraHeight : 0)
         let visibleFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? NSRect(origin: .zero, size: preferredWindowSize)
@@ -61,6 +63,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         window.setFrame(targetFrame, display: true)
         window.makeKeyAndOrderFront(nil)
+    }
+
+    @MainActor
+    func updateMainWindowMinimumSize(resolveSessionActive: Bool) {
+        guard let window = NSApp.windows.first else { return }
+        window.title = "SubtitleStudioPlus"
+        window.minSize = currentMinimumWindowSize(resolveSessionActive: resolveSessionActive)
+    }
+
+    private func currentMinimumWindowSize(resolveSessionActive: Bool) -> NSSize {
+        NSSize(
+            width: minimumWindowSize.width,
+            height: minimumWindowSize.height + (resolveSessionActive ? resolveSessionExtraHeight : 0)
+        )
     }
 }
 

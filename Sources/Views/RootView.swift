@@ -89,10 +89,10 @@ struct RootView: View {
                 .environment(viewModel)
         }
         .onAppear {
-            AppDelegate.shared?.adjustMainWindowFrame(resolveSessionActive: viewModel.isResolveSessionActive)
+            AppDelegate.shared?.updateMainWindowMinimumSize(resolveSessionActive: viewModel.isResolveSessionActive)
         }
         .onChange(of: viewModel.isResolveSessionActive) {
-            AppDelegate.shared?.adjustMainWindowFrame(resolveSessionActive: viewModel.isResolveSessionActive)
+            AppDelegate.shared?.updateMainWindowMinimumSize(resolveSessionActive: viewModel.isResolveSessionActive)
         }
     }
 

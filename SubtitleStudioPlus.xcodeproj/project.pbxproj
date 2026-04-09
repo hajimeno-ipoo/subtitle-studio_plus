@@ -16,6 +16,16 @@
 		180DB9772F6D237B006F8CAC /* LocalPipelineCorrectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180DB9762F6D237B006F8CAC /* LocalPipelineCorrectionService.swift */; };
 		180DB9792F6D2389006F8CAC /* LocalPipelineAssembler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180DB9782F6D2389006F8CAC /* LocalPipelineAssembler.swift */; };
 		180DB97B2F6D243B006F8CAC /* LocalPipelineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180DB97A2F6D243B006F8CAC /* LocalPipelineService.swift */; };
+		A20000012F80000100AAA001 /* AppViewModel+Resolve.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000002F80000100AAA001 /* AppViewModel+Resolve.swift */; };
+		A20000032F80000100AAA001 /* AppViewModel+SubtitleEditing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000022F80000100AAA001 /* AppViewModel+SubtitleEditing.swift */; };
+		A20000052F80000100AAA001 /* AppViewModel+LyricsReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000042F80000100AAA001 /* AppViewModel+LyricsReference.swift */; };
+		A20000072F80000100AAA001 /* LocalPipelineServiceSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000062F80000100AAA001 /* LocalPipelineServiceSupport.swift */; };
+		A200000F2F80000100AAA001 /* LocalPipelineService+Transcription.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000E2F80000100AAA001 /* LocalPipelineService+Transcription.swift */; };
+		A20000112F80000100AAA001 /* LocalPipelineService+Alignment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000102F80000100AAA001 /* LocalPipelineService+Alignment.swift */; };
+		A20000132F80000100AAA001 /* LocalPipelineService+ReferenceProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000122F80000100AAA001 /* LocalPipelineService+ReferenceProcessing.swift */; };
+		A20000092F80000100AAA001 /* AppViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000082F80000100AAA001 /* AppViewModelTests.swift */; };
+		A200000B2F80000100AAA001 /* SubtitleListPanelContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000A2F80000100AAA001 /* SubtitleListPanelContractTests.swift */; };
+		A200000D2F80000100AAA001 /* MainWindowBehaviorContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000C2F80000100AAA001 /* MainWindowBehaviorContractTests.swift */; };
 		188DEB462F667A3D009DBDC8 /* DSWaveformImage in Frameworks */ = {isa = PBXBuildFile; productRef = 188DEB452F667A3D009DBDC8 /* DSWaveformImage */; };
 		188DEB482F667A3D009DBDC8 /* DSWaveformImageViews in Frameworks */ = {isa = PBXBuildFile; productRef = 188DEB472F667A3D009DBDC8 /* DSWaveformImageViews */; };
 		C1A7B1032F70000100AAA001 /* WhisperSPMTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A7B1022F70000100AAA001 /* WhisperSPMTranscriber.swift */; };
@@ -82,6 +92,16 @@
 		180DB9762F6D237B006F8CAC /* LocalPipelineCorrectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPipelineCorrectionService.swift; sourceTree = "<group>"; };
 		180DB9782F6D2389006F8CAC /* LocalPipelineAssembler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPipelineAssembler.swift; sourceTree = "<group>"; };
 		180DB97A2F6D243B006F8CAC /* LocalPipelineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPipelineService.swift; sourceTree = "<group>"; };
+		A20000002F80000100AAA001 /* AppViewModel+Resolve.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppViewModel+Resolve.swift"; sourceTree = "<group>"; };
+		A20000022F80000100AAA001 /* AppViewModel+SubtitleEditing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppViewModel+SubtitleEditing.swift"; sourceTree = "<group>"; };
+		A20000042F80000100AAA001 /* AppViewModel+LyricsReference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppViewModel+LyricsReference.swift"; sourceTree = "<group>"; };
+		A20000062F80000100AAA001 /* LocalPipelineServiceSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPipelineServiceSupport.swift; sourceTree = "<group>"; };
+		A200000E2F80000100AAA001 /* LocalPipelineService+Transcription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocalPipelineService+Transcription.swift"; sourceTree = "<group>"; };
+		A20000102F80000100AAA001 /* LocalPipelineService+Alignment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocalPipelineService+Alignment.swift"; sourceTree = "<group>"; };
+		A20000122F80000100AAA001 /* LocalPipelineService+ReferenceProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocalPipelineService+ReferenceProcessing.swift"; sourceTree = "<group>"; };
+		A20000082F80000100AAA001 /* AppViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModelTests.swift; sourceTree = "<group>"; };
+		A200000A2F80000100AAA001 /* SubtitleListPanelContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleListPanelContractTests.swift; sourceTree = "<group>"; };
+		A200000C2F80000100AAA001 /* MainWindowBehaviorContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowBehaviorContractTests.swift; sourceTree = "<group>"; };
 		1C8D4A60A8F14AF0B7FA1000 /* ResolveBridgeResources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ResolveBridgeResources; sourceTree = "<group>"; };
 		B2D1A1012F6D600100AAA001 /* AppRuntimePathResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRuntimePathResolver.swift; sourceTree = "<group>"; };
 		B2D1A1022F6D600100AAA001 /* Tools */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Tools; sourceTree = SOURCE_ROOT; };
@@ -188,6 +208,9 @@
 			isa = PBXGroup;
 			children = (
 				C9E61B8F7603653903B584AC /* AppViewModel.swift */,
+				A20000042F80000100AAA001 /* AppViewModel+LyricsReference.swift */,
+				A20000002F80000100AAA001 /* AppViewModel+Resolve.swift */,
+				A20000022F80000100AAA001 /* AppViewModel+SubtitleEditing.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -207,6 +230,10 @@
 				180DB9762F6D237B006F8CAC /* LocalPipelineCorrectionService.swift */,
 				180DB9782F6D2389006F8CAC /* LocalPipelineAssembler.swift */,
 				180DB97A2F6D243B006F8CAC /* LocalPipelineService.swift */,
+				A20000062F80000100AAA001 /* LocalPipelineServiceSupport.swift */,
+				A20000102F80000100AAA001 /* LocalPipelineService+Alignment.swift */,
+				A20000122F80000100AAA001 /* LocalPipelineService+ReferenceProcessing.swift */,
+				A200000E2F80000100AAA001 /* LocalPipelineService+Transcription.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -272,6 +299,9 @@
 				B1C1A0032F6D500100AAA001 /* LocalPipelineJSONSchemaFixtureTests.swift */,
 				B1C1A0042F6D500100AAA001 /* LocalPipelineServiceTests.swift */,
 				B1C1A0052F6D500100AAA001 /* RunDirectoryBuilderTests.swift */,
+				A20000082F80000100AAA001 /* AppViewModelTests.swift */,
+				A200000A2F80000100AAA001 /* SubtitleListPanelContractTests.swift */,
+				A200000C2F80000100AAA001 /* MainWindowBehaviorContractTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -419,6 +449,9 @@
 				B1C1A1032F6D500100AAA001 /* LocalPipelineJSONSchemaFixtureTests.swift in Sources */,
 				B1C1A1042F6D500100AAA001 /* LocalPipelineServiceTests.swift in Sources */,
 				B1C1A1052F6D500100AAA001 /* RunDirectoryBuilderTests.swift in Sources */,
+				A20000092F80000100AAA001 /* AppViewModelTests.swift in Sources */,
+				A200000B2F80000100AAA001 /* SubtitleListPanelContractTests.swift in Sources */,
+				A200000D2F80000100AAA001 /* MainWindowBehaviorContractTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -441,6 +474,9 @@
 				73665E536F4C22235CD9D5C2 /* AudioFileSupport.swift in Sources */,
 				A1B484F549BC56B2DEB2D448 /* SRTCodec.swift in Sources */,
 				CC4CE245D09294490DCE5D64 /* AppViewModel.swift in Sources */,
+				A20000052F80000100AAA001 /* AppViewModel+LyricsReference.swift in Sources */,
+				A20000012F80000100AAA001 /* AppViewModel+Resolve.swift in Sources */,
+				A20000032F80000100AAA001 /* AppViewModel+SubtitleEditing.swift in Sources */,
 				180DB96F2F6D233F006F8CAC /* LocalPipelineModels.swift in Sources */,
 				35EB21268310D8CC65841FFC /* Color+Studio.swift in Sources */,
 				8CA9968468E845C735FC2F83 /* HeaderBar.swift in Sources */,
@@ -449,6 +485,9 @@
 				A7C2D8F1F1E24A0B9F111111 /* SettingsAPITabView.swift in Sources */,
 				180DB9732F6D235C006F8CAC /* RunLogger.swift in Sources */,
 				180DB97B2F6D243B006F8CAC /* LocalPipelineService.swift in Sources */,
+				A20000112F80000100AAA001 /* LocalPipelineService+Alignment.swift in Sources */,
+				A20000132F80000100AAA001 /* LocalPipelineService+ReferenceProcessing.swift in Sources */,
+				A200000F2F80000100AAA001 /* LocalPipelineService+Transcription.swift in Sources */,
 				180DB9712F6D2355006F8CAC /* RunDirectoryBuilder.swift in Sources */,
 				A7C2D8F1F1E24A0B9F111112 /* SettingsDescriptionRow.swift in Sources */,
 				A7C2D8F1F1E24A0B9F111113 /* SettingsTab.swift in Sources */,
@@ -462,6 +501,7 @@
 				2EBA8794643520FE5760B68E /* UploadDropZone.swift in Sources */,
 				A0B3435321B1DC32F6F68EA3 /* WaveformTimelineView.swift in Sources */,
 				180DB9792F6D2389006F8CAC /* LocalPipelineAssembler.swift in Sources */,
+				A20000072F80000100AAA001 /* LocalPipelineServiceSupport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

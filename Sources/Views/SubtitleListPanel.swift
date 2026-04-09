@@ -129,11 +129,11 @@ struct SubtitleListPanel: View {
                         proxy.scrollTo(editingSubtitleID, anchor: .center)
                     }
                 }
-                .onChange(of: viewModel.currentTime) {
+                .onChange(of: viewModel.highlightedSubtitleID) {
                     if !viewModel.isLyricsEditMode,
-                       let active = viewModel.subtitles.first(where: { viewModel.currentTime >= $0.startTime && viewModel.currentTime <= $0.endTime }) {
+                       let activeID = viewModel.highlightedSubtitleID {
                         withAnimation(.easeInOut(duration: 0.2)) {
-                            proxy.scrollTo(active.id, anchor: .center)
+                            proxy.scrollTo(activeID, anchor: .center)
                         }
                     }
                 }

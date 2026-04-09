@@ -46,11 +46,18 @@
   - 字幕や設定の型です。
 - `Sources/ViewModels`
   - 画面の状態をまとめる司令塔です。
+  - `AppViewModel.swift` に全部を詰め込まず、役割ごとの extension ファイルへ分けています。
+  - いまは `字幕編集`、`歌詞参照`、`Resolve 連携` を別ファイルで持ちます。
 - `Sources/Views`
   - 実際に見える UI です。
   - `Settings` は初心者向けに、「まず触る項目」と「詳細設定」を分けています。
 - `Sources/Services`
   - 音声処理、AI 呼び出し、字幕組み立ての仕事役です。
+  - `LocalPipelineService.swift` は本体の流れを持ちます。
+  - 定数や補助型は `LocalPipelineServiceSupport.swift` へ分けています。
+  - `whisper` 系の引数作成や JSON 解析は `LocalPipelineService+Transcription.swift` に分けています。
+  - `aeneas` 実行や aligned 結果の検証は `LocalPipelineService+Alignment.swift` に分けています。
+  - `TXT / SRT` 参照の timing 計算や、参照字幕の最終仕上げは `LocalPipelineService+ReferenceProcessing.swift` に分けています。
 - `Sources/Persistence`
   - 設定保存です。
 - `Tools/aeneas`
@@ -154,3 +161,4 @@
 - タイムライン表示を直す前に、まず `SubtitleItem.startTime / endTime` が正しいかを見る。
 - 手動調整しやすい形で `SubtitleItem[]` を作る。
 - `AUTO-ALIGN` は本文を作り直さず、時間候補と幅候補だけ比べて採用する方が壊れにくい。
+- 大きいファイルは、まず「画面状態」「字幕編集」「外部連携」「補助計算」の単位で分けると安全です。

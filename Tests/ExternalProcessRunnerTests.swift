@@ -103,4 +103,37 @@ struct ExternalProcessRunnerTests {
         #expect(String(data: result.stdout, encoding: .utf8) == "ok")
         #expect(result.exitCode == 0)
     }
+
+    @Test
+    func forceKillsProcessWhenTerminateIsIgnored() async throws {
+        let runner = ExternalProcessRunner()
+        let request = ExternalProcessRequest(
+            executablePath: "/bin/sh",
+            arguments: [
+                "-c",
+                "trap '' TERM; printf hang; while true; do sleep 1; done"
+            ],
+            workingDirectory: nil,
+            environment: [:],
+            timeout: 0.2
+        )
+
+        let clock = ContinuousClock()
+        let elapsed = try await clock.measure {
+            do {
+                _ = try await runner.run(request)
+                Issue.record("timeout error was expected")
+            } catch let error as ExternalProcessRunnerError {
+                switch error {
+                case let .timedOut(_, timeout, stdout, _):
+                    #expect(timeout == 0.2)
+                    #expect(String(data: stdout, encoding: .utf8) == "hang")
+                default:
+                    Issue.record("unexpected error: \(error)")
+                }
+            }
+        }
+
+        #expect(elapsed < .seconds(3))
+    }
 }
