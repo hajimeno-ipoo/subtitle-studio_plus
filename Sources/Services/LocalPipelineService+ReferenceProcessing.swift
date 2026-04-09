@@ -1720,7 +1720,7 @@ extension LocalPipelineService {
         return trimmed
     }
 
-    func firstActiveWindow(in samples: [Float], windowSize: Int) -> Int? {
+    func firstActiveWindow<S: RandomAccessCollection>(in samples: S, windowSize: Int) -> Int? where S.Element == Float, S.Index == Int {
         guard samples.count >= windowSize else { return samples.firstIndex { abs($0) >= 0.015 } }
         for index in 0...(samples.count - windowSize) {
             let window = samples[index..<(index + windowSize)]
@@ -1733,7 +1733,7 @@ extension LocalPipelineService {
         return nil
     }
 
-    func lastActiveWindow(in samples: [Float], windowSize: Int) -> Int? {
+    func lastActiveWindow<S: RandomAccessCollection>(in samples: S, windowSize: Int) -> Int? where S.Element == Float, S.Index == Int {
         guard samples.count >= windowSize else {
             return samples.lastIndex { abs($0) >= 0.015 }
         }

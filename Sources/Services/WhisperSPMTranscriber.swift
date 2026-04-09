@@ -8,7 +8,7 @@ protocol LocalWhisperTranscriberBuilding: Sendable {
 protocol LocalWhisperTranscribing: Sendable {
     func transcribe(
         plan: LocalPipelineChunkPlan,
-        samples: [Float],
+        samples: ArraySlice<Float>,
         settings: LocalWhisperDecodingSettings
     ) throws -> LocalPipelineBaseChunkOutput
 
@@ -91,7 +91,7 @@ final class WhisperSPMTranscriber: LocalWhisperTranscribing, @unchecked Sendable
 
     func transcribe(
         plan: LocalPipelineChunkPlan,
-        samples: [Float],
+        samples: ArraySlice<Float>,
         settings: LocalWhisperDecodingSettings
     ) throws -> LocalPipelineBaseChunkOutput {
         guard !samples.isEmpty else {
@@ -147,12 +147,24 @@ final class WhisperSPMTranscriber: LocalWhisperTranscribing, @unchecked Sendable
             return try withOptionalCString(prompt) { promptPointer in
                 params.initial_prompt = promptPointer
 
-                return try samples.withUnsafeBufferPointer { buffer in
+                let whisperResult: Int32
+                if let contiguousResult = try samples.withContiguousStorageIfAvailable({ buffer throws -> Int32 in
                     guard let baseAddress = buffer.baseAddress else {
                         throw LocalPipelineError.baseTranscriptionFailed("whisper.cpp に渡す音声データが空でした。")
                     }
                     return whisper_full(context, params, baseAddress, Int32(buffer.count))
+                }) {
+                    whisperResult = contiguousResult
+                } else {
+                    let contiguousSamples = Array(samples)
+                    whisperResult = try contiguousSamples.withUnsafeBufferPointer { buffer in
+                        guard let baseAddress = buffer.baseAddress else {
+                            throw LocalPipelineError.baseTranscriptionFailed("whisper.cpp に渡す音声データが空でした。")
+                        }
+                        return whisper_full(context, params, baseAddress, Int32(buffer.count))
+                    }
                 }
+                return whisperResult
             }
         }
 

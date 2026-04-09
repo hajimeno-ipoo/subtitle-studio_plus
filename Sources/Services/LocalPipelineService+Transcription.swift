@@ -463,14 +463,18 @@ extension LocalPipelineService {
         Swift.max(lower, Swift.min(upper, value))
     }
 
-    func extractSamples(from samples: [Float], sampleRate: Double, start: TimeInterval, end: TimeInterval) -> [Float] {
+    func extractSampleSlice(from samples: [Float], sampleRate: Double, start: TimeInterval, end: TimeInterval) -> ArraySlice<Float> {
         let lower = max(0, Int((start * sampleRate).rounded(.down)))
         let upper = min(samples.count, Int((end * sampleRate).rounded(.up)))
         guard upper > lower else { return [] }
-        return Array(samples[lower..<upper])
+        return samples[lower..<upper]
     }
 
-    func writePCM16WAV(samples: [Float], sampleRate: Double, to url: URL) throws {
+    func extractSamples(from samples: [Float], sampleRate: Double, start: TimeInterval, end: TimeInterval) -> [Float] {
+        Array(extractSampleSlice(from: samples, sampleRate: sampleRate, start: start, end: end))
+    }
+
+    func writePCM16WAV<S: Collection>(samples: S, sampleRate: Double, to url: URL) throws where S.Element == Float {
         let channelCount = 1
         let bitsPerSample = 16
         let bytesPerSample = bitsPerSample / 8

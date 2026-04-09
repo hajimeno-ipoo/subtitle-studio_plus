@@ -274,7 +274,7 @@ private final class MockWhisperTranscriber: @unchecked Sendable, LocalWhisperTra
 
     func transcribe(
         plan: LocalPipelineChunkPlan,
-        samples: [Float],
+        samples: ArraySlice<Float>,
         settings: LocalWhisperDecodingSettings
     ) throws -> LocalPipelineBaseChunkOutput {
         lock.lock()

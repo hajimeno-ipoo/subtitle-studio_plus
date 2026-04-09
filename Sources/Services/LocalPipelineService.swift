@@ -375,7 +375,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
                 displayPercent: displayStartPercent + (Double(index) / Double(max(plans.count, 1))) * displayPercentSpan
             )
 
-            let chunkSamples = extractSamples(
+            let chunkSamples = extractSampleSlice(
                 from: normalizedSamples,
                 sampleRate: sampleRate,
                 start: plan.start,
@@ -481,7 +481,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
     private func retryBaseTranscriptionIfNeeded(
         currentOutput: LocalPipelineBaseChunkOutput,
         plan: LocalPipelineChunkPlan,
-        chunkSamples: [Float],
+        chunkSamples: ArraySlice<Float>,
         normalizedSamples: [Float],
         sampleRate: Double,
         layout: RunDirectoryLayout,
@@ -574,7 +574,7 @@ final class LocalPipelineService: LocalPipelineAnalyzing, @unchecked Sendable {
 
         for rescuePlan in rescuePlans {
             let rescueChunkURL = layout.chunksDirectoryURL.appendingPathComponent("\(rescuePlan.chunkId).wav")
-            let rescueChunkSamples = extractSamples(
+            let rescueChunkSamples = extractSampleSlice(
                 from: normalizedSamples,
                 sampleRate: sampleRate,
                 start: rescuePlan.start,
