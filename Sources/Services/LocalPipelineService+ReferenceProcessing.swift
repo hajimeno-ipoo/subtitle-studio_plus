@@ -151,8 +151,13 @@ extension LocalPipelineService {
             retimedBlock.startTime = timing.start
             retimedBlock.endTime = timing.end
             retimedBlock.sourceSegmentIDs = matches[index].region?.sourceSegmentIDs ?? block.sourceSegmentIDs
-            retimedBlock.alignmentSearchStart = max(0, timing.start - LocalPipelineServiceConfig.txtAlignmentPadding)
-            retimedBlock.alignmentSearchEnd = min(totalDuration, timing.end + LocalPipelineServiceConfig.txtAlignmentPadding)
+            let searchWindow = nonReferenceAlignmentSearchWindow(
+                timing: timing,
+                speechRegions: speechRegions,
+                totalDuration: totalDuration
+            )
+            retimedBlock.alignmentSearchStart = searchWindow.start
+            retimedBlock.alignmentSearchEnd = searchWindow.end
             return retimedBlock
         }
 
@@ -177,6 +182,56 @@ extension LocalPipelineService {
             sampleRate: sampleRate
         )
         return speechRegions
+    }
+
+    func nonReferenceAlignmentSearchWindow(
+        timing: (start: TimeInterval, end: TimeInterval),
+        speechRegions: [SpeechRegion],
+        totalDuration: TimeInterval
+    ) -> (start: TimeInterval, end: TimeInterval) {
+        guard !speechRegions.isEmpty else {
+            return (
+                max(0, timing.start - LocalPipelineServiceConfig.txtAlignmentPadding),
+                min(totalDuration, timing.end + LocalPipelineServiceConfig.txtAlignmentPadding)
+            )
+        }
+
+        let overlappingIndexes = speechRegions.indices.filter { index in
+            let region = speechRegions[index]
+            return region.end >= timing.start - LocalPipelineServiceConfig.nonReferenceAlignmentPadding
+                && region.start <= timing.end + LocalPipelineServiceConfig.nonReferenceAlignmentPadding
+        }
+
+        guard let firstIndex = overlappingIndexes.first,
+              let lastIndex = overlappingIndexes.last else {
+            return (
+                max(0, timing.start - LocalPipelineServiceConfig.txtAlignmentPadding),
+                min(totalDuration, timing.end + LocalPipelineServiceConfig.txtAlignmentPadding)
+            )
+        }
+
+        var startIndex = firstIndex
+        var endIndex = lastIndex
+
+        if startIndex > 0 {
+            let previousRegion = speechRegions[startIndex - 1]
+            let currentRegion = speechRegions[startIndex]
+            if currentRegion.start - previousRegion.end <= LocalPipelineServiceConfig.nonReferenceAlignmentNeighborGap {
+                startIndex -= 1
+            }
+        }
+
+        if endIndex + 1 < speechRegions.count {
+            let currentRegion = speechRegions[endIndex]
+            let nextRegion = speechRegions[endIndex + 1]
+            if nextRegion.start - currentRegion.end <= LocalPipelineServiceConfig.nonReferenceAlignmentNeighborGap {
+                endIndex += 1
+            }
+        }
+
+        let start = max(0, speechRegions[startIndex].start - LocalPipelineServiceConfig.nonReferenceAlignmentPadding)
+        let end = min(totalDuration, speechRegions[endIndex].end + LocalPipelineServiceConfig.nonReferenceAlignmentPadding)
+        return (start, max(start + LocalPipelineServiceConfig.minimumStandaloneSubtitleDuration, end))
     }
 
     func buildDraftSegmentsFromReferenceLyrics(
@@ -299,7 +354,6 @@ extension LocalPipelineService {
         var speechRegions =
             detectSpeechRegionsWithFFmpeg(audioURL: normalizedAudioURL, normalizedSamples: normalizedSamples, sampleRate: sampleRate)
             ?? detectSpeechRegions(samples: normalizedSamples, sampleRate: sampleRate)
-        // 内部に長い無音がある場合は分割して扱う
         let before = speechRegions
         speechRegions = splitSpeechRegionsOnInternalSilence(speechRegions, samples: normalizedSamples, sampleRate: sampleRate)
         try? logger.log(
@@ -1359,13 +1413,22 @@ extension LocalPipelineService {
         guard let first = current.first, let last = current.last else { return false }
         let durationWithNext = next.end - first.start
         let gap = next.start - last.end
+        let currentTextLength = normalizedText(current.map(\.text).joined()).count
+        let nextTextLength = normalizedText(next.text).count
         if current.count >= LocalPipelineServiceConfig.draftMaxLines {
             return true
         }
         if durationWithNext > LocalPipelineServiceConfig.draftMaxDuration {
             return true
         }
+        if currentTextLength + nextTextLength > LocalPipelineServiceConfig.nonReferenceDraftMaxCharacters {
+            return true
+        }
         if gap > 1.2 {
+            return true
+        }
+        if currentTextLength >= LocalPipelineServiceConfig.nonReferenceDraftPreferredCharacters
+            && gap >= LocalPipelineServiceConfig.nonReferenceDraftPreferredGap {
             return true
         }
         if crossesSpeechRegionBoundary(last: last, next: next, speechRegions: speechRegions) {
@@ -1440,7 +1503,13 @@ extension LocalPipelineService {
             return finalizeReferenceTimeline(filtered)
         }
 
-        let filtered = boundaryAdjusted.filter {
+        let mergedShort = mergeShortNonReferenceSubtitles(boundaryAdjusted)
+        let optimized = optimizeNonReferenceSubtitles(
+            mergedShort,
+            samples: normalizedSamples,
+            sampleRate: sampleRate
+        )
+        let filtered = optimized.filter {
             !isObviouslyGarbageTranscript($0.text, confidence: 0.75)
                 && !isSilentSubtitle($0, samples: normalizedSamples, sampleRate: sampleRate)
         }
@@ -1700,6 +1769,127 @@ extension LocalPipelineService {
                     startTime: merged[index].startTime,
                     endTime: merged[index + 1].endTime,
                     text: joinSubtitleTexts(merged[index].text, merged[index + 1].text)
+                )
+                merged.remove(at: index)
+            }
+        }
+
+        return merged
+    }
+
+    func optimizeNonReferenceSubtitles(
+        _ subtitles: [SubtitleItem],
+        samples: [Float],
+        sampleRate: Double
+    ) -> [SubtitleItem] {
+        guard subtitles.count >= 2 else { return subtitles }
+
+        var optimized = subtitles.map { subtitle in
+            trimSubtitleToSpeech(
+                subtitle,
+                samples: samples,
+                sampleRate: sampleRate,
+                searchPadding: LocalPipelineServiceConfig.nonReferenceTrimSearchPadding,
+                maxExpansion: LocalPipelineServiceConfig.nonReferenceTrimMaxExpansion,
+                windowDuration: 0.008
+            )
+        }
+
+        for index in 0..<(optimized.count - 1) {
+            let current = optimized[index]
+            let next = optimized[index + 1]
+            let overlap = max(0, current.endTime - next.startTime)
+            let gap = max(0, next.startTime - current.endTime)
+            guard overlap > 0 || gap <= LocalPipelineServiceConfig.nonReferenceBoundaryGapThreshold else { continue }
+
+            let pairStart = min(current.startTime, next.startTime)
+            let pairEnd = max(current.endTime, next.endTime)
+            let lower = pairStart + LocalPipelineServiceConfig.minimumStandaloneSubtitleDuration
+            let upper = pairEnd - LocalPipelineServiceConfig.minimumStandaloneSubtitleDuration
+            guard upper > lower else { continue }
+
+            let target = (current.endTime + next.startTime) / 2
+            let boundary = findQuietBoundaryNear(
+                target: target,
+                minTime: lower,
+                maxTime: upper,
+                samples: samples,
+                sampleRate: sampleRate,
+                searchRadius: LocalPipelineServiceConfig.nonReferenceBoundarySearchRadius,
+                distanceWeight: LocalPipelineServiceConfig.nonReferenceBoundaryDistanceWeight,
+                windowDuration: 0.008,
+                stepDuration: 0.002
+            ) ?? clamp(target, min: lower, max: upper)
+
+            optimized[index].endTime = max(optimized[index].startTime + LocalPipelineServiceConfig.minimumStandaloneSubtitleDuration, boundary)
+            optimized[index + 1].startTime = max(boundary, min(next.startTime, optimized[index + 1].endTime - LocalPipelineServiceConfig.minimumStandaloneSubtitleDuration))
+        }
+
+        return optimized
+    }
+
+    func mergeShortNonReferenceSubtitles(_ subtitles: [SubtitleItem]) -> [SubtitleItem] {
+        guard subtitles.count >= 2 else { return subtitles }
+
+        var merged = subtitles.sorted { $0.startTime < $1.startTime }
+        var index = 0
+
+        while index < merged.count {
+            let subtitle = merged[index]
+            let duration = subtitle.endTime - subtitle.startTime
+            let textLength = normalizedText(subtitle.text).count
+            let shouldMerge =
+                duration <= LocalPipelineServiceConfig.nonReferenceTinySubtitleDuration
+                || textLength <= LocalPipelineServiceConfig.nonReferenceTinySubtitleMaxCharacters
+
+            guard shouldMerge else {
+                index += 1
+                continue
+            }
+
+            if index == 0 {
+                let gap = max(0, merged[1].startTime - subtitle.endTime)
+                guard gap <= LocalPipelineServiceConfig.nonReferenceTinySubtitleMergeGap else {
+                    index += 1
+                    continue
+                }
+                merged[1] = SubtitleItem(
+                    id: merged[1].id,
+                    startTime: subtitle.startTime,
+                    endTime: merged[1].endTime,
+                    text: joinSubtitleTexts(subtitle.text, merged[1].text)
+                )
+                merged.remove(at: index)
+                continue
+            }
+
+            let previousGap = max(0, subtitle.startTime - merged[index - 1].endTime)
+            let nextGap = index + 1 < merged.count
+                ? max(0, merged[index + 1].startTime - subtitle.endTime)
+                : .greatestFiniteMagnitude
+
+            let prefersPrevious = previousGap <= nextGap || index + 1 >= merged.count
+            let selectedGap = prefersPrevious ? previousGap : nextGap
+            guard selectedGap <= LocalPipelineServiceConfig.nonReferenceTinySubtitleMergeGap else {
+                index += 1
+                continue
+            }
+
+            if prefersPrevious {
+                merged[index - 1] = SubtitleItem(
+                    id: merged[index - 1].id,
+                    startTime: merged[index - 1].startTime,
+                    endTime: max(merged[index - 1].endTime, subtitle.endTime),
+                    text: joinSubtitleTexts(merged[index - 1].text, subtitle.text)
+                )
+                merged.remove(at: index)
+                index = max(0, index - 1)
+            } else {
+                merged[index + 1] = SubtitleItem(
+                    id: merged[index + 1].id,
+                    startTime: subtitle.startTime,
+                    endTime: merged[index + 1].endTime,
+                    text: joinSubtitleTexts(subtitle.text, merged[index + 1].text)
                 )
                 merged.remove(at: index)
             }

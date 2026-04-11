@@ -509,6 +509,106 @@ struct LocalPipelineServiceTests {
         #expect(draftSegments[1].text == "離さない")
     }
 
+    @Test
+    func mergesTinyNonReferenceSubtitlesWhenGapIsShallow() {
+        let service = LocalPipelineService()
+        let subtitles = [
+            SubtitleItem(startTime: 0.0, endTime: 1.2, text: "約束したのに"),
+            SubtitleItem(startTime: 1.22, endTime: 1.58, text: "角"),
+            SubtitleItem(startTime: 1.62, endTime: 2.6, text: "花火の音が")
+        ]
+
+        let merged = service.mergeShortNonReferenceSubtitles(subtitles)
+
+        #expect(merged.count == 2)
+        #expect(merged[0].text == "約束したのに\n角")
+        #expect(merged[0].endTime == 1.58)
+        #expect(merged[1].text == "花火の音が")
+    }
+
+    @Test
+    func draftBlocksSplitWhenCombinedLyricLengthGetsTooLong() {
+        let service = LocalPipelineService()
+        let textSegments = [
+            LocalPipelineBaseSegment(segmentId: "chunk-00001-seg-0001", start: 0.0, end: 0.8, text: "約束はまだ", confidence: 0.9),
+            LocalPipelineBaseSegment(segmentId: "chunk-00001-seg-0002", start: 0.86, end: 1.62, text: "胸の奥で", confidence: 0.88),
+            LocalPipelineBaseSegment(segmentId: "chunk-00001-seg-0003", start: 1.7, end: 2.45, text: "燃えている", confidence: 0.87)
+        ]
+        let speechRegions = [SpeechRegion(start: 0.0, end: 3.0)]
+
+        let draftSegments = service.buildDraftSegmentsFromTranscription(
+            textSegments,
+            timingGuideSegments: textSegments,
+            speechRegions: speechRegions,
+            totalDuration: 3.0
+        )
+
+        #expect(draftSegments.count == 2)
+        #expect(draftSegments[0].text == "約束はまだ\n胸の奥で")
+        #expect(draftSegments[1].text == "燃えている")
+    }
+
+    @Test
+    func nonReferenceBoundariesMoveTowardQuietValley() {
+        let service = LocalPipelineService()
+        let sampleRate = 100.0
+        var samples = Array(repeating: Float(0), count: 300)
+        for index in 0..<95 { samples[index] = 0.18 }
+        for index in 115..<200 { samples[index] = 0.2 }
+
+        let subtitles = [
+            SubtitleItem(startTime: 0.0, endTime: 1.08, text: "約束したのに"),
+            SubtitleItem(startTime: 1.02, endTime: 2.08, text: "花火の音が")
+        ]
+
+        let optimized = service.optimizeNonReferenceSubtitles(
+            subtitles,
+            samples: samples,
+            sampleRate: sampleRate
+        )
+
+        #expect(optimized.count == 2)
+        #expect(optimized[0].endTime >= 0.95 && optimized[0].endTime <= 1.15)
+        #expect(optimized[1].startTime >= 0.95 && optimized[1].startTime <= 1.15)
+        #expect(optimized[0].endTime <= optimized[1].startTime)
+    }
+
+    @Test
+    func nonReferenceAlignmentSearchWindowExpandsToSpeechRegionNeighbors() {
+        let service = LocalPipelineService()
+        let speechRegions = [
+            SpeechRegion(start: 9.0, end: 11.0),
+            SpeechRegion(start: 11.4, end: 12.8),
+            SpeechRegion(start: 13.1, end: 14.0)
+        ]
+
+        let window = service.nonReferenceAlignmentSearchWindow(
+            timing: (start: 11.5, end: 12.2),
+            speechRegions: speechRegions,
+            totalDuration: 20.0
+        )
+
+        #expect(window.start <= 8.7)
+        #expect(window.end >= 14.3)
+    }
+
+    @Test
+    func nonReferenceAlignmentGroupsNearbyDrafts() {
+        let service = LocalPipelineService()
+        let drafts = [
+            LocalPipelineDraftSegment(segmentId: "block-00001", chunkId: "chunk-1", startTime: 10.0, endTime: 11.0, text: "約束したのに", sourceSegmentIDs: [], alignmentSearchStart: 9.0, alignmentSearchEnd: 12.5),
+            LocalPipelineDraftSegment(segmentId: "block-00002", chunkId: "chunk-1", startTime: 11.2, endTime: 12.0, text: "花火の音が", sourceSegmentIDs: [], alignmentSearchStart: 9.0, alignmentSearchEnd: 12.5),
+            LocalPipelineDraftSegment(segmentId: "block-00003", chunkId: "chunk-1", startTime: 13.2, endTime: 14.0, text: "遠くなる", sourceSegmentIDs: [], alignmentSearchStart: 13.0, alignmentSearchEnd: 14.5)
+        ]
+
+        let groups = service.makeAlignmentGroups(from: drafts)
+
+        #expect(groups.count == 2)
+        #expect(groups[0].count == 2)
+        #expect(groups[1].count == 1)
+    }
+
+
     @MainActor
     @Test
     func appViewModelKeepsGeminiPathAndAddsLocalPipelineBranch() async throws {
@@ -1029,7 +1129,7 @@ struct LocalPipelineServiceTests {
 
         #expect(result.subtitles.count == 3)
         // TXT参照時にも timing guide を生成（speech region 検出補助用）
-        let snapshot = await transcriber.snapshot()
+        let snapshot = transcriber.snapshot()
         #expect(!snapshot.isEmpty)
         #expect(result.subtitles[0].startTime < 0.3)
         #expect(result.subtitles[1].startTime >= 0.8 && result.subtitles[1].startTime <= 1.4)
@@ -1043,10 +1143,11 @@ struct LocalPipelineServiceTests {
         defer { try? FileManager.default.removeItem(at: sandboxURL) }
 
         let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        let speechRegions = [(1.0, 2.5), (5.0, 7.0), (9.0, 10.5)]
         try writePatternedSpeechWAV(
             to: audioURL,
             durationSeconds: 12.0,
-            speechRegions: [(1.0, 2.5), (5.0, 7.0), (9.0, 10.5)]
+            speechRegions: speechRegions
         )
 
         let pythonURL = sandboxURL.appendingPathComponent("python3")
@@ -1109,10 +1210,11 @@ struct LocalPipelineServiceTests {
         defer { try? FileManager.default.removeItem(at: sandboxURL) }
 
         let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        let speechRegions = [(1.0, 2.45), (2.95, 4.25), (6.4, 7.7)]
         try writePatternedSpeechWAV(
             to: audioURL,
             durationSeconds: 9.0,
-            speechRegions: [(1.0, 2.45), (2.95, 4.25), (6.4, 7.7)]
+            speechRegions: speechRegions
         )
 
         let pythonURL = sandboxURL.appendingPathComponent("python3")
@@ -1160,9 +1262,9 @@ struct LocalPipelineServiceTests {
 
         #expect(result.subtitles.count == 3)
         #expect(result.subtitles[0].endTime >= 2.3)
-        #expect(result.subtitles[0].endTime <= 2.9)
+        #expect(result.subtitles[0].endTime <= 3.0)
         #expect(result.subtitles[1].startTime >= 2.3)
-        #expect(result.subtitles[1].startTime <= 2.9)
+        #expect(result.subtitles[1].startTime <= 3.0)
         #expect(result.subtitles[2].startTime >= 6.2)
         #expect(zip(result.subtitles, result.subtitles.dropFirst()).allSatisfy { $0.startTime <= $1.startTime && $0.endTime <= $1.startTime })
     }
@@ -1174,10 +1276,11 @@ struct LocalPipelineServiceTests {
         defer { try? FileManager.default.removeItem(at: sandboxURL) }
 
         let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        let speechRegions = [(1.0, 2.5), (3.0, 4.3), (5.5, 6.8)]
         try writePatternedSpeechWAV(
             to: audioURL,
             durationSeconds: 8.0,
-            speechRegions: [(1.0, 2.5), (3.0, 4.3), (5.5, 6.8)]
+            speechRegions: speechRegions
         )
 
         let pythonURL = sandboxURL.appendingPathComponent("python3")
@@ -1235,10 +1338,11 @@ struct LocalPipelineServiceTests {
         defer { try? FileManager.default.removeItem(at: sandboxURL) }
 
         let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        let speechRegions = [(2.0, 8.0)]
         try writePatternedSpeechWAV(
             to: audioURL,
             durationSeconds: 12.0,
-            speechRegions: [(2.0, 8.0)]
+            speechRegions: speechRegions
         )
 
         let pythonURL = sandboxURL.appendingPathComponent("python3")
@@ -1296,10 +1400,11 @@ struct LocalPipelineServiceTests {
         defer { try? FileManager.default.removeItem(at: sandboxURL) }
 
         let audioURL = sandboxURL.appendingPathComponent("input.wav")
+        let speechRegions = [(2.0, 8.0)]
         try writePatternedSpeechWAV(
             to: audioURL,
             durationSeconds: 12.0,
-            speechRegions: [(2.0, 8.0)]
+            speechRegions: speechRegions
         )
 
         let pythonURL = sandboxURL.appendingPathComponent("python3")

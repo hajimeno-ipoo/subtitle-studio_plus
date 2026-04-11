@@ -388,10 +388,16 @@ extension LocalPipelineService {
 
         func shouldBreak(current: [LocalPipelineDraftSegment], next: LocalPipelineDraftSegment) -> Bool {
             guard let last = current.last else { return false }
-            guard next.referenceSourceKind == .plainText, last.referenceSourceKind == .plainText else { return true }
-            if current.count >= LocalPipelineServiceConfig.txtGroupedAlignmentMaxLines { return true }
-            if next.startTime - last.endTime > LocalPipelineServiceConfig.txtGroupedAlignmentMaxGap { return true }
-            if next.endTime - current[0].startTime > LocalPipelineServiceConfig.txtGroupedAlignmentMaxSpan { return true }
+            if next.referenceSourceKind == .plainText, last.referenceSourceKind == .plainText {
+                if current.count >= LocalPipelineServiceConfig.txtGroupedAlignmentMaxLines { return true }
+                if next.startTime - last.endTime > LocalPipelineServiceConfig.txtGroupedAlignmentMaxGap { return true }
+                if next.endTime - current[0].startTime > LocalPipelineServiceConfig.txtGroupedAlignmentMaxSpan { return true }
+                return false
+            }
+            guard next.referenceSourceKind == nil, last.referenceSourceKind == nil else { return true }
+            if current.count >= LocalPipelineServiceConfig.nonReferenceGroupedAlignmentMaxLines { return true }
+            if next.startTime - last.endTime > LocalPipelineServiceConfig.nonReferenceGroupedAlignmentMaxGap { return true }
+            if next.endTime - current[0].startTime > LocalPipelineServiceConfig.nonReferenceGroupedAlignmentMaxSpan { return true }
             return false
         }
 

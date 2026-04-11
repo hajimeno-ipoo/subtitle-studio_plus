@@ -2,6 +2,22 @@ import Foundation
 
 enum LocalPipelineServiceConfig {
     static let minimumStandaloneSubtitleDuration: TimeInterval = 0.35
+    static let nonReferenceTinySubtitleDuration: TimeInterval = 0.85
+    static let nonReferenceTinySubtitleMaxCharacters = 2
+    static let nonReferenceTinySubtitleMergeGap: TimeInterval = 0.22
+    static let nonReferenceDraftPreferredGap: TimeInterval = 0.28
+    static let nonReferenceDraftPreferredCharacters = 10
+    static let nonReferenceDraftMaxCharacters = 16
+    static let nonReferenceBoundaryGapThreshold: TimeInterval = 0.55
+    static let nonReferenceBoundarySearchRadius: TimeInterval = 0.22
+    static let nonReferenceBoundaryDistanceWeight: Float = 0.18
+    static let nonReferenceTrimSearchPadding: TimeInterval = 0.12
+    static let nonReferenceTrimMaxExpansion: TimeInterval = 0.18
+    static let nonReferenceAlignmentPadding: TimeInterval = 0.35
+    static let nonReferenceAlignmentNeighborGap: TimeInterval = 0.7
+    static let nonReferenceGroupedAlignmentMaxLines = 2
+    static let nonReferenceGroupedAlignmentMaxGap: TimeInterval = 0.4
+    static let nonReferenceGroupedAlignmentMaxSpan: TimeInterval = 8.0
     static let draftTargetDuration: TimeInterval = 4.8
     static let draftMaxDuration: TimeInterval = 7.5
     static let draftMaxLines = 2
