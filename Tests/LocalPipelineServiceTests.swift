@@ -730,6 +730,10 @@ struct LocalPipelineServiceTests {
         #expect(executableCandidates.contains(sandboxURL.appendingPathComponent("AppSupport/aeneas-venv/bin/python3")))
         #expect(executableCandidates.contains(URL(fileURLWithPath: "/custom/bin/python3")))
         #expect(executableCandidates.contains(URL(fileURLWithPath: "/opt/homebrew/bin/python3")))
+
+        let ffmpegCandidates = resolver.candidateExecutableURLs(for: "ffmpeg")
+        #expect(ffmpegCandidates.contains(URL(fileURLWithPath: "/custom/bin/ffmpeg")))
+        #expect(ffmpegCandidates.contains(URL(fileURLWithPath: "/opt/homebrew/bin/ffmpeg")))
     }
 
     @Test

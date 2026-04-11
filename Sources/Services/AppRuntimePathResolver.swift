@@ -40,10 +40,11 @@ struct AppRuntimePathResolver: @unchecked Sendable {
 
         var candidates = candidateURLs(forResourcePath: expanded)
         let executableName = URL(fileURLWithPath: expanded).lastPathComponent
+        candidates.append(contentsOf: pathExecutableCandidates(named: executableName))
+        candidates.append(contentsOf: standardExecutableCandidates(named: executableName))
 
         if executableName == "python3" || executableName == "python" {
             candidates.append(contentsOf: managedPythonExecutableCandidates())
-            candidates.append(contentsOf: pathExecutableCandidates(named: executableName))
             candidates.append(URL(fileURLWithPath: "/opt/homebrew/bin/python3"))
             candidates.append(URL(fileURLWithPath: "/usr/local/bin/python3"))
         }
@@ -63,6 +64,14 @@ struct AppRuntimePathResolver: @unchecked Sendable {
         return deduplicated(managedModelDirectories().map { directoryURL in
             directoryURL.appendingPathComponent(fileName)
         })
+    }
+
+    func managedModelsDirectoryURL() -> URL {
+        managedModelDirectories().first ?? applicationSupportBaseURL().appendingPathComponent("Models", isDirectory: true)
+    }
+
+    func managedAeneasEnvironmentURL() -> URL {
+        applicationSupportBaseURL().appendingPathComponent("aeneas-venv", isDirectory: true)
     }
 
     func resolveOutputDirectory(_ rawPath: String) -> URL {
@@ -162,6 +171,26 @@ struct AppRuntimePathResolver: @unchecked Sendable {
 
         return pathValue.split(separator: ":").map { component in
             URL(fileURLWithPath: String(component), isDirectory: true)
+                .appendingPathComponent(executableName)
+        }
+    }
+
+    private func standardExecutableCandidates(named executableName: String) -> [URL] {
+        let standardDirectories = [
+            "/opt/homebrew/bin",
+            "/opt/homebrew/sbin",
+            "/usr/local/bin",
+            "/usr/local/sbin",
+            "/opt/local/bin",
+            "/opt/local/sbin",
+            "/usr/bin",
+            "/bin",
+            "/usr/sbin",
+            "/sbin"
+        ]
+
+        return standardDirectories.map { directory in
+            URL(fileURLWithPath: directory, isDirectory: true)
                 .appendingPathComponent(executableName)
         }
     }

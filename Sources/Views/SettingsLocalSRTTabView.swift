@@ -1,13 +1,16 @@
+import AppKit
 import SwiftUI
 
 struct SettingsLocalSRTTabView: View {
     @Environment(AppViewModel.self) private var viewModel
     @State private var isAdvancedExpanded = false
+    @State private var activeGuide: LocalSetupGuide?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 headerSection
+                setupStatusCard
                 basicSettingsCard
                 advancedSettingsCard
             }
@@ -15,7 +18,112 @@ struct SettingsLocalSRTTabView: View {
         }
         .task {
             await viewModel.settings.loadIfNeeded()
+            await viewModel.refreshLocalPipelineSetupStatus()
         }
+        .sheet(item: $activeGuide) { guide in
+            setupGuideSheet(for: guide)
+        }
+    }
+
+    private var setupStatusCard: some View {
+        settingsCard {
+            VStack(alignment: .leading, spacing: 18) {
+                sectionHeader(
+                    title: "セットアップ状況",
+                    message: "必須のものと任意のものを分けて表示します。"
+                )
+
+                setupRow(
+                    title: "全体",
+                    description: "ローカル字幕に必要な準備がそろっているかをまとめて表示します。",
+                    state: viewModel.localPipelineSetupStatus.overall,
+                    action: nil
+                )
+
+                sectionHeader(
+                    title: "必須",
+                    message: "ここがそろうとローカル字幕を使えます。"
+                )
+
+                setupRow(
+                    title: "Whisper モデル",
+                    description: "音声から歌詞を読む本体モデルです。認識モードに合わせて取得します。",
+                    state: viewModel.localPipelineSetupStatus.whisperModel.state,
+                    action: viewModel.localPipelineSetupStatus.whisperModel.action
+                )
+
+                setupRow(
+                    title: "Python",
+                    description: "aeneas を動かす土台です。",
+                    state: viewModel.localPipelineSetupStatus.python.state,
+                    action: viewModel.localPipelineSetupStatus.python.action
+                )
+
+                setupRow(
+                    title: "FFmpeg",
+                    description: "TXT 参照の音声区間検出で使います。ローカル字幕では必須です。",
+                    state: viewModel.localPipelineSetupStatus.ffmpeg.state,
+                    action: viewModel.localPipelineSetupStatus.ffmpeg.action
+                )
+
+                setupRow(
+                    title: "aeneas",
+                    description: "歌詞ブロックの時間合わせに使います。",
+                    state: viewModel.localPipelineSetupStatus.aeneas.state,
+                    action: viewModel.localPipelineSetupStatus.aeneas.action
+                )
+
+                setupRow(
+                    title: "同梱ファイル",
+                    description: "補助スクリプトと補正辞書です。通常はアプリ内に入っています。",
+                    state: viewModel.localPipelineSetupStatus.supportFiles.state,
+                    action: viewModel.localPipelineSetupStatus.supportFiles.action
+                )
+
+                sectionHeader(
+                    title: "任意",
+                    message: "なくても動きますが、あると快適になる項目です。"
+                )
+
+                setupRow(
+                    title: "Core ML モデル",
+                    description: "Whisper の高速化に使います。今は手動設定のみです。",
+                    helperText: viewModel.localPipelineSetupStatus.note,
+                    state: viewModel.localPipelineSetupStatus.coreML.state,
+                    action: viewModel.localPipelineSetupStatus.coreML.action
+                )
+
+                sectionHeader(
+                    title: "参考情報",
+                    message: "現在のアプリでは必須にしていないコマンドです。"
+                )
+
+                HStack(spacing: 12) {
+                    dependencyChip(title: "ffprobe", status: viewModel.localPipelineSetupStatus.ffprobe)
+                    dependencyChip(title: "eSpeak", status: viewModel.localPipelineSetupStatus.espeak)
+                }
+
+                HStack(spacing: 12) {
+                    Button {
+                        Task {
+                            await viewModel.refreshLocalPipelineSetupStatus()
+                        }
+                    } label: {
+                        Label("再確認", systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(.bordered)
+
+                    if viewModel.isLocalPipelineSetupBusy {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("準備中...")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .disabled(viewModel.isBusy || viewModel.isLocalPipelineSetupBusy)
     }
 
     private var headerSection: some View {
@@ -257,6 +365,9 @@ struct SettingsLocalSRTTabView: View {
             set: {
                 viewModel.settings.markLocalPipelineBaseModelCustomized()
                 viewModel.settings.localPipelineSettings.baseModel = $0
+                Task {
+                    await viewModel.refreshLocalPipelineSetupStatus()
+                }
             }
         )
     }
@@ -329,5 +440,282 @@ struct SettingsLocalSRTTabView: View {
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(.black, lineWidth: 2))
+    }
+
+    @ViewBuilder
+    private func setupRow(
+        title: String,
+        description: String,
+        helperText: String? = nil,
+        state: LocalPipelineSetupState,
+        action: LocalPipelineSetupAction?
+    ) -> some View {
+        SettingsDescriptionRow(
+            title: title,
+            description: description,
+            badgeText: badgeText(for: state),
+            helperText: helperText
+        ) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(state.message)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(statusColor(for: state))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let action {
+                    Button {
+                        performSetupAction(action)
+                    } label: {
+                        Label(actionTitle(for: action), systemImage: actionSystemImage(for: action))
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+        }
+    }
+
+    private func badgeText(for state: LocalPipelineSetupState) -> String {
+        switch state {
+        case .checking:
+            return "確認中"
+        case .ready:
+            return "OK"
+        case .missing:
+            return "未設定"
+        case .inProgress:
+            return "準備中"
+        case .failed:
+            return "要確認"
+        }
+    }
+
+    private func statusColor(for state: LocalPipelineSetupState) -> Color {
+        switch state {
+        case .checking:
+            return .secondary
+        case .ready:
+            return .brandGreen
+        case .missing:
+            return .brandOrange
+        case .inProgress:
+            return .brandBlue
+        case .failed:
+            return .brandPink
+        }
+    }
+
+    private func actionTitle(for action: LocalPipelineSetupAction) -> String {
+        switch action {
+        case .downloadWhisperModel:
+            return "ダウンロード"
+        case .downloadCoreMLModel:
+            return "ダウンロード"
+        case .installAlignmentTools:
+            return "セットアップ"
+        case .openPythonGuide:
+            return "案内を開く"
+        case .openFFmpegGuide:
+            return "FFmpeg の案内"
+        }
+    }
+
+    private func actionSystemImage(for action: LocalPipelineSetupAction) -> String {
+        switch action {
+        case .downloadWhisperModel:
+            return "arrow.down.circle.fill"
+        case .downloadCoreMLModel:
+            return "arrow.down.circle.fill"
+        case .installAlignmentTools:
+            return "shippingbox.fill"
+        case .openPythonGuide:
+            return "safari.fill"
+        case .openFFmpegGuide:
+            return "book.fill"
+        }
+    }
+
+    private func dependencyChip(title: String, status: LocalPipelineSetupRowStatus) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 12, weight: .black, design: .rounded))
+                .foregroundStyle(.primary)
+            Text(shortStatusText(for: status))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(statusColor(for: status.state))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.backgroundYellow.opacity(0.55))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(.black.opacity(0.15), lineWidth: 1)
+        )
+    }
+
+    private func shortStatusText(for status: LocalPipelineSetupRowStatus) -> String {
+        if case .ready(let message) = status.state, message.contains("必須ではありません") {
+            return "任意"
+        }
+
+        let state = status.state
+        switch state {
+        case .checking:
+            return "確認中"
+        case .ready:
+            return "見つかりました"
+        case .missing:
+            return "不足"
+        case .inProgress:
+            return "準備中"
+        case .failed:
+            return "失敗"
+        }
+    }
+
+    private func performSetupAction(_ action: LocalPipelineSetupAction) {
+        switch action {
+        case .openPythonGuide:
+            activeGuide = .python
+        case .openFFmpegGuide:
+            activeGuide = .ffmpeg
+        case .downloadWhisperModel, .installAlignmentTools, .downloadCoreMLModel:
+            Task {
+                await viewModel.handleLocalPipelineSetupAction(action)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func setupGuideSheet(for guide: LocalSetupGuide) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(guide.title)
+                .font(.system(size: 22, weight: .black, design: .rounded))
+
+            Text(guide.summary)
+                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(Array(guide.steps.enumerated()), id: \.offset) { index, step in
+                    HStack(alignment: .top, spacing: 10) {
+                        Text("\(index + 1).")
+                            .font(.system(size: 13, weight: .black, design: .rounded))
+                            .foregroundStyle(.primary)
+                        Text(step)
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
+            if let command = guide.command {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("参考コマンド")
+                        .font(.system(size: 13, weight: .black, design: .rounded))
+                    Text(command)
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .textSelection(.enabled)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.backgroundYellow.opacity(0.45))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    openGuideURL(guide.url)
+                } label: {
+                    Label(guide.linkLabel, systemImage: "safari")
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button("閉じる") {
+                    activeGuide = nil
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+        .frame(minWidth: 520, idealWidth: 560, minHeight: 360, idealHeight: 420)
+    }
+
+    private func openGuideURL(_ url: URL) {
+        NSWorkspace.shared.open(url)
+    }
+}
+
+private enum LocalSetupGuide: String, Identifiable {
+    case python
+    case ffmpeg
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .python:
+            return "Python 3 の入れ方"
+        case .ffmpeg:
+            return "FFmpeg の入れ方"
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .python:
+            return "aeneas を動かすために Python 3 が必要です。インストール後、この画面で『再確認』を押してください。"
+        case .ffmpeg:
+            return "このアプリでは FFmpeg を必須として扱います。インストール後、この画面で『再確認』を押してください。"
+        }
+    }
+
+    var steps: [String] {
+        switch self {
+        case .python:
+            return [
+                "下のボタンから Python 公式サイトを開きます。",
+                "macOS 向けの Python 3 をインストールします。",
+                "インストールが終わったら、この設定画面で『再確認』を押します。"
+            ]
+        case .ffmpeg:
+            return [
+                "Homebrew をお使いなら、下の参考コマンドで FFmpeg を入れます。",
+                "Homebrew が未導入なら、先に公式ページの手順で Homebrew を入れます。",
+                "インストール後、この設定画面で『再確認』を押します。"
+            ]
+        }
+    }
+
+    var command: String? {
+        switch self {
+        case .python:
+            return nil
+        case .ffmpeg:
+            return "brew install ffmpeg"
+        }
+    }
+
+    var url: URL {
+        switch self {
+        case .python:
+            return URL(string: "https://www.python.org/downloads/macos/")!
+        case .ffmpeg:
+            return URL(string: "https://brew.sh/")!
+        }
+    }
+
+    var linkLabel: String {
+        switch self {
+        case .python:
+            return "Python の配布ページを開く"
+        case .ffmpeg:
+            return "Homebrew の手順を見る"
+        }
     }
 }

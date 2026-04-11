@@ -59,6 +59,7 @@
 - `Sources/Views`
   - 実際に見える UI です。
   - `Settings` は初心者向けに、「まず触る項目」と「詳細設定」を分けています。
+  - `LOCAL SRT` には、依存確認とモデル取得のセットアップカードがあります。
 - `Sources/Services`
   - 音声処理、AI 呼び出し、字幕組み立ての仕事役です。
   - `LocalPipelineService.swift` は本体の流れを持ちます。
@@ -66,6 +67,7 @@
   - `whisper` 系の引数作成や JSON 解析は `LocalPipelineService+Transcription.swift` に分けています。
   - `aeneas` 実行や aligned 結果の検証は `LocalPipelineService+Alignment.swift` に分けています。
   - `TXT / SRT` 参照の timing 計算や、参照字幕の最終仕上げは `LocalPipelineService+ReferenceProcessing.swift` に分けています。
+  - `LocalPipelineSetupService.swift` は、モデル確認・ダウンロード・aeneas セットアップを担当します。
 - `Sources/Persistence`
   - 設定保存です。
 - `Tools/aeneas`
@@ -74,6 +76,8 @@
   - 辞書補正や既知歌詞の補助ファイルです。
 - `Support`
   - Resolve 連携やアプリ設定の補助ファイルです。
+- `~/Library/Application Support/SubtitleStudioPlus`
+  - 配布版でモデルや `aeneas-venv` を置く管理場所です。
 - `Tests`
   - 主要ロジックが壊れていないか確かめる自動テストです。
 - `docs/20260320_local_asr_pipeline`
@@ -107,10 +111,10 @@
   - 修正: `UTO-ALIGN` は字幕を作る設定ではなく、できた字幕のタイミング調整用と考えます。
 - whisper model が見つからない
   - 症状: `Local Pipeline` の開始前に止まります。
-  - 修正: `whisperModelPath` を確認します。空なら `Models` 配下の自動検出名を確認します。
+  - 修正: `LOCAL SRT` のセットアップカードでダウンロードします。手動なら `whisperModelPath` を確認します。
 - `aeneas` が見つからない
   - 症状: `Local Pipeline` の時間合わせで止まります。
-  - 修正: `aeneasPythonPath` と `aeneasScriptPath` を確認します。
+  - 修正: `LOCAL SRT` のセットアップカードで依存を確認します。手動なら `aeneasPythonPath` と `aeneasScriptPath` を確認します。
 - `EXPORT FOR DAVINCI` で timeline unavailable
   - 症状: Resolve 連携は見えているのに、DaVinci へ入らず止まります。
   - 修正: current timeline が無い時は、既存 timeline の選択か新規 timeline 作成へ回す実装にしてあります。

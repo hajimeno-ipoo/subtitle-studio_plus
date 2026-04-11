@@ -23,6 +23,9 @@
 		A200000F2F80000100AAA001 /* LocalPipelineService+Transcription.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000E2F80000100AAA001 /* LocalPipelineService+Transcription.swift */; };
 		A20000112F80000100AAA001 /* LocalPipelineService+Alignment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000102F80000100AAA001 /* LocalPipelineService+Alignment.swift */; };
 		A20000132F80000100AAA001 /* LocalPipelineService+ReferenceProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000122F80000100AAA001 /* LocalPipelineService+ReferenceProcessing.swift */; };
+		A20000152F80000100AAA001 /* LocalPipelineSetupModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000142F80000100AAA001 /* LocalPipelineSetupModels.swift */; };
+		A20000172F80000100AAA001 /* LocalPipelineSetupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000162F80000100AAA001 /* LocalPipelineSetupService.swift */; };
+		A20000192F80000100AAA001 /* AppViewModel+LocalSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000182F80000100AAA001 /* AppViewModel+LocalSetup.swift */; };
 		A20000092F80000100AAA001 /* AppViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000082F80000100AAA001 /* AppViewModelTests.swift */; };
 		A200000B2F80000100AAA001 /* SubtitleListPanelContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000A2F80000100AAA001 /* SubtitleListPanelContractTests.swift */; };
 		A200000D2F80000100AAA001 /* MainWindowBehaviorContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000C2F80000100AAA001 /* MainWindowBehaviorContractTests.swift */; };
@@ -99,6 +102,9 @@
 		A200000E2F80000100AAA001 /* LocalPipelineService+Transcription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocalPipelineService+Transcription.swift"; sourceTree = "<group>"; };
 		A20000102F80000100AAA001 /* LocalPipelineService+Alignment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocalPipelineService+Alignment.swift"; sourceTree = "<group>"; };
 		A20000122F80000100AAA001 /* LocalPipelineService+ReferenceProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocalPipelineService+ReferenceProcessing.swift"; sourceTree = "<group>"; };
+		A20000142F80000100AAA001 /* LocalPipelineSetupModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPipelineSetupModels.swift; sourceTree = "<group>"; };
+		A20000162F80000100AAA001 /* LocalPipelineSetupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPipelineSetupService.swift; sourceTree = "<group>"; };
+		A20000182F80000100AAA001 /* AppViewModel+LocalSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppViewModel+LocalSetup.swift"; sourceTree = "<group>"; };
 		A20000082F80000100AAA001 /* AppViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModelTests.swift; sourceTree = "<group>"; };
 		A200000A2F80000100AAA001 /* SubtitleListPanelContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleListPanelContractTests.swift; sourceTree = "<group>"; };
 		A200000C2F80000100AAA001 /* MainWindowBehaviorContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowBehaviorContractTests.swift; sourceTree = "<group>"; };
@@ -208,6 +214,7 @@
 			isa = PBXGroup;
 			children = (
 				C9E61B8F7603653903B584AC /* AppViewModel.swift */,
+				A20000182F80000100AAA001 /* AppViewModel+LocalSetup.swift */,
 				A20000042F80000100AAA001 /* AppViewModel+LyricsReference.swift */,
 				A20000002F80000100AAA001 /* AppViewModel+Resolve.swift */,
 				A20000022F80000100AAA001 /* AppViewModel+SubtitleEditing.swift */,
@@ -220,6 +227,7 @@
 			children = (
 				52731F7E7985AA9E0D4F86F1 /* AudioAnalysisService.swift */,
 				FFBD44DDF1760A4509E883AC /* AudioPlaybackController.swift */,
+				A20000162F80000100AAA001 /* LocalPipelineSetupService.swift */,
 				D0E1FDC354FE936832A40634 /* SubtitleAlignmentService.swift */,
 				23634F3D99F80D93C18C6F56 /* WaveformService.swift */,
 				B2D1A1012F6D600100AAA001 /* AppRuntimePathResolver.swift */,
@@ -272,6 +280,7 @@
 			children = (
 				7D1B5CC9E713EC96CE08330B /* AppModels.swift */,
 				180DB96E2F6D233F006F8CAC /* LocalPipelineModels.swift */,
+				A20000142F80000100AAA001 /* LocalPipelineSetupModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -464,16 +473,19 @@
 				180DB9752F6D236A006F8CAC /* ExternalProcessRunner.swift in Sources */,
 				DA462A7993E973D48E77DFE5 /* SubtitleStudioPlusApp.swift in Sources */,
 				AD575D65D2BDD19E85C67A75 /* AppModels.swift in Sources */,
+				A20000152F80000100AAA001 /* LocalPipelineSetupModels.swift in Sources */,
 				BB10491465D758CABB7EF53C /* KeychainStore.swift in Sources */,
 				7941C445D417CC7D4CDC4CE4 /* SRTDocument.swift in Sources */,
 				EE585E4D7302BBCA7E820FC9 /* SettingsStore.swift in Sources */,
 				9DEAB205F4D4FFACC03B04B1 /* AudioAnalysisService.swift in Sources */,
 				AE832999D1E04A1BEBEA9BD4 /* AudioPlaybackController.swift in Sources */,
+				A20000172F80000100AAA001 /* LocalPipelineSetupService.swift in Sources */,
 				552CD96B634C3DCE25C10E47 /* SubtitleAlignmentService.swift in Sources */,
 				2E1A19CD2865B3BEB316D12C /* WaveformService.swift in Sources */,
 				73665E536F4C22235CD9D5C2 /* AudioFileSupport.swift in Sources */,
 				A1B484F549BC56B2DEB2D448 /* SRTCodec.swift in Sources */,
 				CC4CE245D09294490DCE5D64 /* AppViewModel.swift in Sources */,
+				A20000192F80000100AAA001 /* AppViewModel+LocalSetup.swift in Sources */,
 				A20000052F80000100AAA001 /* AppViewModel+LyricsReference.swift in Sources */,
 				A20000012F80000100AAA001 /* AppViewModel+Resolve.swift in Sources */,
 				A20000032F80000100AAA001 /* AppViewModel+SubtitleEditing.swift in Sources */,

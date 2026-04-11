@@ -22,6 +22,8 @@ final class AppViewModel {
     var lastEditedSubtitleID: UUID?
     var viewport = TimelineViewport()
     var settings = SettingsStore()
+    var localPipelineSetupStatus: LocalPipelineSetupStatus = .checking
+    var isLocalPipelineSetupBusy = false
     var isDropTargeted = false
     var isSettingsPresented = false
     var isFileImporterPresented = false
@@ -45,6 +47,7 @@ final class AppViewModel {
 
     private let analysisService: AudioAnalysisService
     private let localPipelineService: any LocalPipelineAnalyzing
+    let localPipelineSetupService: LocalPipelineSetupService
     @ObservationTracked
     var alignmentService: SubtitleAlignmentService {
         let config = AlignmentConfig(
@@ -68,10 +71,12 @@ final class AppViewModel {
 
     init(
         analysisService: AudioAnalysisService = AudioAnalysisService(),
-        localPipelineService: any LocalPipelineAnalyzing = LocalPipelineService()
+        localPipelineService: any LocalPipelineAnalyzing = LocalPipelineService(),
+        localPipelineSetupService: LocalPipelineSetupService = LocalPipelineSetupService()
     ) {
         self.analysisService = analysisService
         self.localPipelineService = localPipelineService
+        self.localPipelineSetupService = localPipelineSetupService
         playback.onTimeChange = { [weak self] time in
             self?.currentTime = time
         }
